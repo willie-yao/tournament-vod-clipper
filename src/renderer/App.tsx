@@ -1,7 +1,10 @@
-import * as React from 'react';
+import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
+import icon from '../../assets/icon.svg';
+import './App.css';
 import { Box, Typography, Container, Link } from '@mui/material';
-import ProTip from './ProTip';
 import VideoSearch from './components/VideoSearch';
+// import fs from 'fs';
 
 const Copyright = () => {
   return (
@@ -16,7 +19,10 @@ const Copyright = () => {
   );
 }
 
-export default function App() {
+const Hello = () => {
+  useEffect(() => {
+    window.electron.ipcRenderer.createFolder('myfunc')
+  }, []);
   return (
     <Container maxWidth="sm">
       <Box sx={{ my: 4 }}>
@@ -24,9 +30,19 @@ export default function App() {
           Tournament VOD Clipper
         </Typography>
         <VideoSearch />
-        <ProTip />
+        {/* <ProTip /> */}
         <Copyright />
       </Box>
     </Container>
+  );
+};
+
+export default function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Hello />} />
+      </Routes>
+    </Router>
   );
 }

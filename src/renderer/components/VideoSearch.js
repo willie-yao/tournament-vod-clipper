@@ -1,19 +1,34 @@
 import * as React from 'react';
 import { useState } from 'react';
 import { Button, Box, TextField } from '@mui/material';
-import { BACKEND_URL } from '../config';
+// import { BACKEND_URL } from '../config';
 import axios from 'axios';
 
 const getClip = (url, startTime, endTime) => {
-  // https://www.twitch.tv/videos/1709685150
+  let BACKEND_URL = "http://localhost:5000" // http://localhost:5000
+  // https://www.twitch.tv/videos/1714445111
+  console.log("Backendurl: " + BACKEND_URL)
   axios({
-    method: 'post',
-    url: BACKEND_URL + '/downloadVideo',
+    method: 'get',
+    responseType: 'blob',
+    url: BACKEND_URL + '/downloadVideo/' + "?url=" + url + "&startTime=" + startTime + "&endTime=" + endTime,
+    headers: { Accept: 'video/mp4;charset=UTF-8' },
     data: {
       "url": url,
       "startTime": startTime,
       "endTime": endTime
     }
+  }).then((response) => {
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'video.mp4');
+      document.body.appendChild(link);
+      link.click();
+
+      // clean up "a" element & remove ObjectURL
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
   });
 }
 
