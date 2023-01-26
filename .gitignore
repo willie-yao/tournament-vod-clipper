@@ -29,3 +29,6 @@ npm-debug.log.*
 *.scss.d.ts
 
 .env
+/test-folder
+video.mp4
+ffmpeg.exe

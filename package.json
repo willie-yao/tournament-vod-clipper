@@ -119,7 +119,8 @@
     "electron-updater": "^5.2.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.4.0"
+    "react-router-dom": "^6.4.0",
+    "youtube-dl-exec": "^2.1.11"
   },
   "devDependencies": {
     "@electron/notarize": "^1.2.3",

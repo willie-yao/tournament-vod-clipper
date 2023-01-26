@@ -4,7 +4,7 @@ import { Button, Box, TextField } from '@mui/material';
 // import { BACKEND_URL } from '../config';
 import axios from 'axios';
 
-const getClip = (url, startTime, endTime) => {
+const getClip = (url: string, startTime: string, endTime: string) => {
   let BACKEND_URL = "http://localhost:5000" // http://localhost:5000
   // https://www.twitch.tv/videos/1714445111
   console.log("Backendurl: " + BACKEND_URL)
@@ -44,7 +44,8 @@ const VideoSearch = () => {
       <TextField id="outlined-basic" label="End" variant="outlined" onChange={(event) => setEndTime(event.target.value)} />
       <Button 
         variant="contained" 
-        onClick={() => getClip(vodUrl, startTime, endTime)}
+        onClick={() => window.electron.ipcRenderer.downloadVideo("test")}
+        // onClick={() => getClip(vodUrl, startTime, endTime)}
       >
         Search
       </Button>

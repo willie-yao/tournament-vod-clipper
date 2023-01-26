@@ -11,6 +11,9 @@ const electronHandler = {
     createFolder(arg: string) {
       ipcRenderer.invoke('create-folder', arg);
     },
+    downloadVideo(arg: string) {
+      ipcRenderer.invoke('download-video', arg);
+    },
     on(channel: Channels, func: (...args: unknown[]) => void) {
       const subscription = (_event: IpcRendererEvent, ...args: unknown[]) =>
         func(...args);

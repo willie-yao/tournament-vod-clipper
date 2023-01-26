@@ -14,7 +14,9 @@ import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
-import * as fs from 'fs';
+import youtubeDl from 'youtube-dl-exec';
+
+const fs = require('fs');
 
 class AppUpdater {
   constructor() {
@@ -27,10 +29,24 @@ class AppUpdater {
 let mainWindow: BrowserWindow | null = null;
 
 ipcMain.handle('create-folder', async (event, arg) => {
-  fs.mkdir('./test-folder', { recursive: true }, (err) => {
+  fs.mkdir('./test-folder', { recursive: true }, (err: Error) => {
     if (err) throw err;
   });
 });
+
+ipcMain.handle('download-video', async (event, arg) => {
+  youtubeDl(
+    "https://www.twitch.tv/videos/1714445111",
+    {
+      downloadSections: "*"+ "20:00" + "-" + "20:10",
+      output: "video.mp4",
+    }
+  ).then(output => {
+    var stats = fs.statSync("./video.mp4")
+    console.log(stats.size)
+    console.log("hello")
+  })
+})
 
 ipcMain.on('ipc-example', async (event, arg) => {
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
@@ -83,7 +99,7 @@ const createWindow = async () => {
     icon: getAssetPath('icon.png'),
     webPreferences: {
       // contextIsolation: false,
-      // nodeIntegration: true,
+      nodeIntegration: true,
       preload: app.isPackaged
         ? path.join(__dirname, 'preload.js')
         : path.join(__dirname, '../../.erb/dll/preload.js'),
