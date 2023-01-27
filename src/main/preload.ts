@@ -14,6 +14,9 @@ const electronHandler = {
     downloadVideo(arg: string) {
       ipcRenderer.invoke('download-video', arg);
     },
+    getApiKey() {
+      return ipcRenderer.invoke('get-api-key');
+    },
     on(channel: Channels, func: (...args: unknown[]) => void) {
       const subscription = (_event: IpcRendererEvent, ...args: unknown[]) =>
         func(...args);
