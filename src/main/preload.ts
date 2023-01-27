@@ -11,8 +11,8 @@ const electronHandler = {
     createFolder(arg: string) {
       ipcRenderer.invoke('create-folder', arg);
     },
-    downloadVideo(arg: string) {
-      ipcRenderer.invoke('download-video', arg);
+    downloadVideo(args: object) {
+      ipcRenderer.invoke('download-video', args);
     },
     getApiKey() {
       return ipcRenderer.invoke('get-api-key');

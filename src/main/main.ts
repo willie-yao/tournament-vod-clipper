@@ -38,11 +38,12 @@ ipcMain.handle('create-folder', async (event, arg) => {
 });
 
 ipcMain.handle('download-video', async (event, arg) => {
+  console.log("args", arg)
   youtubeDl(
-    "https://www.twitch.tv/videos/1714445111",
+    arg.vodUrl,
     {
       // @ts-ignore
-      downloadSections: "*"+ "20:00" + "-" + "20:10",
+      downloadSections: "*"+ arg.startTime + "-" + arg.endTime,
       output: "video.mp4",
     }
   ).then(output => {

@@ -37,15 +37,20 @@ const VideoSearch = () => {
   const [startTime, setStartTime] = useState("")
   const [endTime, setEndTime] = useState("")
 
+  const downloadArgs = {
+    vodUrl: vodUrl,
+    startTime: startTime,
+    endTime: endTime
+  }
+
   return(
-    <Box>
+    <Box sx={{display: 'flex', flexDirection: 'column', height: '40vh', justifyContent: 'space-around'}}>
       <TextField id="outlined-basic" label="VOD Link" variant="outlined" onChange={(event) => setVodUrl(event.target.value)} />
       <TextField id="outlined-basic" label="Start" variant="outlined" onChange={(event) => setStartTime(event.target.value)} />
       <TextField id="outlined-basic" label="End" variant="outlined" onChange={(event) => setEndTime(event.target.value)} />
       <Button 
         variant="contained" 
-        onClick={() => window.electron.ipcRenderer.downloadVideo("test")}
-        // onClick={() => getClip(vodUrl, startTime, endTime)}
+        onClick={() => window.electron.ipcRenderer.downloadVideo(downloadArgs)}
       >
         Search
       </Button>
