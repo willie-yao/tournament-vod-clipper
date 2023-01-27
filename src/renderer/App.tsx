@@ -50,7 +50,7 @@ const Hello = () => {
 };
 
 export default function App() {
-  const [token, setToken] = useState(window.electron.ipcRenderer.getApiKey())
+  const [token, setToken] = useState("")
 
   useEffect(() => {
     window.electron.ipcRenderer.getApiKey().then((key) => {

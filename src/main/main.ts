@@ -37,6 +37,19 @@ ipcMain.handle('create-folder', async (event, arg) => {
   });
 });
 
+ipcMain.handle("retrieve-video-information", async (event, arg) => {
+  return youtubeDl(
+    arg.vodUrl,
+    {
+      printJson: true,
+      skipDownload: true
+    }
+  ).then(output => {
+    // @ts-ignore
+    return output.timestamp
+  })
+})
+
 ipcMain.handle('download-video', async (event, arg) => {
   console.log("args", arg)
   youtubeDl(
@@ -44,12 +57,10 @@ ipcMain.handle('download-video', async (event, arg) => {
     {
       // @ts-ignore
       downloadSections: "*"+ arg.startTime + "-" + arg.endTime,
-      output: "video.mp4",
+      output: arg.title + ".mp4",
     }
   ).then(output => {
     var stats = fs.statSync("./video.mp4")
-    console.log(stats.size)
-    console.log("hello")
   })
 })
 

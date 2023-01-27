@@ -14,6 +14,9 @@ const electronHandler = {
     downloadVideo(args: object) {
       ipcRenderer.invoke('download-video', args);
     },
+    retrieveVideoInformation(args: object) {
+      return ipcRenderer.invoke('retrieve-video-information', args);
+    },
     getApiKey() {
       return ipcRenderer.invoke('get-api-key');
     },
