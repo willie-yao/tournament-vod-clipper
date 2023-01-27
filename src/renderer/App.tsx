@@ -3,27 +3,14 @@ import { useEffect, useState } from 'react';
 import './App.css';
 import { Box, Typography, Container, Link } from '@mui/material';
 import VideoSearch from './components/VideoSearch';
-import { ApolloClient, InMemoryCache, ApolloProvider, useQuery, createHttpLink } from '@apollo/client';
-import { GET_ALL_SETS_AT_EVENT } from './common/StartggQueries';
+import { ApolloClient, InMemoryCache, ApolloProvider, createHttpLink } from '@apollo/client';
 
 const Copyright = () => {
-  const {loading, error, data} = useQuery(GET_ALL_SETS_AT_EVENT, {
-    variables: {
-      eventId: "tournament/microspacing-68/event/singles-de"
-    }
-  })
-
-  useEffect(() => {
-    console.log("data", data)
-    if (data) {
-      console.log("fetched data", data)
-    }
-  }, [data])
   return (
     <Typography variant="body2" color="text.secondary" align="center">
       {'Copyright © '}
-      <Link color="inherit" href="https://mui.com/">
-        Your Website
+      <Link color="inherit" href="https://github.com/willie-yao">
+        quillie ^^
       </Link>{' '}
       {new Date().getFullYear()}
       {'.'}
@@ -31,7 +18,7 @@ const Copyright = () => {
   );
 }
 
-const Hello = () => {
+const Main = () => {
   useEffect(() => {
     window.electron.ipcRenderer.createFolder('myfunc')
   }, []);
@@ -55,7 +42,7 @@ export default function App() {
   useEffect(() => {
     window.electron.ipcRenderer.getApiKey().then((key) => {
       console.log("apikey", key)
-      setToken(key)
+      // setToken(key)
     })
   })
 
@@ -75,7 +62,7 @@ export default function App() {
     <ApolloProvider client={client}>
       <Router>
         <Routes>
-          <Route path="/" element={<Hello />} />
+          <Route path="/" element={<Main />} />
         </Routes>
       </Router>
     </ApolloProvider>

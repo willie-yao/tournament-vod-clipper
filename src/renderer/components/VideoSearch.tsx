@@ -10,8 +10,19 @@ interface VODMetadata {
 }
 
 const RetrieveSets = (eventId: string, vodUrl: string, setter: React.Dispatch<React.SetStateAction<VODMetadata[]>>): JSX.Element => {
-  const [getSets, { loading, error, data }] = useLazyQuery(GET_ALL_SETS_AT_EVENT)
-  // const [retrievedSets, setRetrievedSets] = useState<object[]>([])
+  let options = {}
+  let apikey = window.electron.store.get("apikey")
+  if (apikey != "") {
+    options = {
+      context: {
+        headers: {
+          authorization: `Bearer ${apikey}`
+        }
+      }
+    }
+  }
+
+  const [getSets, { loading, error, data }] = useLazyQuery(GET_ALL_SETS_AT_EVENT, options)
 
   useEffect(() => {
     if (data) {
@@ -39,8 +50,9 @@ const RetrieveSets = (eventId: string, vodUrl: string, setter: React.Dispatch<Re
     <Button 
       variant="contained" 
       onClick={() => getSets({variables: {eventId: eventId}})}
+      sx={{ marginBottom: '25px' }}
     >
-      Get Sets
+      Retrieve Sets
     </Button>
   )
 }
@@ -49,24 +61,14 @@ const VideoSearch = () => {
   const [vodUrl, setVodUrl] = useState("")
   const [eventId, setEventId] = useState("")
   const [retrievedSets, setRetrievedSets] = useState<VODMetadata[]>([])
-  // const [downloadArgs, setDownloadArgs] = useState<object>({})
-
-  // useEffect(() => {
-  //   if (retrievedSets.length > 0) {
-  //     setDownloadArgs({
-  //       vodUrl: vodUrl,
-  //       startTime: retrievedSets[0].startTime,
-  //       endTime: retrievedSets[0].endTime,
-  //     })
-  //   }
-  // }, [retrievedSets])
 
   return(
-    <Box sx={{display: 'flex', flexDirection: 'column', height: '50vh', justifyContent: 'space-around'}}>
-      <TextField id="outlined-basic" label="Start.GG Event ID" variant="outlined" onChange={(event) => setEventId(event.target.value)} />
-      <TextField id="outlined-basic" label="VOD Link" variant="outlined" onChange={(event) => setVodUrl(event.target.value)} />
+    <Box sx={{display: 'flex', flexDirection: 'column', height: '80vh', justifyContent: 'space-around'}}>
+      <TextField id="outlined-basic" label="Start.GG API Key" variant="outlined" sx={{ marginBottom: '25px' }} onChange={(event) => window.electron.store.set('apikey', event.target.value)} />
+      <TextField id="outlined-basic" label="Start.GG Event ID" variant="outlined" sx={{ marginBottom: '25px' }} onChange={(event) => setEventId(event.target.value)} />
+      <TextField id="outlined-basic" label="VOD Link" variant="outlined" sx={{ marginBottom: '25px' }} onChange={(event) => setVodUrl(event.target.value)} />
       {RetrieveSets(eventId, vodUrl, setRetrievedSets)}
-      <Box sx={{display: 'flex', flexDirection: 'column', maxHeight: '30vh', overflow: 'auto'}}>
+      <Box sx={{display: 'flex', flexDirection: 'column', maxHeight: '30vh', overflow: 'auto', marginBottom: '25px'}}>
         {retrievedSets.map((set, index) => {
           return (
             <div key={index}>
@@ -77,6 +79,7 @@ const VideoSearch = () => {
       </Box>
       <Button 
         variant="contained" 
+        sx={{ marginBottom: '25px' }}
         onClick={() => {
           for (let i = 0; i < 4; i++) {
             window.electron.ipcRenderer.downloadVideo({

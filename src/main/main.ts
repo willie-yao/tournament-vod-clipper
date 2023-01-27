@@ -18,8 +18,10 @@ import youtubeDl from 'youtube-dl-exec';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import { storeKeyNameFromField } from '@apollo/client/utilities';
 dotenv.config()
+import Store from 'electron-store';
 
 const fs = require('fs'); 
+const store = new Store();
 
 class AppUpdater {
   constructor() {
@@ -68,6 +70,14 @@ ipcMain.handle('get-api-key', async (event, arg) => {
   event.returnValue = process.env.REACT_APP_STARTGG_API_KEY
   return process.env.REACT_APP_STARTGG_API_KEY
 })
+
+// IPC listener
+ipcMain.on('electron-store-get', async (event, val) => {
+  event.returnValue = store.get(val);
+});
+ipcMain.on('electron-store-set', async (event, key, val) => {
+  store.set(key, val);
+});
 
 ipcMain.on('ipc-example', async (event, arg) => {
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
