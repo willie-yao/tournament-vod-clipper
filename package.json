@@ -154,6 +154,7 @@
     "electron": "^20.0.2",
     "electron-builder": "^23.3.3",
     "electron-devtools-installer": "^3.2.0",
+    "electron-rebuild": "^3.2.9",
     "electronmon": "^2.0.2",
     "eslint": "^8.22.0",
     "eslint-config-airbnb-base": "^15.0.0",
@@ -198,7 +199,7 @@
   "build": {
     "productName": "ElectronReact",
     "appId": "org.erb.ElectronReact",
-    "asar": true,
+    "asar": false,
     "asarUnpack": "**\\*.{node,dll}",
     "files": [
       "dist",
