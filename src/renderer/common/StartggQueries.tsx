@@ -57,6 +57,7 @@ export const GET_ALL_SETS_AT_EVENT = gql`
           }
           startedAt
           completedAt
+          fullRoundText
           games {
             selections {
               selectionValue
