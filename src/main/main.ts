@@ -60,10 +60,10 @@ ipcMain.handle('download-video', async (event, arg) => {
       // @ts-ignore
       downloadSections: "*"+ arg.startTime + "-" + arg.endTime,
       output: "./downloadedVODs/" + arg.title + ".mp4",
-      
+
     }
   ).then(output => {
-    var stats = fs.statSync("./video.mp4")
+    
   })
 })
 

@@ -55,3 +55,24 @@ a:hover {
   align-items: center;
   margin: 20px 0;
 }
+
+.background-card {
+  display: flex;
+  flex-direction: column;
+  height: 80vh;
+  padding: 20px;
+  justify-content: space-around;
+  border-radius: 8px;
+  opacity: .8;
+  background-color: #212121;
+}
+
+.list-box {
+  display: flex;
+  flex-direction: column;
+  max-height: 60vh;
+  overflow: auto;
+  background-color: #212121;
+  opacity: .8;
+  border-radius: 8px;
+}

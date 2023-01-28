@@ -5,6 +5,7 @@ import { Box, Typography, Container, Link, ThemeProvider } from '@mui/material';
 import VideoSearch from './components/VideoSearch';
 import { ApolloClient, InMemoryCache, ApolloProvider, createHttpLink } from '@apollo/client';
 import theme from './theme';
+import SetsView from './pages/SetsView';
 
 const Copyright = () => {
   return (
@@ -26,8 +27,8 @@ const Main = () => {
 
   return (
     <Container maxWidth="sm">
-      <Box sx={{ my: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
+      <Box sx={{ my: 4, alignContent: "center" }}>
+        <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
           Tournament VOD Clipper
         </Typography>
         <VideoSearch />
@@ -42,7 +43,7 @@ export default function App() {
 
   useEffect(() => {
     window.electron.ipcRenderer.getApiKey().then((key) => {
-      setToken(key)
+      // setToken(key)
     })
   })
 
@@ -64,6 +65,7 @@ export default function App() {
         <Router>
           <Routes>
             <Route path="/" element={<Main />} />
+            <Route path="/SetsView" element={<SetsView />} />
           </Routes>
         </Router>
       </ThemeProvider>

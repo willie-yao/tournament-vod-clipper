@@ -4,14 +4,19 @@ import { GET_ALL_SETS_AT_EVENT } from 'renderer/common/StartggQueries';
 import { useLazyQuery } from '@apollo/client';
 import { useTheme } from '@mui/material/styles';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
+import { MoonLoader } from 'react-spinners';
+import { useNavigate } from "react-router-dom";
 
-interface VODMetadata {
+export interface VODMetadata {
   title: string,
   startTime: string,
-  endTime: string
+  endTime: string,
+  download: boolean
 }
 
 const RetrieveSets = (eventId: string, vodUrl: string, setter: React.Dispatch<React.SetStateAction<VODMetadata[]>>): JSX.Element => {
+  const navigate = useNavigate();
+  const theme = useTheme();
   let options = {}
   let apikey = window.electron.store.get("apikey")
   if (apikey != "") {
@@ -25,6 +30,7 @@ const RetrieveSets = (eventId: string, vodUrl: string, setter: React.Dispatch<Re
   }
 
   const [getSets, { loading, error, data }] = useLazyQuery(GET_ALL_SETS_AT_EVENT, options)
+  let formattedSets: VODMetadata[] = []
 
   useEffect(() => {
     if (data) {
@@ -36,26 +42,30 @@ const RetrieveSets = (eventId: string, vodUrl: string, setter: React.Dispatch<Re
           let metadata:VODMetadata = {
             title: sets[i].slots[0].entrant.name + " vs " + sets[i].slots[1].entrant.name + " - " + sets[i].fullRoundText,
             startTime: new Date((sets[i].startedAt - timestamp) * 1000).toISOString().slice(11, 19),
-            endTime: new Date((sets[i].completedAt - timestamp) * 1000).toISOString().slice(11, 19)
+            endTime: new Date((sets[i].completedAt - timestamp) * 1000).toISOString().slice(11, 19),
+            download: true,
           }
           console.log("metadata", metadata)
+          formattedSets.push(metadata)
           setter(old => [...old, metadata]);
         }
+        navigate("/SetsView", { state: { sets: formattedSets, vodUrl: vodUrl } })
       })
     }
   }, [data])
 
-  if (loading) return <p>Loading ...</p>;
-  if (error) return <p>{error.message}</p>;
-
   return (
-    <Button 
-      variant="contained" 
-      onClick={() => getSets({variables: {eventId: eventId}})}
-      sx={{ marginBottom: '25px' }}
-    >
-      Retrieve Sets
-    </Button>
+    <Box sx={{width: "100%", display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
+      {loading && <MoonLoader color={theme.palette.secondary.dark} />}
+      {error && <p>{error.message}</p>}
+      <Button 
+        variant="contained" 
+        onClick={() => getSets({variables: {eventId: eventId}})}
+        sx={{ marginBottom: '25px', width: '100%' }}
+      >
+        Retrieve Sets
+      </Button>
+    </Box>
   )
 }
 
@@ -75,12 +85,11 @@ const VideoSearch = () => {
 
 
   return(
-    <Box sx={{display: 'flex', flexDirection: 'column', height: '80vh', padding: '20px', justifyContent: 'space-around', borderRadius: '8px', opacity: .8, backgroundColor: theme.palette.background.default}}>
+    <Box className="background-card">
       <TextField 
-        id="outlined-basic" 
+        className="textfield"
         label="Start.GG API Key" 
         variant="filled" 
-        sx={{ marginBottom: '25px' }} 
         defaultValue={window.electron.store.get('apikey')} 
         type={showPassword ? 'text' : 'password'}
         onChange={(event) => window.electron.store.set('apikey', event.target.value)} 
@@ -99,8 +108,8 @@ const VideoSearch = () => {
           )
         }}
       />
-      <TextField id="outlined-basic" label="Start.GG Event ID" variant="filled" sx={{ marginBottom: '25px' }} onChange={(event) => setEventId(event.target.value)} />
-      <TextField id="outlined-basic" label="VOD Link" variant="filled" sx={{ marginBottom: '25px' }} onChange={(event) => setVodUrl(event.target.value)} />
+      <TextField className="textfield" label="Start.GG Event ID" variant="filled" onChange={(event) => setEventId(event.target.value)} />
+      <TextField className="textfield" label="VOD Link" variant="filled" onChange={(event) => setVodUrl(event.target.value)} />
       {RetrieveSets(eventId, vodUrl, setRetrievedSets)}
       <Box sx={{display: 'flex', flexDirection: 'column', maxHeight: '30vh', overflow: 'auto', marginBottom: '25px'}}>
         {retrievedSets.map((set, index) => {
