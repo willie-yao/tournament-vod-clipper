@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Button, Box, TextField, Divider } from '@mui/material';
+import { Button, Box, TextField, InputAdornment, IconButton } from '@mui/material';
 import { GET_ALL_SETS_AT_EVENT } from 'renderer/common/StartggQueries';
 import { useLazyQuery } from '@apollo/client';
+import { useTheme } from '@mui/material/styles';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 
 interface VODMetadata {
   title: string,
@@ -58,15 +60,47 @@ const RetrieveSets = (eventId: string, vodUrl: string, setter: React.Dispatch<Re
 }
 
 const VideoSearch = () => {
+  const theme = useTheme();
+
   const [vodUrl, setVodUrl] = useState("")
   const [eventId, setEventId] = useState("")
   const [retrievedSets, setRetrievedSets] = useState<VODMetadata[]>([])
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleClickShowPassword = () => setShowPassword((show) => !show);
+
+  const handleMouseDownPassword = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+  };
+
 
   return(
-    <Box sx={{display: 'flex', flexDirection: 'column', height: '80vh', justifyContent: 'space-around'}}>
-      <TextField id="outlined-basic" label="Start.GG API Key" variant="outlined" sx={{ marginBottom: '25px' }} onChange={(event) => window.electron.store.set('apikey', event.target.value)} />
-      <TextField id="outlined-basic" label="Start.GG Event ID" variant="outlined" sx={{ marginBottom: '25px' }} onChange={(event) => setEventId(event.target.value)} />
-      <TextField id="outlined-basic" label="VOD Link" variant="outlined" sx={{ marginBottom: '25px' }} onChange={(event) => setVodUrl(event.target.value)} />
+    <Box sx={{display: 'flex', flexDirection: 'column', height: '80vh', padding: '20px', justifyContent: 'space-around', borderRadius: '8px', opacity: .8, backgroundColor: theme.palette.background.default}}>
+      <TextField 
+        id="outlined-basic" 
+        label="Start.GG API Key" 
+        variant="filled" 
+        sx={{ marginBottom: '25px' }} 
+        defaultValue={window.electron.store.get('apikey')} 
+        type={showPassword ? 'text' : 'password'}
+        onChange={(event) => window.electron.store.set('apikey', event.target.value)} 
+        InputProps={{
+          endAdornment: (
+            <InputAdornment position="end">
+              <IconButton
+                aria-label="toggle password visibility"
+                onClick={handleClickShowPassword}
+                onMouseDown={handleMouseDownPassword}
+                edge="end"
+              >
+                {showPassword ? <VisibilityOff /> : <Visibility />}
+              </IconButton>
+            </InputAdornment>
+          )
+        }}
+      />
+      <TextField id="outlined-basic" label="Start.GG Event ID" variant="filled" sx={{ marginBottom: '25px' }} onChange={(event) => setEventId(event.target.value)} />
+      <TextField id="outlined-basic" label="VOD Link" variant="filled" sx={{ marginBottom: '25px' }} onChange={(event) => setVodUrl(event.target.value)} />
       {RetrieveSets(eventId, vodUrl, setRetrievedSets)}
       <Box sx={{display: 'flex', flexDirection: 'column', maxHeight: '30vh', overflow: 'auto', marginBottom: '25px'}}>
         {retrievedSets.map((set, index) => {

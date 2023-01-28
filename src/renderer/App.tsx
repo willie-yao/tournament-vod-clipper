@@ -1,9 +1,10 @@
 import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import './App.css';
-import { Box, Typography, Container, Link } from '@mui/material';
+import { Box, Typography, Container, Link, ThemeProvider } from '@mui/material';
 import VideoSearch from './components/VideoSearch';
 import { ApolloClient, InMemoryCache, ApolloProvider, createHttpLink } from '@apollo/client';
+import theme from './theme';
 
 const Copyright = () => {
   return (
@@ -20,7 +21,7 @@ const Copyright = () => {
 
 const Main = () => {
   useEffect(() => {
-    window.electron.ipcRenderer.createFolder('myfunc')
+    window.electron.ipcRenderer.createFolder('downloadedVODs')
   }, []);
 
   return (
@@ -37,12 +38,11 @@ const Main = () => {
 };
 
 export default function App() {
-  const [token, setToken] = useState("")
+  const [token, setToken] = useState(window.electron.store.get('apikey'))
 
   useEffect(() => {
     window.electron.ipcRenderer.getApiKey().then((key) => {
-      console.log("apikey", key)
-      // setToken(key)
+      setToken(key)
     })
   })
 
@@ -60,11 +60,13 @@ export default function App() {
   });
   return (
     <ApolloProvider client={client}>
-      <Router>
-        <Routes>
-          <Route path="/" element={<Main />} />
-        </Routes>
-      </Router>
+      <ThemeProvider theme={theme}>
+        <Router>
+          <Routes>
+            <Route path="/" element={<Main />} />
+          </Routes>
+        </Router>
+      </ThemeProvider>
     </ApolloProvider>
   );
 }

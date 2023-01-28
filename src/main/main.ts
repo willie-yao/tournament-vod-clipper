@@ -16,12 +16,12 @@ import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import youtubeDl from 'youtube-dl-exec';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
-import { storeKeyNameFromField } from '@apollo/client/utilities';
 dotenv.config()
 import Store from 'electron-store';
 
 const fs = require('fs'); 
 const store = new Store();
+const isDev = require('electron-is-dev');
 
 class AppUpdater {
   constructor() {
@@ -59,7 +59,8 @@ ipcMain.handle('download-video', async (event, arg) => {
     {
       // @ts-ignore
       downloadSections: "*"+ arg.startTime + "-" + arg.endTime,
-      output: arg.title + ".mp4",
+      output: "./downloadedVODs/" + arg.title + ".mp4",
+      
     }
   ).then(output => {
     var stats = fs.statSync("./video.mp4")
@@ -67,8 +68,11 @@ ipcMain.handle('download-video', async (event, arg) => {
 })
 
 ipcMain.handle('get-api-key', async (event, arg) => {
-  event.returnValue = process.env.REACT_APP_STARTGG_API_KEY
-  return process.env.REACT_APP_STARTGG_API_KEY
+  if (isDev) {
+    event.returnValue = process.env.REACT_APP_STARTGG_API_KEY
+    return process.env.REACT_APP_STARTGG_API_KEY
+  } 
+  return ""
 })
 
 // IPC listener
