@@ -5,10 +5,7 @@ export const GET_SETS_AT_STATION = gql`
     event(slug: $eventId) {
       id
       name
-      sets(
-        filters: {
-        stationNumbers: $stationNumbers
-      }) {
+      sets(filters: { stationNumbers: $stationNumbers }) {
         nodes {
           id
           station {
@@ -34,7 +31,7 @@ export const GET_SETS_AT_STATION = gql`
       }
     }
   }
-`
+`;
 
 export const GET_ALL_SETS_AT_EVENT = gql`
   query SetsAtStation($eventId: String!) {
@@ -68,5 +65,4 @@ export const GET_ALL_SETS_AT_EVENT = gql`
       }
     }
   }
-`
-
+`;

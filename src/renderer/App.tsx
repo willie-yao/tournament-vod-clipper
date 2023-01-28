@@ -3,7 +3,12 @@ import { useEffect, useState } from 'react';
 import './App.css';
 import { Box, Typography, Container, Link, ThemeProvider } from '@mui/material';
 import VideoSearch from './components/VideoSearch';
-import { ApolloClient, InMemoryCache, ApolloProvider, createHttpLink } from '@apollo/client';
+import {
+  ApolloClient,
+  InMemoryCache,
+  ApolloProvider,
+  createHttpLink,
+} from '@apollo/client';
 import theme from './theme';
 import SetsView from './pages/SetsView';
 
@@ -18,16 +23,16 @@ const Copyright = () => {
       {'.'}
     </Typography>
   );
-}
+};
 
 const Main = () => {
   useEffect(() => {
-    window.electron.ipcRenderer.createFolder('downloadedVODs')
+    window.electron.ipcRenderer.createFolder('downloadedVODs');
   }, []);
 
   return (
     <Container maxWidth="sm">
-      <Box sx={{ my: 4, alignContent: "center" }}>
+      <Box sx={{ my: 4, alignContent: 'center' }}>
         <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
           Tournament VOD Clipper
         </Typography>
@@ -39,20 +44,20 @@ const Main = () => {
 };
 
 export default function App() {
-  const [token, setToken] = useState(window.electron.store.get('apikey'))
+  const [token, setToken] = useState(window.electron.store.get('apikey'));
 
   useEffect(() => {
     window.electron.ipcRenderer.getApiKey().then((key) => {
       // setToken(key)
-    })
-  })
+    });
+  });
 
   const link = createHttpLink({
     uri: 'https://api.start.gg/gql/alpha',
     headers: {
-      authorization: token ? `Bearer ${token}` : "",
-    }
-  })
+      authorization: token ? `Bearer ${token}` : '',
+    },
+  });
 
   const client = new ApolloClient({
     uri: 'https://api.start.gg/gql/alpha',

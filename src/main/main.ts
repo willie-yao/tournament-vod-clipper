@@ -15,11 +15,11 @@ import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import youtubeDl from 'youtube-dl-exec';
-import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
-dotenv.config()
+import * as dotenv from 'dotenv'; // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
+dotenv.config();
 import Store from 'electron-store';
 
-const fs = require('fs'); 
+const fs = require('fs');
 const store = new Store();
 const isDev = require('electron-is-dev');
 
@@ -39,41 +39,32 @@ ipcMain.handle('create-folder', async (event, arg) => {
   });
 });
 
-ipcMain.handle("retrieve-video-information", async (event, arg) => {
-  return youtubeDl(
-    arg.vodUrl,
-    {
-      printJson: true,
-      skipDownload: true
-    }
-  ).then(output => {
+ipcMain.handle('retrieve-video-information', async (event, arg) => {
+  return youtubeDl(arg.vodUrl, {
+    printJson: true,
+    skipDownload: true,
+  }).then((output) => {
     // @ts-ignore
-    return output.timestamp
-  })
-})
+    return output.timestamp;
+  });
+});
 
 ipcMain.handle('download-video', async (event, arg) => {
-  console.log("args", arg)
-  youtubeDl(
-    arg.vodUrl,
-    {
-      // @ts-ignore
-      downloadSections: "*"+ arg.startTime + "-" + arg.endTime,
-      output: "./downloadedVODs/" + arg.title + ".mp4",
-
-    }
-  ).then(output => {
-    
-  })
-})
+  console.log('args', arg);
+  youtubeDl(arg.vodUrl, {
+    // @ts-ignore
+    downloadSections: '*' + arg.startTime + '-' + arg.endTime,
+    output: './downloadedVODs/' + arg.title + '.mp4',
+  }).then((output) => {});
+});
 
 ipcMain.handle('get-api-key', async (event, arg) => {
   if (isDev) {
-    event.returnValue = process.env.REACT_APP_STARTGG_API_KEY
-    return process.env.REACT_APP_STARTGG_API_KEY
-  } 
-  return ""
-})
+    event.returnValue = process.env.REACT_APP_STARTGG_API_KEY;
+    return process.env.REACT_APP_STARTGG_API_KEY;
+  }
+  return '';
+});
 
 // IPC listener
 ipcMain.on('electron-store-get', async (event, val) => {

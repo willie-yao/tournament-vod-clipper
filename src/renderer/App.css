@@ -63,7 +63,7 @@ a:hover {
   padding: 20px;
   justify-content: space-around;
   border-radius: 8px;
-  opacity: .8;
+  opacity: 0.8;
   background-color: #212121;
 }
 
@@ -73,6 +73,6 @@ a:hover {
   max-height: 60vh;
   overflow: auto;
   background-color: #212121;
-  opacity: .8;
+  opacity: 0.8;
   border-radius: 8px;
 }
