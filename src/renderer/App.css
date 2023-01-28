@@ -59,12 +59,13 @@ a:hover {
 .background-card {
   display: flex;
   flex-direction: column;
-  height: 80vh;
+  height: 50vh;
   padding: 20px;
   justify-content: space-around;
   border-radius: 8px;
   opacity: 0.8;
   background-color: #212121;
+  margin: 5vh 0 5vh 0;
 }
 
 .list-box {

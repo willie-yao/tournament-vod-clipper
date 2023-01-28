@@ -2,6 +2,7 @@ import {
   Button,
   Container,
   Checkbox,
+  Fab,
   Typography,
   List,
   ListItem,
@@ -11,7 +12,8 @@ import {
   FormGroup,
   FormControlLabel,
 } from '@mui/material';
-import { useLocation } from 'react-router-dom';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useTheme } from '@mui/material/styles';
 import { VODMetadata } from 'renderer/components/VideoSearch';
@@ -19,6 +21,7 @@ import { VODMetadata } from 'renderer/components/VideoSearch';
 const SetsView = () => {
   const theme = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [checked, setChecked] = useState([0]);
   const [selectAllChecked, setSelectAllChecked] = useState(true);
@@ -59,6 +62,14 @@ const SetsView = () => {
     <Container
       sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}
     >
+      <Fab
+        sx={{ position: 'fixed', left: '10px', top: '10px' }}
+        color="secondary"
+        aria-label="back"
+        onClick={() => navigate('/')}
+      >
+        <ArrowBackIcon />
+      </Fab>
       <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
         Select Sets to Download
       </Typography>

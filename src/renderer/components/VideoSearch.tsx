@@ -20,11 +20,7 @@ export interface VODMetadata {
   download: boolean;
 }
 
-const RetrieveSets = (
-  eventId: string,
-  vodUrl: string,
-  setter: React.Dispatch<React.SetStateAction<VODMetadata[]>>
-): JSX.Element => {
+const RetrieveSets = (eventId: string, vodUrl: string): JSX.Element => {
   const navigate = useNavigate();
   const theme = useTheme();
   let options = {};
@@ -50,29 +46,24 @@ const RetrieveSets = (
       window.electron.ipcRenderer
         .retrieveVideoInformation({ vodUrl: vodUrl })
         .then((timestamp) => {
-          console.log('timestamp', timestamp);
-          console.log('data', data);
-          let sets = data.event.sets.nodes;
-          for (let i = 0; i < sets.length; i++) {
+          const formattedSets = data.event.sets.nodes.map((set: any) => {
             let metadata: VODMetadata = {
               title:
-                sets[i].slots[0].entrant.name +
+                set.slots[0].entrant.name +
                 ' vs ' +
-                sets[i].slots[1].entrant.name +
+                set.slots[1].entrant.name +
                 ' - ' +
-                sets[i].fullRoundText,
-              startTime: new Date((sets[i].startedAt - timestamp) * 1000)
+                set.fullRoundText,
+              startTime: new Date((set.startedAt - timestamp) * 1000)
                 .toISOString()
                 .slice(11, 19),
-              endTime: new Date((sets[i].completedAt - timestamp) * 1000)
+              endTime: new Date((set.completedAt - timestamp) * 1000)
                 .toISOString()
                 .slice(11, 19),
               download: true,
             };
-            console.log('metadata', metadata);
-            formattedSets.push(metadata);
-            setter((old) => [...old, metadata]);
-          }
+            return metadata;
+          });
           navigate('/SetsView', {
             state: { sets: formattedSets, vodUrl: vodUrl },
           });
@@ -89,8 +80,6 @@ const RetrieveSets = (
         alignItems: 'center',
       }}
     >
-      {loading && <MoonLoader color={theme.palette.secondary.dark} />}
-      {error && <p>{error.message}</p>}
       <Button
         variant="contained"
         onClick={() => getSets({ variables: { eventId: eventId } })}
@@ -98,6 +87,8 @@ const RetrieveSets = (
       >
         Retrieve Sets
       </Button>
+      {loading && <MoonLoader color={theme.palette.secondary.dark} />}
+      {error && <p>{error.message}</p>}
     </Box>
   );
 };
@@ -107,7 +98,6 @@ const VideoSearch = () => {
 
   const [vodUrl, setVodUrl] = useState('');
   const [eventId, setEventId] = useState('');
-  const [retrievedSets, setRetrievedSets] = useState<VODMetadata[]>([]);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleClickShowPassword = () => setShowPassword((show) => !show);
@@ -156,36 +146,7 @@ const VideoSearch = () => {
         variant="filled"
         onChange={(event) => setVodUrl(event.target.value)}
       />
-      {RetrieveSets(eventId, vodUrl, setRetrievedSets)}
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          maxHeight: '30vh',
-          overflow: 'auto',
-          marginBottom: '25px',
-        }}
-      >
-        {retrievedSets.map((set, index) => {
-          return <div key={index}>{set.title}</div>;
-        })}
-      </Box>
-      <Button
-        variant="contained"
-        sx={{ marginBottom: '25px' }}
-        onClick={() => {
-          for (let i = 0; i < 4; i++) {
-            window.electron.ipcRenderer.downloadVideo({
-              vodUrl: vodUrl,
-              title: retrievedSets[i].title,
-              startTime: retrievedSets[i].startTime,
-              endTime: retrievedSets[i].endTime,
-            });
-          }
-        }}
-      >
-        Download VODs
-      </Button>
+      {RetrieveSets(eventId, vodUrl)}
     </Box>
   );
 };
