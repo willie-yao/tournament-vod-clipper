@@ -11,6 +11,13 @@ import {
 } from '@apollo/client';
 import theme from './theme';
 import SetsView from './pages/SetsView';
+import { GET_ALL_CHARACTERS } from './common/StartggQueries';
+import { useQuery } from '@apollo/client';
+
+interface CharacterData {
+  id: number,
+  name: string
+}
 
 const Copyright = () => {
   return (
@@ -26,9 +33,30 @@ const Copyright = () => {
 };
 
 const Main = () => {
+
   useEffect(() => {
     window.electron.ipcRenderer.createFolder('downloadedVODs');
   }, []);
+
+  const { loading, error, data } = useQuery(GET_ALL_CHARACTERS, {
+    variables: { gameid: 1386 },
+  });
+
+  useEffect(() => {
+    if (data) {
+      // window.electron.store.delete('characterMap')
+      let previousMap = window.electron.store.get('characterMap')
+      // console.log("previousMap", previousMap)
+      if (previousMap == null) {
+        let characterMap: { [key: number]: string; } = {}
+        data.videogame.characters.forEach((character: CharacterData) => {
+          characterMap[character.id] = character.name
+        })
+        window.electron.store.set('characterMap', characterMap)
+        // console.log("characterMap", window.electron.store.get("characterMap"))
+      }
+    }
+  })
 
   return (
     <Container maxWidth="sm">
@@ -45,7 +73,7 @@ const Main = () => {
 
 export default function App() {
   const [token, setToken] = useState(window.electron.store.get('apikey'));
-
+  
   useEffect(() => {
     window.electron.ipcRenderer.getApiKey().then((key) => {
       // setToken(key)

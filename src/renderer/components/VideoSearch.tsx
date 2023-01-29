@@ -39,19 +39,40 @@ const RetrieveSets = (eventId: string, vodUrl: string): JSX.Element => {
     GET_ALL_SETS_AT_EVENT,
     options
   );
-  let formattedSets: VODMetadata[] = [];
 
   useEffect(() => {
     if (data) {
       window.electron.ipcRenderer
         .retrieveVideoInformation({ vodUrl: vodUrl })
         .then((timestamp) => {
+          let characterMap = window.electron.store.get('characterMap')
           const formattedSets = data.event.sets.nodes.map((set: any) => {
+            let characterStrings = ["", ""]
+            if (set.games != null) {
+              let characterArrays: string[][] = [[], []]
+              for (const game of set.games) {
+                if (game.selections != null) {
+                  let entrantIds = [set.slots[0].entrant.id, set.slots[1].entrant.id]
+                  for (let i = 0; i < 2; i++) {
+                    for (let j = 0; j < 2; j++) {
+                      if (game.selections[j].entrant.id == entrantIds[i]) {
+                        let character: string = characterMap[game.selections[j].selectionValue]
+                        characterArrays[i].indexOf(character) === -1 ? characterArrays[i].push(character) : null
+                      }
+                    }
+                  }
+                }
+              }
+              characterStrings[0] = " (" + characterArrays[0].join(', ') + ")"
+              characterStrings[1] = " (" + characterArrays[1].join(', ') + ")"
+            }
             let metadata: VODMetadata = {
               title:
-                set.slots[0].entrant.name +
+                set.slots[0].entrant.name + 
+                characterStrings[0] +
                 ' vs ' +
                 set.slots[1].entrant.name +
+                characterStrings[1] +
                 ' - ' +
                 set.fullRoundText,
               startTime: new Date((set.startedAt - timestamp) * 1000)
@@ -99,6 +120,7 @@ const VideoSearch = () => {
   const [vodUrl, setVodUrl] = useState('');
   const [eventId, setEventId] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [characterMap, setCharacterMap] = useState<Map<string, string>>(new Map());
 
   const handleClickShowPassword = () => setShowPassword((show) => !show);
 

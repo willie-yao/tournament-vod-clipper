@@ -59,6 +59,9 @@ export const GET_ALL_SETS_AT_EVENT = gql`
             selections {
               selectionValue
               selectionType
+              entrant {
+                id
+              }
             }
           }
         }
@@ -66,3 +69,14 @@ export const GET_ALL_SETS_AT_EVENT = gql`
     }
   }
 `;
+
+export const GET_ALL_CHARACTERS = gql`
+  query VideogamesQuery($gameid: ID) {
+    videogame(id: $gameid){
+      characters {
+        id
+        name
+      }
+    }
+  }
+`

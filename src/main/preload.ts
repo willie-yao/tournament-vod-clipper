@@ -12,6 +12,9 @@ const electronHandler = {
       ipcRenderer.send('electron-store-set', property, val);
     },
     // Other method you want to add like has(), reset(), etc.
+    delete(key: any) {
+      ipcRenderer.send('electron-store-delete', key)
+    }
   },
   ipcRenderer: {
     sendMessage(channel: Channels, args: unknown[]) {
