@@ -1,34 +1,44 @@
-import { Button, Box, TextField, Typography } from '@mui/material';
+import {
+  Container,
+  Button,
+  Box,
+  MenuItem,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { useState, useEffect } from 'react';
 import HiddenTextField from 'renderer/common/HiddenTextField';
 
 const YTUploadView = () => {
-
-  const [ytEmail, setYtEmail] = useState("")
-  const [videos, setVideos] = useState<string[]>([])
-  const path = "./downloadedVODs"
+  const [ytEmail, setYtEmail] = useState(window.electron.store.get('ytEmail'));
+  const [ytPassword, setYtPassword] = useState(
+    window.electron.store.getSecret('ytPassword')
+  );
+  const [tounamentFolders, setTournamentFolders] = useState<string[]>([]);
+  const [selectedFolder, setSelectedFolder] = useState('');
+  const path = './downloadedVODs';
 
   useEffect(() => {
-    window.electron.ipcRenderer.getVideosFromFolder(path).then((result) => {
-      console.log("videos", result)
-      setVideos(result)
-    })
-  }, [])
+    window.electron.ipcRenderer.getTournamentFolders(path).then((result) => {
+      console.log('folders: ', result);
+      setTournamentFolders(result);
+    });
+  }, []);
 
   const onYtPasswordChange = (value: any) => {
-    window.electron.store.setSecret('ytPassword', value)
-  }
+    window.electron.store.setSecret('ytPassword', value);
+  };
 
   const uploadVideos = () => {
     const params = {
-      path: './downloadedVODs',
+      path: './downloadedVODs/' + selectedFolder + '/',
       email: ytEmail,
-    }
-    window.electron.ipcRenderer.uploadVideos(params)
-  }
+    };
+    window.electron.ipcRenderer.uploadVideos(params);
+  };
 
   return (
-    <Box>
+    <Container maxWidth="sm">
       <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
         Upload to YouTube
       </Typography>
@@ -37,9 +47,28 @@ const YTUploadView = () => {
           className="textfield"
           label="YouTube Email"
           variant="filled"
-          onChange={(event) => setYtEmail(event.target.value)}
+          defaultValue={ytEmail}
+          onChange={(event) => {
+            window.electron.store.set('ytEmail', event.target.value)
+            setYtEmail(event.target.value)
+          }}
         />
-        {HiddenTextField("YouTube Password", "", onYtPasswordChange)}
+        {HiddenTextField('YouTube Password', ytPassword, onYtPasswordChange)}
+        <TextField
+          value={selectedFolder}
+          onChange={(event) => setSelectedFolder(event.target.value as string)}
+          label="VOD Folder"
+          variant="filled"
+          select
+        >
+          {tounamentFolders.map((folder) => {
+            return (
+              <MenuItem key={folder} value={folder}>
+                {folder}
+              </MenuItem>
+            );
+          })}
+        </TextField>
         <Button
           variant="contained"
           color="secondary"
@@ -49,8 +78,8 @@ const YTUploadView = () => {
           Upload
         </Button>
       </Box>
-    </Box>
-  )
-}
+    </Container>
+  );
+};
 
-export default YTUploadView
+export default YTUploadView;

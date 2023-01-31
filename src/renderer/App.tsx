@@ -97,9 +97,11 @@ export default function App() {
       <ThemeProvider theme={theme}>
         <Router>
           <Routes>
-            <Route path="/Main" element={<Main />} />
+            <Route path="/" element={<Main />} />
+            {/* <Route path="/Main" element={<Main />} /> */}
             <Route path="/SetsView" element={<SetsView />} />
-            <Route path="/" element={<YTUploadView />} />
+            {/* <Route path="/" element={<YTUploadView />} /> */}
+            <Route path="/YTUploadView" element={<YTUploadView />} />
           </Routes>
         </Router>
       </ThemeProvider>

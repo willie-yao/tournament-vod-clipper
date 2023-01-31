@@ -55,13 +55,12 @@ ipcMain.handle('download-video', async (event, arg) => {
   youtubeDl(arg.vodUrl, {
     // @ts-ignore
     downloadSections: '*' + arg.startTime + '-' + arg.endTime,
-    output: './downloadedVODs/' + arg.title + '.mp4',
+    output: './downloadedVODs/' + arg.tournamentName + "/" + arg.title + '.mp4',
   }).then((output) => {});
 });
 
-ipcMain.handle('get-videos-from-folder', async(event, arg) => {
-  console.log("Get videos:", fs.readdirSync(arg).filter((file: any) => path.extname(file).toLowerCase() === '.mp4'))
-  return fs.readdirSync(arg).filter((file: any) => path.extname(file).toLowerCase() === '.mp4')
+ipcMain.handle('get-tournament-folders', async(event, arg) => {
+  return fs.readdirSync(arg).filter((file: any) => fs.statSync(arg + '/'+ file).isDirectory())
 })
 
 ipcMain.handle('upload-videos', async(event, args) => {

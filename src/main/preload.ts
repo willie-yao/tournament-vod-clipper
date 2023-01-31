@@ -35,8 +35,8 @@ const electronHandler = {
     retrieveVideoInformation(args: object) {
       return ipcRenderer.invoke('retrieve-video-information', args);
     },
-    getVideosFromFolder(arg: string) {
-      return ipcRenderer.invoke('get-videos-from-folder', arg)
+    getTournamentFolders(arg: string) {
+      return ipcRenderer.invoke('get-tournament-folders', arg)
     },
     uploadVideos(args: object) {
       ipcRenderer.invoke('upload-videos', args)

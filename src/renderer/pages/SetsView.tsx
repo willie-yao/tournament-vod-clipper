@@ -140,6 +140,7 @@ const SetsView = () => {
                 title: set.title,
                 startTime: set.startTime,
                 endTime: set.endTime,
+                tournamentName: location.state.tournamentName,
               });
             }
           });

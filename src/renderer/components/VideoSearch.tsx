@@ -87,7 +87,7 @@ const RetrieveSets = (eventId: string, vodUrl: string): JSX.Element => {
             return metadata;
           });
           navigate('/SetsView', {
-            state: { sets: formattedSets, vodUrl: vodUrl },
+            state: { sets: formattedSets, vodUrl: vodUrl, tournamentName: data.event.tournament.name },
           });
         });
     }
