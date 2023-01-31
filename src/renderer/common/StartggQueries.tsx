@@ -5,6 +5,9 @@ export const GET_SETS_AT_STATION = gql`
     event(slug: $eventId) {
       id
       name
+      tournament {
+        name
+      }
       sets(filters: { stationNumbers: $stationNumbers }) {
         nodes {
           id
@@ -21,10 +24,14 @@ export const GET_SETS_AT_STATION = gql`
           }
           startedAt
           completedAt
+          fullRoundText
           games {
             selections {
               selectionValue
               selectionType
+              entrant {
+                id
+              }
             }
           }
         }

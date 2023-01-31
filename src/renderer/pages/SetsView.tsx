@@ -63,9 +63,10 @@ const SetsView = () => {
       sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}
     >
       <Fab
-        sx={{ position: 'fixed', left: '10px', top: '10px' }}
+        sx={{ position: 'fixed', left: '20px', top: '20px' }}
         color="secondary"
         aria-label="back"
+        size="medium"
         onClick={() => navigate('/')}
       >
         <ArrowBackIcon />
@@ -152,7 +153,7 @@ const SetsView = () => {
         variant="contained"
         color="secondary"
         sx={{ width: '40vw', marginTop: '20px', color: 'white' }}
-        onClick={() => navigate("/YTUploadView")}
+        onClick={() => navigate('/YTUploadView')}
       >
         Upload
       </Button>

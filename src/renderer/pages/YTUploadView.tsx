@@ -8,6 +8,7 @@ import {
 } from '@mui/material';
 import { useState, useEffect } from 'react';
 import HiddenTextField from 'renderer/common/HiddenTextField';
+import NavMenu from 'renderer/common/NavMenu';
 
 const YTUploadView = () => {
   const [ytEmail, setYtEmail] = useState(window.electron.store.get('ytEmail'));
@@ -39,6 +40,7 @@ const YTUploadView = () => {
 
   return (
     <Container maxWidth="sm">
+      {NavMenu('/YTUploadView')}
       <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
         Upload to YouTube
       </Typography>
@@ -49,8 +51,8 @@ const YTUploadView = () => {
           variant="filled"
           defaultValue={ytEmail}
           onChange={(event) => {
-            window.electron.store.set('ytEmail', event.target.value)
-            setYtEmail(event.target.value)
+            window.electron.store.set('ytEmail', event.target.value);
+            setYtEmail(event.target.value);
           }}
         />
         {HiddenTextField('YouTube Password', ytPassword, onYtPasswordChange)}

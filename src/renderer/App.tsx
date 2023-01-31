@@ -14,6 +14,7 @@ import theme from './theme';
 import SetsView from './pages/SetsView';
 import { GET_ALL_CHARACTERS } from './common/StartggQueries';
 import { useQuery } from '@apollo/client';
+import NavMenu from './common/NavMenu';
 
 interface CharacterData {
   id: number;
@@ -44,16 +45,13 @@ const Main = () => {
 
   useEffect(() => {
     if (data) {
-      // window.electron.store.delete('characterMap')
       let previousMap = window.electron.store.get('characterMap');
-      // console.log("previousMap", previousMap)
       if (previousMap == null) {
         let characterMap: { [key: number]: string } = {};
         data.videogame.characters.forEach((character: CharacterData) => {
           characterMap[character.id] = character.name;
         });
         window.electron.store.set('characterMap', characterMap);
-        // console.log("characterMap", window.electron.store.get("characterMap"))
       }
     }
   });
@@ -61,6 +59,7 @@ const Main = () => {
   return (
     <Container maxWidth="sm">
       <Box sx={{ my: 4, alignContent: 'center' }}>
+        {NavMenu('/')}
         <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
           Tournament VOD Clipper
         </Typography>

@@ -59,7 +59,7 @@ a:hover {
 .background-card {
   display: flex;
   flex-direction: column;
-  height: 50vh;
+  height: 60vh;
   padding: 20px;
   justify-content: space-around;
   border-radius: 8px;

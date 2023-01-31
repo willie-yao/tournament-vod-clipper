@@ -6,7 +6,10 @@ import {
   InputAdornment,
   IconButton,
 } from '@mui/material';
-import { GET_ALL_SETS_AT_EVENT } from 'renderer/common/StartggQueries';
+import {
+  GET_ALL_SETS_AT_EVENT,
+  GET_SETS_AT_STATION,
+} from 'renderer/common/StartggQueries';
 import { useLazyQuery } from '@apollo/client';
 import { useTheme } from '@mui/material/styles';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
@@ -21,7 +24,11 @@ export interface VODMetadata {
   download: boolean;
 }
 
-const RetrieveSets = (eventId: string, vodUrl: string): JSX.Element => {
+const RetrieveSets = (
+  eventId: string,
+  vodUrl: string,
+  stationNumber: number
+): JSX.Element => {
   const navigate = useNavigate();
   const theme = useTheme();
   let options = {};
@@ -36,8 +43,13 @@ const RetrieveSets = (eventId: string, vodUrl: string): JSX.Element => {
     };
   }
 
+  // const [getSets, { loading, error, data }] = useLazyQuery(
+  //   GET_ALL_SETS_AT_EVENT,
+  //   options
+  // );
+
   const [getSets, { loading, error, data }] = useLazyQuery(
-    GET_ALL_SETS_AT_EVENT,
+    GET_SETS_AT_STATION,
     options
   );
 
@@ -46,36 +58,44 @@ const RetrieveSets = (eventId: string, vodUrl: string): JSX.Element => {
       window.electron.ipcRenderer
         .retrieveVideoInformation({ vodUrl: vodUrl })
         .then((timestamp) => {
-          let characterMap = window.electron.store.get('characterMap')
+          let characterMap = window.electron.store.get('characterMap');
           const formattedSets = data.event.sets.nodes.map((set: any) => {
-            let characterStrings = ["", ""]
+            let characterStrings = ['', ''];
             if (set.games != null) {
-              let characterArrays: string[][] = [[], []]
+              let characterArrays: string[][] = [[], []];
               for (const game of set.games) {
                 if (game.selections != null) {
-                  let entrantIds = [set.slots[0].entrant.id, set.slots[1].entrant.id]
+                  let entrantIds = [
+                    set.slots[0].entrant.id,
+                    set.slots[1].entrant.id,
+                  ];
                   for (let i = 0; i < 2; i++) {
                     for (let j = 0; j < 2; j++) {
                       if (game.selections[j].entrant.id == entrantIds[i]) {
-                        let character: string = characterMap[game.selections[j].selectionValue]
-                        characterArrays[i].indexOf(character) === -1 ? characterArrays[i].push(character) : null
+                        let character: string =
+                          characterMap[game.selections[j].selectionValue];
+                        characterArrays[i].indexOf(character) === -1
+                          ? characterArrays[i].push(character)
+                          : null;
                       }
                     }
                   }
                 }
               }
-              characterStrings[0] = " (" + characterArrays[0].join(', ') + ")"
-              characterStrings[1] = " (" + characterArrays[1].join(', ') + ")"
+              characterStrings[0] = ' (' + characterArrays[0].join(', ') + ')';
+              characterStrings[1] = ' (' + characterArrays[1].join(', ') + ')';
             }
             let metadata: VODMetadata = {
               title:
-                set.slots[0].entrant.name + 
+                set.slots[0].entrant.name +
                 characterStrings[0] +
                 ' vs ' +
                 set.slots[1].entrant.name +
                 characterStrings[1] +
                 ' - ' +
-                set.fullRoundText,
+                set.fullRoundText +
+                ' - ' +
+                data.event.tournament.name,
               startTime: new Date((set.startedAt - timestamp) * 1000)
                 .toISOString()
                 .slice(11, 19),
@@ -87,7 +107,11 @@ const RetrieveSets = (eventId: string, vodUrl: string): JSX.Element => {
             return metadata;
           });
           navigate('/SetsView', {
-            state: { sets: formattedSets, vodUrl: vodUrl, tournamentName: data.event.tournament.name },
+            state: {
+              sets: formattedSets,
+              vodUrl: vodUrl,
+              tournamentName: data.event.tournament.name,
+            },
           });
         });
     }
@@ -104,7 +128,11 @@ const RetrieveSets = (eventId: string, vodUrl: string): JSX.Element => {
     >
       <Button
         variant="contained"
-        onClick={() => getSets({ variables: { eventId: eventId } })}
+        onClick={() =>
+          getSets({
+            variables: { eventId: eventId, stationNumbers: [stationNumber] },
+          })
+        }
         sx={{ marginBottom: '25px', width: '100%' }}
       >
         Retrieve Sets
@@ -116,17 +144,21 @@ const RetrieveSets = (eventId: string, vodUrl: string): JSX.Element => {
 };
 
 const VideoSearch = () => {
-
   const [vodUrl, setVodUrl] = useState('');
   const [eventId, setEventId] = useState('');
+  const [stationNumber, setStationNumber] = useState(0);
 
   const onChangeFunc = (value: any) => {
-    window.electron.store.set('apikey', value)
-  }
+    window.electron.store.set('apikey', value);
+  };
 
   return (
     <Box className="background-card">
-      {HiddenTextField("Start.GG API Key", window.electron.store.get('apikey'), onChangeFunc)}
+      {HiddenTextField(
+        'Start.GG API Key',
+        window.electron.store.get('apikey'),
+        onChangeFunc
+      )}
       <TextField
         className="textfield"
         label="Start.GG Event ID"
@@ -139,7 +171,14 @@ const VideoSearch = () => {
         variant="filled"
         onChange={(event) => setVodUrl(event.target.value)}
       />
-      {RetrieveSets(eventId, vodUrl)}
+      <TextField
+        className="textfield"
+        label="Stream Station Number"
+        type="number"
+        variant="filled"
+        onChange={(event) => setStationNumber(parseInt(event.target.value))}
+      />
+      {RetrieveSets(eventId, vodUrl, stationNumber)}
     </Box>
   );
 };
