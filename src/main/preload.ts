@@ -14,6 +14,12 @@ const electronHandler = {
     // Other method you want to add like has(), reset(), etc.
     delete(key: any) {
       ipcRenderer.send('electron-store-delete', key)
+    },
+    getSecret(key: any) {
+      return ipcRenderer.sendSync('electron-store-get-secret', key);
+    },
+    setSecret(property: any, val: any) {
+      ipcRenderer.send('electron-store-set-secret', property, val);
     }
   },
   ipcRenderer: {
@@ -28,6 +34,12 @@ const electronHandler = {
     },
     retrieveVideoInformation(args: object) {
       return ipcRenderer.invoke('retrieve-video-information', args);
+    },
+    getVideosFromFolder(arg: string) {
+      return ipcRenderer.invoke('get-videos-from-folder', arg)
+    },
+    uploadVideos(args: object) {
+      ipcRenderer.invoke('upload-videos', args)
     },
     getApiKey() {
       return ipcRenderer.invoke('get-api-key');

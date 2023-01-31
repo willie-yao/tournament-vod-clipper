@@ -12,6 +12,7 @@ import { useTheme } from '@mui/material/styles';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { MoonLoader } from 'react-spinners';
 import { useNavigate } from 'react-router-dom';
+import HiddenTextField from 'renderer/common/HiddenTextField';
 
 export interface VODMetadata {
   title: string;
@@ -115,47 +116,17 @@ const RetrieveSets = (eventId: string, vodUrl: string): JSX.Element => {
 };
 
 const VideoSearch = () => {
-  const theme = useTheme();
 
   const [vodUrl, setVodUrl] = useState('');
   const [eventId, setEventId] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [characterMap, setCharacterMap] = useState<Map<string, string>>(new Map());
 
-  const handleClickShowPassword = () => setShowPassword((show) => !show);
-
-  const handleMouseDownPassword = (
-    event: React.MouseEvent<HTMLButtonElement>
-  ) => {
-    event.preventDefault();
-  };
+  const onChangeFunc = (value: any) => {
+    window.electron.store.set('apikey', value)
+  }
 
   return (
     <Box className="background-card">
-      <TextField
-        className="textfield"
-        label="Start.GG API Key"
-        variant="filled"
-        defaultValue={window.electron.store.get('apikey')}
-        type={showPassword ? 'text' : 'password'}
-        onChange={(event) =>
-          window.electron.store.set('apikey', event.target.value)
-        }
-        InputProps={{
-          endAdornment: (
-            <InputAdornment position="end">
-              <IconButton
-                aria-label="toggle password visibility"
-                onClick={handleClickShowPassword}
-                onMouseDown={handleMouseDownPassword}
-                edge="end"
-              >
-                {showPassword ? <VisibilityOff /> : <Visibility />}
-              </IconButton>
-            </InputAdornment>
-          ),
-        }}
-      />
+      {HiddenTextField("Start.GG API Key", window.electron.store.get('apikey'), onChangeFunc)}
       <TextField
         className="textfield"
         label="Start.GG Event ID"

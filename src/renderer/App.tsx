@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import './App.css';
 import { Box, Typography, Container, Link, ThemeProvider } from '@mui/material';
 import VideoSearch from './components/VideoSearch';
+import YTUploadView from './pages/YTUploadView';
 import {
   ApolloClient,
   InMemoryCache,
@@ -15,8 +16,8 @@ import { GET_ALL_CHARACTERS } from './common/StartggQueries';
 import { useQuery } from '@apollo/client';
 
 interface CharacterData {
-  id: number,
-  name: string
+  id: number;
+  name: string;
 }
 
 const Copyright = () => {
@@ -33,7 +34,6 @@ const Copyright = () => {
 };
 
 const Main = () => {
-
   useEffect(() => {
     window.electron.ipcRenderer.createFolder('downloadedVODs');
   }, []);
@@ -45,18 +45,18 @@ const Main = () => {
   useEffect(() => {
     if (data) {
       // window.electron.store.delete('characterMap')
-      let previousMap = window.electron.store.get('characterMap')
+      let previousMap = window.electron.store.get('characterMap');
       // console.log("previousMap", previousMap)
       if (previousMap == null) {
-        let characterMap: { [key: number]: string; } = {}
+        let characterMap: { [key: number]: string } = {};
         data.videogame.characters.forEach((character: CharacterData) => {
-          characterMap[character.id] = character.name
-        })
-        window.electron.store.set('characterMap', characterMap)
+          characterMap[character.id] = character.name;
+        });
+        window.electron.store.set('characterMap', characterMap);
         // console.log("characterMap", window.electron.store.get("characterMap"))
       }
     }
-  })
+  });
 
   return (
     <Container maxWidth="sm">
@@ -73,7 +73,7 @@ const Main = () => {
 
 export default function App() {
   const [token, setToken] = useState(window.electron.store.get('apikey'));
-  
+
   useEffect(() => {
     window.electron.ipcRenderer.getApiKey().then((key) => {
       // setToken(key)
@@ -97,8 +97,9 @@ export default function App() {
       <ThemeProvider theme={theme}>
         <Router>
           <Routes>
-            <Route path="/" element={<Main />} />
+            <Route path="/Main" element={<Main />} />
             <Route path="/SetsView" element={<SetsView />} />
+            <Route path="/" element={<YTUploadView />} />
           </Routes>
         </Router>
       </ThemeProvider>

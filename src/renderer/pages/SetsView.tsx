@@ -147,6 +147,14 @@ const SetsView = () => {
       >
         Download VODs
       </Button>
+      <Button
+        variant="contained"
+        color="secondary"
+        sx={{ width: '40vw', marginTop: '20px', color: 'white' }}
+        onClick={() => navigate("/YTUploadView")}
+      >
+        Upload
+      </Button>
     </Container>
   );
 };

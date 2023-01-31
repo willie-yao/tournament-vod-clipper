@@ -127,7 +127,8 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.4.0",
     "react-spinners": "^0.13.8",
-    "youtube-dl-exec": "^2.1.11"
+    "youtube-dl-exec": "^2.1.11",
+    "youtube-videos-uploader": "^2.0.9"
   },
   "devDependencies": {
     "@electron/notarize": "^1.2.3",
