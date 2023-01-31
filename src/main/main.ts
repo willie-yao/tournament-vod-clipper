@@ -100,7 +100,12 @@ ipcMain.on('electron-store-set-secret', async(event, key, val) => {
   store.set(key, safeStorage.encryptString(val))
 })
 ipcMain.on('electron-store-get-secret', async (event, val) => {
-  event.returnValue = safeStorage.decryptString(Buffer.from(store.get(val) as Buffer));
+  let encryptedVal = store.get(val)
+  if (encryptedVal) {
+    event.returnValue = safeStorage.decryptString(Buffer.from(encryptedVal as Buffer));
+  } else {
+    event.returnValue = ''
+  }
 })
 
 ipcMain.on('ipc-example', async (event, arg) => {
