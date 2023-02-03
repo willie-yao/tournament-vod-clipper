@@ -45,16 +45,16 @@ const Main = () => {
 
   useEffect(() => {
     if (data) {
-      console.log("data: ", data)
-      window.electron.store.delete('characterMap')
+      console.log('data: ', data);
+      window.electron.store.delete('characterMap');
       let previousMap = window.electron.store.get('characterMap');
-      console.log("previousMap: ", previousMap)
+      console.log('previousMap: ', previousMap);
       if (previousMap == null) {
         let characterMap: { [key: number]: string } = {};
         data.videogame.characters.forEach((character: CharacterData) => {
           characterMap[character.id] = character.name;
         });
-        console.log("Character Map: ", characterMap);
+        console.log('Character Map: ', characterMap);
         window.electron.store.set('characterMap', characterMap);
       }
     }
@@ -75,7 +75,11 @@ const Main = () => {
 };
 
 export default function App() {
-  const [token, setToken] = useState(window.electron.store.get('apikey'));
+  const [token, setToken] = useState(
+    window.electron.store.get('apikey')
+      ? window.electron.store.get('apikey')
+      : ''
+  );
 
   useEffect(() => {
     window.electron.ipcRenderer.getApiKey().then((key) => {

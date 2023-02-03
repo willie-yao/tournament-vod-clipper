@@ -74,8 +74,7 @@ ipcMain.handle('upload-videos', async(event, args) => {
       console.log("videoMetadata", videoMetadata)
     }
   })
-  upload(credentials, videoList).then((response) => console.log("upload response", response))
-        .catch(err => console.log("Error uploading video", err))
+  return upload(credentials, videoList)
 })
 
 ipcMain.handle('get-api-key', async (event, arg) => {

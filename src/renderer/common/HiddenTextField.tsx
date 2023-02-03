@@ -1,9 +1,14 @@
-import { InputAdornment, IconButton, TextField } from "@mui/material"
+import { InputAdornment, IconButton, TextField } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { useState } from "react";
+import { useState } from 'react';
 
-
-const HiddenTextField = (label: string, helperText: string, defaultValue: string, onChange: any) => {
+const HiddenTextField = (
+  label: string,
+  helperText: string,
+  defaultValue: string,
+  onChange: any,
+  required: boolean
+) => {
   const [showPassword, setShowPassword] = useState(false);
   const handleClickShowPassword = () => setShowPassword((show) => !show);
 
@@ -15,6 +20,7 @@ const HiddenTextField = (label: string, helperText: string, defaultValue: string
 
   return (
     <TextField
+      required={required}
       className="textfield"
       variant="filled"
       label={label}
@@ -37,7 +43,7 @@ const HiddenTextField = (label: string, helperText: string, defaultValue: string
         ),
       }}
     />
-  )
-}
+  );
+};
 
-export default HiddenTextField
+export default HiddenTextField;

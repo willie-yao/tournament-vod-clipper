@@ -65,7 +65,6 @@ const SetsView = () => {
     setSelectAllChecked(!selectAllChecked);
   };
 
-
   return (
     <Container
       sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}
@@ -82,8 +81,8 @@ const SetsView = () => {
       <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
         Select Sets to Download
       </Typography>
-      {SnackbarPopup(successMessage, "success", successOpen, setSuccessOpen)}
-      {SnackbarPopup(errorMessage, "error", errorOpen, setErrorOpen)}
+      {SnackbarPopup(successMessage, 'success', successOpen, setSuccessOpen)}
+      {SnackbarPopup(errorMessage, 'error', errorOpen, setErrorOpen)}
       <FormGroup>
         <Button
           variant="contained"
@@ -146,19 +145,22 @@ const SetsView = () => {
           location.state.sets.map((set: VODMetadata) => {
             if (set.download) {
               console.log('Downloading set: ', set);
-              window.electron.ipcRenderer.downloadVideo({
-                vodUrl: location.state.vodUrl,
-                title: set.title,
-                startTime: set.startTime,
-                endTime: set.endTime,
-                tournamentName: location.state.tournamentName,
-              }).then((res: any) => {
-                setSuccessMessage('Download complete: ' + set.title)
-                setSuccessOpen(true);
-              }).catch((err: any) => {
-                setErrorMessage('Download failed: ' + err)
-                setErrorOpen(true);
-              });
+              window.electron.ipcRenderer
+                .downloadVideo({
+                  vodUrl: location.state.vodUrl,
+                  title: set.title,
+                  startTime: set.startTime,
+                  endTime: set.endTime,
+                  tournamentName: location.state.tournamentName,
+                })
+                .then((res: any) => {
+                  setSuccessMessage('Download complete: ' + set.title);
+                  setSuccessOpen(true);
+                })
+                .catch((err: any) => {
+                  setErrorMessage('Download failed: ' + err);
+                  setErrorOpen(true);
+                });
             }
           });
         }}

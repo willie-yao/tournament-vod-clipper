@@ -1,18 +1,8 @@
 import { useState, useEffect } from 'react';
-import {
-  Button,
-  Box,
-  TextField,
-  InputAdornment,
-  IconButton,
-} from '@mui/material';
-import {
-  GET_ALL_SETS_AT_EVENT,
-  GET_SETS_AT_STATION,
-} from 'renderer/common/StartggQueries';
+import { Button, Box, TextField } from '@mui/material';
+import { GET_SETS_AT_STATION } from 'renderer/common/StartggQueries';
 import { useLazyQuery } from '@apollo/client';
 import { useTheme } from '@mui/material/styles';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { PropagateLoader } from 'react-spinners';
 import { useNavigate } from 'react-router-dom';
 import HiddenTextField from 'renderer/common/HiddenTextField';
@@ -105,7 +95,7 @@ const RetrieveSets = (
             };
             return metadata;
           });
-          setWaiting(false)
+          setWaiting(false);
           navigate('/SetsView', {
             state: {
               sets: formattedSets,
@@ -133,14 +123,16 @@ const RetrieveSets = (
           setWaiting(true);
           getSets({
             variables: { eventId: eventId, stationNumbers: [stationNumber] },
-          })
+          });
         }}
         sx={{ marginBottom: '25px', width: '100%' }}
         disabled={buttonDisabled}
       >
         Retrieve Sets
       </Button>
-      {(loading || waiting) && <PropagateLoader color={theme.palette.secondary.dark} />}
+      {(loading || waiting) && (
+        <PropagateLoader color={theme.palette.secondary.dark} />
+      )}
       {error && <p>{error.message}</p>}
     </Box>
   );
@@ -159,12 +151,19 @@ const VideoSearch = () => {
   };
 
   useEffect(() => {
-    if (eventId != '' && vodUrl != '' && stationNumber != 0 && window.electron.store.get('apikey') && !urlError && !slugError) {
+    if (
+      eventId != '' &&
+      vodUrl != '' &&
+      stationNumber != 0 &&
+      window.electron.store.get('apikey') &&
+      !urlError &&
+      !slugError
+    ) {
       setButtonDisabled(false);
     } else {
       setButtonDisabled(true);
     }
-  })
+  });
 
   useEffect(() => {
     if (validator.isURL(vodUrl) || vodUrl == '') {
@@ -172,23 +171,27 @@ const VideoSearch = () => {
     } else {
       setUrlError(true);
     }
-  })
+  });
 
   useEffect(() => {
-    if (eventId.match(/tournament\/([a-zA-Z0-9_-]+)\/event\/([a-zA-Z0-9_-]+)/g) || eventId == '') {
+    if (
+      eventId.match(/tournament\/([a-zA-Z0-9_-]+)\/event\/([a-zA-Z0-9_-]+)/g) ||
+      eventId == ''
+    ) {
       setSlugError(false);
     } else {
       setSlugError(true);
     }
-  })
+  });
 
   return (
     <Box className="background-card">
       {HiddenTextField(
         'Start.GG API Key',
-        "https://start.gg/admin/profile/developer",
+        'https://start.gg/admin/profile/developer',
         window.electron.store.get('apikey'),
-        onChangeFunc
+        onChangeFunc,
+        false
       )}
       <TextField
         error={slugError}

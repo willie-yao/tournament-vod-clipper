@@ -39,7 +39,7 @@ const electronHandler = {
       return ipcRenderer.invoke('get-tournament-folders', arg)
     },
     uploadVideos(args: object) {
-      ipcRenderer.invoke('upload-videos', args)
+      return ipcRenderer.invoke('upload-videos', args)
     },
     getApiKey() {
       return ipcRenderer.invoke('get-api-key');
