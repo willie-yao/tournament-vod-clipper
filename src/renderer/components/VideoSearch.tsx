@@ -13,9 +13,10 @@ import {
 import { useLazyQuery } from '@apollo/client';
 import { useTheme } from '@mui/material/styles';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { MoonLoader } from 'react-spinners';
+import { PropagateLoader } from 'react-spinners';
 import { useNavigate } from 'react-router-dom';
 import HiddenTextField from 'renderer/common/HiddenTextField';
+import validator from 'validator';
 
 export interface VODMetadata {
   title: string;
@@ -27,7 +28,8 @@ export interface VODMetadata {
 const RetrieveSets = (
   eventId: string,
   vodUrl: string,
-  stationNumber: number
+  stationNumber: number,
+  buttonDisabled: boolean
 ): JSX.Element => {
   const navigate = useNavigate();
   const theme = useTheme();
@@ -43,10 +45,7 @@ const RetrieveSets = (
     };
   }
 
-  // const [getSets, { loading, error, data }] = useLazyQuery(
-  //   GET_ALL_SETS_AT_EVENT,
-  //   options
-  // );
+  const [waiting, setWaiting] = useState(false);
 
   const [getSets, { loading, error, data }] = useLazyQuery(
     GET_SETS_AT_STATION,
@@ -106,6 +105,7 @@ const RetrieveSets = (
             };
             return metadata;
           });
+          setWaiting(false)
           navigate('/SetsView', {
             state: {
               sets: formattedSets,
@@ -124,20 +124,23 @@ const RetrieveSets = (
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
       <Button
         variant="contained"
-        onClick={() =>
+        onClick={() => {
+          setWaiting(true);
           getSets({
             variables: { eventId: eventId, stationNumbers: [stationNumber] },
           })
-        }
+        }}
         sx={{ marginBottom: '25px', width: '100%' }}
+        disabled={buttonDisabled}
       >
         Retrieve Sets
       </Button>
-      {loading && <MoonLoader color={theme.palette.secondary.dark} />}
+      {(loading || waiting) && <PropagateLoader color={theme.palette.secondary.dark} />}
       {error && <p>{error.message}</p>}
     </Box>
   );
@@ -146,30 +149,62 @@ const RetrieveSets = (
 const VideoSearch = () => {
   const [vodUrl, setVodUrl] = useState('');
   const [eventId, setEventId] = useState('');
+  const [buttonDisabled, setButtonDisabled] = useState(true);
   const [stationNumber, setStationNumber] = useState(0);
+  const [urlError, setUrlError] = useState(false);
+  const [slugError, setSlugError] = useState(false);
 
   const onChangeFunc = (value: any) => {
     window.electron.store.set('apikey', value);
   };
 
+  useEffect(() => {
+    if (eventId != '' && vodUrl != '' && stationNumber != 0 && window.electron.store.get('apikey') && !urlError && !slugError) {
+      setButtonDisabled(false);
+    } else {
+      setButtonDisabled(true);
+    }
+  })
+
+  useEffect(() => {
+    if (validator.isURL(vodUrl) || vodUrl == '') {
+      setUrlError(false);
+    } else {
+      setUrlError(true);
+    }
+  })
+
+  useEffect(() => {
+    if (eventId.match(/tournament\/([a-zA-Z0-9_-]+)\/event\/([a-zA-Z0-9_-]+)/g) || eventId == '') {
+      setSlugError(false);
+    } else {
+      setSlugError(true);
+    }
+  })
+
   return (
     <Box className="background-card">
       {HiddenTextField(
         'Start.GG API Key',
+        "https://start.gg/admin/profile/developer",
         window.electron.store.get('apikey'),
         onChangeFunc
       )}
       <TextField
+        error={slugError}
         className="textfield"
-        label="Start.GG Event ID"
+        label="Start.GG Event Slug"
         variant="filled"
-        onChange={(event) => setEventId(event.target.value)}
+        onBlur={(event) => setEventId(event.target.value)}
+        helperText="tournament/tournament-name/event/event-name"
       />
       <TextField
+        error={urlError}
         className="textfield"
         label="VOD Link"
         variant="filled"
-        onChange={(event) => setVodUrl(event.target.value)}
+        onBlur={(event) => setVodUrl(event.target.value)}
+        helperText="https://www.twitch.tv/videos/123456789"
       />
       <TextField
         className="textfield"
@@ -177,8 +212,10 @@ const VideoSearch = () => {
         type="number"
         variant="filled"
         onChange={(event) => setStationNumber(parseInt(event.target.value))}
+        helperText="The station number the stream is assigned to."
+        sx={{ marginBottom: '25px' }}
       />
-      {RetrieveSets(eventId, vodUrl, stationNumber)}
+      {RetrieveSets(eventId, vodUrl, stationNumber, buttonDisabled)}
     </Box>
   );
 };

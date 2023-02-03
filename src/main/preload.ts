@@ -30,7 +30,7 @@ const electronHandler = {
       ipcRenderer.invoke('create-folder', arg);
     },
     downloadVideo(args: object) {
-      ipcRenderer.invoke('download-video', args);
+      return ipcRenderer.invoke('download-video', args);
     },
     retrieveVideoInformation(args: object) {
       return ipcRenderer.invoke('retrieve-video-information', args);

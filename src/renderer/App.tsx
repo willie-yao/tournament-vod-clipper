@@ -45,12 +45,16 @@ const Main = () => {
 
   useEffect(() => {
     if (data) {
+      console.log("data: ", data)
+      window.electron.store.delete('characterMap')
       let previousMap = window.electron.store.get('characterMap');
+      console.log("previousMap: ", previousMap)
       if (previousMap == null) {
         let characterMap: { [key: number]: string } = {};
         data.videogame.characters.forEach((character: CharacterData) => {
           characterMap[character.id] = character.name;
         });
+        console.log("Character Map: ", characterMap);
         window.electron.store.set('characterMap', characterMap);
       }
     }

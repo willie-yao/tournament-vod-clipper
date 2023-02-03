@@ -53,11 +53,11 @@ ipcMain.handle('retrieve-video-information', async (event, arg) => {
 
 ipcMain.handle('download-video', async (event, arg) => {
   console.log('args', arg);
-  youtubeDl(arg.vodUrl, {
+  return youtubeDl(arg.vodUrl, {
     // @ts-ignore
     downloadSections: '*' + arg.startTime + '-' + arg.endTime,
     output: './downloadedVODs/' + arg.tournamentName + "/" + arg.title + '.mp4',
-  }).then((output) => {});
+  });
 });
 
 ipcMain.handle('get-tournament-folders', async(event, arg) => {

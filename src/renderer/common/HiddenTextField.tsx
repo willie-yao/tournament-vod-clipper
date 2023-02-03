@@ -3,7 +3,7 @@ import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useState } from "react";
 
 
-const HiddenTextField = (label: string, defaultValue: string, onChange: any) => {
+const HiddenTextField = (label: string, helperText: string, defaultValue: string, onChange: any) => {
   const [showPassword, setShowPassword] = useState(false);
   const handleClickShowPassword = () => setShowPassword((show) => !show);
 
@@ -21,6 +21,7 @@ const HiddenTextField = (label: string, defaultValue: string, onChange: any) => 
       defaultValue={defaultValue}
       onChange={(event) => onChange(event.target.value)}
       type={showPassword ? 'text' : 'password'}
+      helperText={helperText}
       InputProps={{
         endAdornment: (
           <InputAdornment position="end">

@@ -55,7 +55,7 @@ const YTUploadView = () => {
             setYtEmail(event.target.value);
           }}
         />
-        {HiddenTextField('YouTube Password', ytPassword, onYtPasswordChange)}
+        {HiddenTextField('YouTube Password', "", ytPassword, onYtPasswordChange)}
         <TextField
           value={selectedFolder}
           onChange={(event) => setSelectedFolder(event.target.value as string)}

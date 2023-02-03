@@ -11,12 +11,15 @@ import {
   ListItemIcon,
   FormGroup,
   FormControlLabel,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useTheme } from '@mui/material/styles';
 import { VODMetadata } from 'renderer/components/VideoSearch';
+import SnackbarPopup from 'renderer/common/SnackbarPopup';
 
 const SetsView = () => {
   const theme = useTheme();
@@ -25,6 +28,10 @@ const SetsView = () => {
 
   const [checked, setChecked] = useState([0]);
   const [selectAllChecked, setSelectAllChecked] = useState(true);
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [errorOpen, setErrorOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleToggle = (set: any) => () => {
     const currentIndex = checked.indexOf(set);
@@ -58,6 +65,7 @@ const SetsView = () => {
     setSelectAllChecked(!selectAllChecked);
   };
 
+
   return (
     <Container
       sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}
@@ -74,6 +82,8 @@ const SetsView = () => {
       <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
         Select Sets to Download
       </Typography>
+      {SnackbarPopup(successMessage, "success", successOpen, setSuccessOpen)}
+      {SnackbarPopup(errorMessage, "error", errorOpen, setErrorOpen)}
       <FormGroup>
         <Button
           variant="contained"
@@ -142,6 +152,12 @@ const SetsView = () => {
                 startTime: set.startTime,
                 endTime: set.endTime,
                 tournamentName: location.state.tournamentName,
+              }).then((res: any) => {
+                setSuccessMessage('Download complete: ' + set.title)
+                setSuccessOpen(true);
+              }).catch((err: any) => {
+                setErrorMessage('Download failed: ' + err)
+                setErrorOpen(true);
               });
             }
           });
