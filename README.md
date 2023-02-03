@@ -1,6 +1,6 @@
 # Tournament VOD Clipper
 
-This is a tool built in React and Electron to help you clip VODs of tournaments automatically! It's a work in progress, so please be patient and expect some bugs ><. If you run into any issues or have any suggestions, please make an issue so I can fix it ASAP!
+This is a tool built in React and Electron to help you clip VODs of tournaments automatically! It's a work in progress, so please be patient and expect some bugs ><. If you run into any issues or have any suggestions, please make an issue [here](https://github.com/willie-yao/tournament-vod-clipper/issues) so I can fix it ASAP!
 
 ## Main Features
 - Automatically clips Twitch or YouTube VODs of matches from a start.gg bracket
@@ -24,7 +24,7 @@ This tool clips VODs automatically by retrieving timestamps of when matches are 
 
 ### Download
 - Download the latest release from the releases page:
-  - Releases
+  - https://github.com/willie-yao/tournament-vod-clipper/releases
 - Extract the zip file to a folder of your choice
 - Run the `tournament-vod-clipper.exe` file
 
