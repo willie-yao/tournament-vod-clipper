@@ -68,6 +68,15 @@ const SetsView = () => {
     const [newStartTime, setNewStartTime] = useState(moment(set.startTime, 'hh:mm:ss'))
     const [newEndTime, setNewEndTime] = useState(moment(set.endTime, 'hh:mm:ss'))
     const [newTitle, setNewTitle] = useState(set.title)
+    const [timeError, setTimeError] = useState(false)
+
+    useEffect(() => {
+      if (newEndTime.isBefore(newStartTime)) {
+        setTimeError(true)
+      } else {
+        setTimeError(false)
+      }
+    })
 
     return (
       <Dialog
@@ -121,6 +130,7 @@ const SetsView = () => {
           <Box sx={{display: 'flex', justifyContent: 'center', width: '100%'}}>
             <Button
               disableFocusRipple
+              disabled={timeError}
               variant="contained"
               color="secondary"
               size="medium"
