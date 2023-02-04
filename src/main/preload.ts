@@ -26,6 +26,9 @@ const electronHandler = {
     sendMessage(channel: Channels, args: unknown[]) {
       ipcRenderer.send(channel, args);
     },
+    openFolder(arg: string) {
+      ipcRenderer.invoke('open-folder', arg)
+    },
     createFolder(arg: string) {
       ipcRenderer.invoke('create-folder', arg);
     },

@@ -17,7 +17,8 @@ import {
   Modal,
   Box,
   Dialog,
-  TextField
+  TextField,
+  Link
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
@@ -40,8 +41,11 @@ const SetsView = () => {
   const [selectAllChecked, setSelectAllChecked] = useState(true);
   const [successOpen, setSuccessOpen] = useState(false);
   const [errorOpen, setErrorOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [infoMessage, setInfoMessage] = useState('')
+  const [downloaded, setDownloaded] = useState(false)
 
   const handleSelectAll = () => {
     let newChecked = [...checked];
@@ -63,6 +67,7 @@ const SetsView = () => {
   const EditTimestampModal = (set: any, setIndex: number, open: boolean, setOpen: React.Dispatch<React.SetStateAction<boolean>>) => {
     const [newStartTime, setNewStartTime] = useState(moment(set.startTime, 'hh:mm:ss'))
     const [newEndTime, setNewEndTime] = useState(moment(set.endTime, 'hh:mm:ss'))
+    const [newTitle, setNewTitle] = useState(set.title)
 
     return (
       <Dialog
@@ -71,12 +76,23 @@ const SetsView = () => {
           event.stopPropagation()
           setOpen(false)
         }}
+        // onClick={(event: any) => event.stopPropagation()}
       >
         <LocalizationProvider dateAdapter={AdapterMoment}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height:'30vh', padding: '20px' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height:'45vh', width: '50vw', padding: '20px' }}>
             <Typography variant="h6" component="h2" textAlign="center" gutterBottom>
-              Edit Timestamp
+              Edit Match
             </Typography>
+            <TextField
+              className="textfield"
+              label="Title"
+              defaultValue={newTitle}
+              onBlur={(event) => {
+                event.stopPropagation()
+                event.preventDefault()
+                setNewTitle(event.target.value)
+              }}
+            />
             <TimePicker
               label="Start Time"
               value={newStartTime}
@@ -102,22 +118,25 @@ const SetsView = () => {
               views={['hours', 'minutes', 'seconds']}
             />
           </Box>
-          <Button
-            disableFocusRipple
-            variant="contained"
-            color="secondary"
-            size="medium"
-            sx={{ color: 'white' }}
-            onClick={(event) => {
-              event.stopPropagation()
-              location.state.sets[setIndex].startTime = newStartTime.format("HH:mm:ss")
-              location.state.sets[setIndex].endTime = newEndTime.format("HH:mm:ss")
-              console.log("set", location.state.sets[setIndex])
-              setOpen(false)
-            }}
-          >
-            Change
-          </Button>
+          <Box sx={{display: 'flex', justifyContent: 'center', width: '100%'}}>
+            <Button
+              disableFocusRipple
+              variant="contained"
+              color="secondary"
+              size="medium"
+              sx={{ color: 'white', width: '50%', marginBottom: '5vh' }}
+              onClick={(event) => {
+                event.stopPropagation()
+                location.state.sets[setIndex].startTime = newStartTime.format("HH:mm:ss")
+                location.state.sets[setIndex].endTime = newEndTime.format("HH:mm:ss")
+                location.state.sets[setIndex].title = newTitle
+                console.log("set", location.state.sets[setIndex])
+                setOpen(false)
+              }}
+            >
+              Change
+            </Button>
+          </Box>
         </LocalizationProvider>
       </Dialog>
     )
@@ -142,6 +161,9 @@ const SetsView = () => {
     <Container
       sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}
     >
+      {SnackbarPopup(successMessage, 'success', successOpen, setSuccessOpen)}
+      {SnackbarPopup(errorMessage, 'error', errorOpen, setErrorOpen)}
+      {SnackbarPopup(infoMessage, 'info', infoOpen, setInfoOpen)}
       <Fab
         sx={{ position: 'fixed', left: '20px', top: '20px' }}
         color="secondary"
@@ -154,8 +176,6 @@ const SetsView = () => {
       <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
         Select Sets to Download
       </Typography>
-      {SnackbarPopup(successMessage, 'success', successOpen, setSuccessOpen)}
-      {SnackbarPopup(errorMessage, 'error', errorOpen, setErrorOpen)}
       <FormGroup>
         <Button
           variant="contained"
@@ -199,7 +219,9 @@ const SetsView = () => {
                 disableRipple
                 sx={{ borderRadius: '5px' }}
                 onClick={() => {
-                  handleToggle(set)
+                  if (!open) {
+                    handleToggle(set)
+                  }
                 }}
               >
                 <ListItemIcon>
@@ -224,44 +246,58 @@ const SetsView = () => {
           )
         })}
       </List>
-      <Button
-        variant="contained"
-        color="secondary"
-        sx={{ width: '40vw', marginTop: '20px', color: 'white' }}
-        onClick={() => {
-          location.state.sets.map((set: VODMetadata) => {
-            if (set.download) {
-              console.log('Downloading set: ', set);
-              window.electron.ipcRenderer
-                .downloadVideo({
-                  vodUrl: location.state.vodUrl,
-                  title: set.title,
-                  startTime: set.startTime,
-                  endTime: set.endTime,
-                  tournamentName: location.state.tournamentName,
-                })
-                .then((res: any) => {
-                  setSuccessMessage('Download complete: ' + set.title);
-                  setSuccessOpen(true);
-                })
-                .catch((err: any) => {
-                  setErrorMessage('Download failed: ' + err);
-                  setErrorOpen(true);
-                });
-            }
-          });
-        }}
-      >
-        Download VODs
-      </Button>
-      <Button
-        variant="contained"
-        color="secondary"
-        sx={{ width: '40vw', marginTop: '20px', color: 'white' }}
-        onClick={() => navigate('/YTUploadView')}
-      >
-        Upload
-      </Button>
+      <Box sx={{ display: 'flex', justifyContent: 'space-around', width: '100%' }}>
+        <Button
+          variant="contained"
+          color="secondary"
+          sx={{ width: '27vw', marginTop: '20px', color: 'white' }}
+          onClick={() => {
+            setDownloaded(true)
+            setInfoMessage('Your VODs are being downloaded to ./downloadedVODs/' + location.state.tournamentName);
+            setInfoOpen(true)
+            location.state.sets.map((set: VODMetadata) => {
+              if (set.download) {
+                console.log('Downloading set: ', set);
+                window.electron.ipcRenderer
+                  .downloadVideo({
+                    vodUrl: location.state.vodUrl,
+                    title: set.title,
+                    startTime: set.startTime,
+                    endTime: set.endTime,
+                    tournamentName: location.state.tournamentName,
+                  })
+                  .then((res: any) => {
+                    setSuccessMessage('Download complete: ' + set.title);
+                    setSuccessOpen(true);
+                  })
+                  .catch((err: any) => {
+                    setErrorMessage('Download failed: ' + err);
+                    setErrorOpen(true);
+                  });
+              }
+            });
+          }}
+        >
+          Download VODs
+        </Button>
+        <Button
+          disabled={!downloaded}
+          variant="contained"
+          color="secondary"
+          sx={{ width: '27vw', marginTop: '20px', color: 'white' }}
+          onClick={() => window.electron.ipcRenderer.openFolder(location.state.tournamentName)}
+        >
+          Open VOD Folder
+        </Button>
+        <Button
+          variant="contained"
+          color="secondary"
+          sx={{ width: '27vw', marginTop: '20px', color: 'white' }}
+          onClick={() => navigate('/YTUploadView')}
+        >
+          Continue to Upload
+        </Button>
+      </Box>
     </Container>
   );
 };

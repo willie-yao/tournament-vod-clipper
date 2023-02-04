@@ -41,6 +41,10 @@ ipcMain.handle('create-folder', async (event, arg) => {
   });
 });
 
+ipcMain.handle('open-folder', async(event, arg) => {
+  shell.openPath(process.cwd() + path.sep + 'downloadedVODs' + path.sep + arg)
+})
+
 ipcMain.handle('retrieve-video-information', async (event, arg) => {
   return youtubeDl(arg.vodUrl, {
     printJson: true,
