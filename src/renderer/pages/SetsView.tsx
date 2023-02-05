@@ -18,18 +18,21 @@ import {
   Box,
   Dialog,
   TextField,
-  Link
+  Card,
+  CardContent,
+  CardMedia
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '@mui/material/styles';
 import { VODMetadata } from 'renderer/components/VideoSearch';
 import SnackbarPopup from 'renderer/common/SnackbarPopup';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
+// import ReactTwitchEmbedVideo from "react-twitch-embed-video"
 import moment from 'moment'
 
 const SetsView = () => {
@@ -65,16 +68,46 @@ const SetsView = () => {
   };
 
   const EditTimestampModal = (set: any, setIndex: number, open: boolean, setOpen: React.Dispatch<React.SetStateAction<boolean>>) => {
-    const [newStartTime, setNewStartTime] = useState(moment(set.startTime, 'hh:mm:ss'))
-    const [newEndTime, setNewEndTime] = useState(moment(set.endTime, 'hh:mm:ss'))
+    const [newStartTime, setNewStartTime] = useState(moment(set.startTime, 'HH:mm:ss'))
+    const [newEndTime, setNewEndTime] = useState(moment(set.endTime, 'HH:mm:ss'))
+    const [embedLink, setEmbedLink] = useState("")
     const [newTitle, setNewTitle] = useState(set.title)
     const [timeError, setTimeError] = useState(false)
+
+    let partUrl = location.state.vodUrl.split('/')
+    let twitchId = partUrl.pop() || partUrl.pop()
 
     useEffect(() => {
       if (newEndTime.isBefore(newStartTime)) {
         setTimeError(true)
       } else {
         setTimeError(false)
+      }
+    })
+
+    useEffect(() => {
+      if (newStartTime) {
+        let split = newStartTime.format('HH:mm:ss').split(':')
+        if (split.length === 3) {
+          let hours = split[0]
+          let minutes = split[1]
+          let seconds = split[2]
+          let twitchFormat = ""
+          if (hours !== "00") {
+            twitchFormat = twitchFormat.concat(hours.replace(/^0+/, ''), "h")
+          }
+          if (minutes !== "00") {
+            twitchFormat = twitchFormat.concat(minutes.replace(/^0+/, ''), "m")
+          } else {
+            twitchFormat = twitchFormat.concat("0m")
+          }
+          if (seconds !== "00") {
+            twitchFormat = twitchFormat.concat(seconds.replace(/^0+/, ''), "s")
+          } else {
+            twitchFormat = twitchFormat.concat("0s")
+          }
+          setEmbedLink("https://player.twitch.tv/?video=" + twitchId + "&t=" + twitchFormat + "&parent=localhost&autoplay=false")
+        }
       }
     })
 
@@ -88,10 +121,19 @@ const SetsView = () => {
         // onClick={(event: any) => event.stopPropagation()}
       >
         <LocalizationProvider dateAdapter={AdapterMoment}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height:'45vh', width: '50vw', padding: '20px' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height:'100vh', width: '70vw', padding: '20px' }}>
             <Typography variant="h6" component="h2" textAlign="center" gutterBottom>
               Edit Match
             </Typography>
+            {/* <ReactTwitchEmbedVideo video={twitchId}/> */}
+            <Card sx={{ height: '35vh', width: '100%' }}>
+              <iframe
+                src={embedLink}
+                height='100%'
+                width='100%'
+              >
+              </iframe>
+            </Card>
             <TextField
               className="textfield"
               label="Title"
