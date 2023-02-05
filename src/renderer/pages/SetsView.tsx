@@ -20,7 +20,8 @@ import {
   TextField,
   Card,
   CardContent,
-  CardMedia
+  CardMedia,
+  Tooltip
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
@@ -32,7 +33,7 @@ import SnackbarPopup from 'renderer/common/SnackbarPopup';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
-// import ReactTwitchEmbedVideo from "react-twitch-embed-video"
+import SkipNextIcon from '@mui/icons-material/SkipNext';
 import moment from 'moment'
 
 const SetsView = () => {
@@ -70,6 +71,7 @@ const SetsView = () => {
   const EditTimestampModal = (set: any, setIndex: number, open: boolean, setOpen: React.Dispatch<React.SetStateAction<boolean>>) => {
     const [newStartTime, setNewStartTime] = useState(moment(set.startTime, 'HH:mm:ss'))
     const [newEndTime, setNewEndTime] = useState(moment(set.endTime, 'HH:mm:ss'))
+    const [skipTime, setSkipTime] = useState(moment(set.startTime, 'HH:mm:ss'))
     const [embedLink, setEmbedLink] = useState("")
     const [newTitle, setNewTitle] = useState(set.title)
     const [timeError, setTimeError] = useState(false)
@@ -86,8 +88,12 @@ const SetsView = () => {
     })
 
     useEffect(() => {
-      if (newStartTime) {
-        let split = newStartTime.format('HH:mm:ss').split(':')
+      setSkipTime(newStartTime)
+    }, [newStartTime])
+
+    useEffect(() => {
+      if (skipTime) {
+        let split = skipTime.format('HH:mm:ss').split(':')
         if (split.length === 3) {
           let hours = split[0]
           let minutes = split[1]
@@ -106,7 +112,7 @@ const SetsView = () => {
           } else {
             twitchFormat = twitchFormat.concat("0s")
           }
-          setEmbedLink("https://player.twitch.tv/?video=" + twitchId + "&t=" + twitchFormat + "&parent=localhost&autoplay=false")
+          setEmbedLink("https://player.twitch.tv/?video=" + twitchId + "&t=" + twitchFormat + "&parent=localhost&muted=true")
         }
       }
     })
@@ -144,30 +150,46 @@ const SetsView = () => {
                 setNewTitle(event.target.value)
               }}
             />
-            <TimePicker
-              label="Start Time"
-              value={newStartTime}
-              onChange={(newValue: any) => {
-                setNewStartTime(newValue)
-              }}
-              renderInput={(params) => <TextField {...params} />}
-              inputFormat="HH:mm:ss"
-              mask="__:__:__"
-              ampm={false}
-              views={['hours', 'minutes', 'seconds']}
-            />
-            <TimePicker
-              label="End Time"
-              value={newEndTime}
-              onChange={(newValue: any) => {
-                setNewEndTime(newValue)
-              }}
-              renderInput={(params) => <TextField {...params} />}
-              inputFormat="HH:mm:ss"
-              mask="__:__:__"
-              ampm={false}
-              views={['hours', 'minutes', 'seconds']}
-            />
+            <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between' }}>
+              <TimePicker
+                label="Start Time"
+                value={newStartTime}
+                onChange={(newValue: any) => {
+                  setNewStartTime(newValue)
+                }}
+                renderInput={(params) => <TextField {...params} />}
+                inputFormat="HH:mm:ss"
+                mask="__:__:__"
+                ampm={false}
+                views={['hours', 'minutes', 'seconds']}
+                className="timepicker"
+              />
+              <Tooltip title="Skip to start">
+                <IconButton onClick={() => setSkipTime(newStartTime)}>
+                  <SkipNextIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+            <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between' }}>
+              <TimePicker
+                label="End Time"
+                value={newEndTime}
+                onChange={(newValue: any) => {
+                  setNewEndTime(newValue)
+                }}
+                renderInput={(params) => <TextField {...params} />}
+                inputFormat="HH:mm:ss"
+                mask="__:__:__"
+                ampm={false}
+                views={['hours', 'minutes', 'seconds']}
+                className="timepicker"
+              />
+              <Tooltip title="Skip to end">
+                <IconButton onClick={() => setSkipTime(newEndTime)}>
+                  <SkipNextIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Box>
           <Box sx={{display: 'flex', justifyContent: 'center', width: '100%'}}>
             <Button
