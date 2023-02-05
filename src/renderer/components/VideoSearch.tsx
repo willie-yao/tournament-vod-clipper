@@ -19,7 +19,8 @@ const RetrieveSets = (
   eventId: string,
   vodUrl: string,
   stationNumber: number,
-  buttonDisabled: boolean
+  buttonDisabled: boolean,
+  setButtonDisabled: React.Dispatch<React.SetStateAction<boolean>>,
 ): JSX.Element => {
   const navigate = useNavigate();
   const theme = useTheme();
@@ -41,6 +42,14 @@ const RetrieveSets = (
     GET_SETS_AT_STATION,
     options
   );
+
+  useEffect(() => {
+    if (loading || waiting) {
+      setButtonDisabled(true)
+    } else if (error) {
+      setButtonDisabled(false)
+    }
+  })
 
   useEffect(() => {
     if (data) {
@@ -76,10 +85,10 @@ const RetrieveSets = (
             }
             let metadata: VODMetadata = {
               title:
-                set.slots[0].entrant.name +
+                set.slots[0].entrant.name.split('|').pop().trim() +
                 characterStrings[0] +
                 ' vs ' +
-                set.slots[1].entrant.name +
+                set.slots[1].entrant.name.split('|').pop().trim() +
                 characterStrings[1] +
                 ' - ' +
                 set.fullRoundText +
@@ -96,6 +105,7 @@ const RetrieveSets = (
             return metadata;
           });
           setWaiting(false);
+          console.log("All sets", formattedSets)
           navigate('/SetsView', {
             state: {
               sets: formattedSets,
@@ -218,7 +228,7 @@ const VideoSearch = () => {
         helperText="The station number the stream is assigned to."
         sx={{ marginBottom: '25px' }}
       />
-      {RetrieveSets(eventId, vodUrl, stationNumber, buttonDisabled)}
+      {RetrieveSets(eventId, vodUrl, stationNumber, buttonDisabled, setButtonDisabled)}
     </Box>
   );
 };

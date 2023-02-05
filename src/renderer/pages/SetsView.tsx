@@ -75,6 +75,7 @@ const SetsView = () => {
     const [embedLink, setEmbedLink] = useState("")
     const [newTitle, setNewTitle] = useState(set.title)
     const [timeError, setTimeError] = useState(false)
+    const [randomKey, setRandomKey] = useState(Math.random())
 
     let partUrl = location.state.vodUrl.split('/')
     let twitchId = partUrl.pop() || partUrl.pop()
@@ -88,32 +89,26 @@ const SetsView = () => {
     })
 
     useEffect(() => {
-      setSkipTime(newStartTime)
-    }, [newStartTime])
-
-    useEffect(() => {
-      if (skipTime) {
-        let split = skipTime.format('HH:mm:ss').split(':')
-        if (split.length === 3) {
-          let hours = split[0]
-          let minutes = split[1]
-          let seconds = split[2]
-          let twitchFormat = ""
-          if (hours !== "00") {
-            twitchFormat = twitchFormat.concat(hours.replace(/^0+/, ''), "h")
-          }
-          if (minutes !== "00") {
-            twitchFormat = twitchFormat.concat(minutes.replace(/^0+/, ''), "m")
-          } else {
-            twitchFormat = twitchFormat.concat("0m")
-          }
-          if (seconds !== "00") {
-            twitchFormat = twitchFormat.concat(seconds.replace(/^0+/, ''), "s")
-          } else {
-            twitchFormat = twitchFormat.concat("0s")
-          }
-          setEmbedLink("https://player.twitch.tv/?video=" + twitchId + "&t=" + twitchFormat + "&parent=localhost&muted=true")
+      let split = skipTime.format('HH:mm:ss').split(':')
+      if (split.length === 3) {
+        let hours = split[0]
+        let minutes = split[1]
+        let seconds = split[2]
+        let twitchFormat = ""
+        if (hours !== "00") {
+          twitchFormat = twitchFormat.concat(hours.replace(/^0+/, ''), "h")
         }
+        if (minutes !== "00") {
+          twitchFormat = twitchFormat.concat(minutes.replace(/^0+/, ''), "m")
+        } else {
+          twitchFormat = twitchFormat.concat("0m")
+        }
+        if (seconds !== "00") {
+          twitchFormat = twitchFormat.concat(seconds.replace(/^0+/, ''), "s")
+        } else {
+          twitchFormat = twitchFormat.concat("0s")
+        }
+        setEmbedLink("https://player.twitch.tv/?video=" + twitchId + "&t=" + twitchFormat + "&parent=localhost&muted=true")
       }
     })
 
@@ -127,7 +122,7 @@ const SetsView = () => {
         // onClick={(event: any) => event.stopPropagation()}
       >
         <LocalizationProvider dateAdapter={AdapterMoment}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height:'100vh', width: '70vw', padding: '20px' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height:'100vh', minWidth: '50vw', padding: '20px' }}>
             <Typography variant="h6" component="h2" textAlign="center" gutterBottom>
               Edit Match
             </Typography>
@@ -137,6 +132,7 @@ const SetsView = () => {
                 src={embedLink}
                 height='100%'
                 width='100%'
+                key={randomKey}
               >
               </iframe>
             </Card>
@@ -144,11 +140,12 @@ const SetsView = () => {
               className="textfield"
               label="Title"
               defaultValue={newTitle}
-              onBlur={(event) => {
+              onChange={(event) => {
                 event.stopPropagation()
                 event.preventDefault()
                 setNewTitle(event.target.value)
               }}
+              helperText={newTitle.length + "/100 | YouTube title character limit"}
             />
             <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between' }}>
               <TimePicker
@@ -165,7 +162,7 @@ const SetsView = () => {
                 className="timepicker"
               />
               <Tooltip title="Skip to start">
-                <IconButton onClick={() => setSkipTime(newStartTime)}>
+                <IconButton onClick={() => newStartTime === skipTime ? setRandomKey(Math.random()) : setSkipTime(newStartTime)}>
                   <SkipNextIcon />
                 </IconButton>
               </Tooltip>
@@ -185,7 +182,7 @@ const SetsView = () => {
                 className="timepicker"
               />
               <Tooltip title="Skip to end">
-                <IconButton onClick={() => setSkipTime(newEndTime)}>
+                <IconButton onClick={() => newEndTime === skipTime ? setRandomKey(Math.random()) : setSkipTime(newEndTime)}>
                   <SkipNextIcon />
                 </IconButton>
               </Tooltip>

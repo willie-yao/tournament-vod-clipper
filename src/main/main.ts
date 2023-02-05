@@ -69,11 +69,11 @@ ipcMain.handle('get-tournament-folders', async(event, arg) => {
 })
 
 ipcMain.handle('upload-videos', async(event, args) => {
-  const credentials = { email: args.email, pass: safeStorage.decryptString(Buffer.from(store.get('ytPassword') as Buffer))}
+  const credentials = { email: args.email, recoveryemail: args.recoveryemail, pass: safeStorage.decryptString(Buffer.from(store.get('ytPassword') as Buffer))}
   const videoList: Video[] = []
   fs.readdirSync(args.path).forEach((videoName: any) => {
     if (path.extname(videoName).toLowerCase() === '.mp4') {
-      const videoMetadata = { path: args.path + videoName, title: videoName.replace(/\.[^/.]+$/, ""), description: 'description 1' }
+      const videoMetadata = { path: args.path + videoName, title: videoName.replace(/\.[^/.]+$/, ""), description: args.description, playlist: args.playlistName, isNotForKid: true }
       videoList.push(videoMetadata)
       console.log("videoMetadata", videoMetadata)
     }

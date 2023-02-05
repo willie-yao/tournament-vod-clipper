@@ -25,6 +25,7 @@ const YTUploadView = () => {
   const [ytPassword, setYtPassword] = useState(
     window.electron.store.getSecret('ytPassword')
   );
+  const [description, setDescription] = useState("")
   const [ytEmailError, setYtEmailError] = useState(false);
   const [ytRecoveryEmailError, setYtRecoveryEmailError] = useState(false);
   const [tounamentFolders, setTournamentFolders] = useState<string[]>([]);
@@ -32,8 +33,10 @@ const YTUploadView = () => {
   const [buttonDisabled, setButtonDisabled] = useState(true);
   const [successOpen, setSuccessOpen] = useState(false);
   const [errorOpen, setErrorOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [infoMessage, setInfoMessage] = useState('')
   const path = './downloadedVODs';
 
   useEffect(() => {
@@ -80,10 +83,14 @@ const YTUploadView = () => {
   };
 
   const uploadVideos = () => {
+    setInfoMessage('Your videos are being uploaded! Check your YouTube account for progress updates.');
+    setInfoOpen(true);
     const params = {
       path: './downloadedVODs/' + selectedFolder + '/',
       email: ytEmail,
       recoveryemail: ytRecoveryEmail,
+      description: description,
+      playlistName: selectedFolder,
     };
     window.electron.ipcRenderer
       .uploadVideos(params)
@@ -105,7 +112,8 @@ const YTUploadView = () => {
       </Typography>
       {SnackbarPopup(successMessage, 'success', successOpen, setSuccessOpen)}
       {SnackbarPopup(errorMessage, 'error', errorOpen, setErrorOpen)}
-      <Box className="background-card">
+      {SnackbarPopup(infoMessage, 'info', infoOpen, setInfoOpen)}
+      <Box className="background-card" sx={{ height: '70vh' }}>
         <TextField
           required
           className="textfield"
@@ -152,6 +160,13 @@ const YTUploadView = () => {
             );
           })}
         </TextField>
+        <TextField
+          onChange={(event) => setDescription(event.target.value as string)}
+          label="Video Description"
+          variant="filled"
+          rows={3}
+          multiline
+        />
         <Button
           disabled={buttonDisabled}
           variant="contained"
