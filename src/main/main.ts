@@ -18,8 +18,8 @@ import youtubeDl from 'youtube-dl-exec';
 import * as dotenv from 'dotenv'; // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 dotenv.config();
 import Store from 'electron-store';
-import { upload } from 'youtube-videos-uploader'
-import { Video } from 'youtube-videos-uploader/dist/types';
+// import { upload } from 'youtube-videos-uploader'
+// import { Video } from 'youtube-videos-uploader/dist/types';
 
 const fs = require('fs');
 const store = new Store();
@@ -69,16 +69,16 @@ ipcMain.handle('get-tournament-folders', async(event, arg) => {
 })
 
 ipcMain.handle('upload-videos', async(event, args) => {
-  const credentials = { email: args.email, recoveryemail: args.recoveryemail, pass: safeStorage.decryptString(Buffer.from(store.get('ytPassword') as Buffer))}
-  const videoList: Video[] = []
-  fs.readdirSync(args.path).forEach((videoName: any) => {
-    if (path.extname(videoName).toLowerCase() === '.mp4') {
-      const videoMetadata = { path: args.path + videoName, title: videoName.replace(/\.[^/.]+$/, ""), description: args.description, playlist: args.playlistName, isNotForKid: true }
-      videoList.push(videoMetadata)
-      console.log("videoMetadata", videoMetadata)
-    }
-  })
-  return upload(credentials, videoList)
+  // const credentials = { email: args.email, recoveryemail: args.recoveryemail, pass: safeStorage.decryptString(Buffer.from(store.get('ytPassword') as Buffer))}
+  // const videoList: Video[] = []
+  // fs.readdirSync(args.path).forEach((videoName: any) => {
+  //   if (path.extname(videoName).toLowerCase() === '.mp4') {
+  //     const videoMetadata = { path: args.path + videoName, title: videoName.replace(/\.[^/.]+$/, ""), description: args.description, playlist: args.playlistName, isNotForKid: true }
+  //     videoList.push(videoMetadata)
+  //     console.log("videoMetadata", videoMetadata)
+  //   }
+  // })
+  // return upload(credentials, videoList)
 })
 
 ipcMain.handle('get-api-key', async (event, arg) => {

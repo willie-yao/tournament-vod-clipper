@@ -6,7 +6,7 @@ import { useTheme } from '@mui/material/styles';
 import { PropagateLoader } from 'react-spinners';
 import { useNavigate } from 'react-router-dom';
 import HiddenTextField from 'renderer/common/HiddenTextField';
-import validator from 'validator';
+// import validator from 'validator';
 
 export interface VODMetadata {
   title: string;
@@ -175,8 +175,13 @@ const VideoSearch = () => {
     }
   });
 
+  function isValidURL(url: string) {
+    var res = url.match(/(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/g);
+    return (res !== null)
+  };
+
   useEffect(() => {
-    if (validator.isURL(vodUrl) || vodUrl == '') {
+    if (isValidURL(vodUrl) || vodUrl == '') {
       setUrlError(false);
     } else {
       setUrlError(true);

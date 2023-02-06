@@ -116,7 +116,6 @@
     "@mui/icons-material": "^5.11.0",
     "@mui/material": "^5.11.6",
     "@mui/x-date-pickers": "^5.0.17",
-    "@types/validator": "^13.7.11",
     "axios": "^1.2.4",
     "dotenv": "^16.0.3",
     "electron-debug": "^3.2.0",
@@ -131,8 +130,7 @@
     "react-router-dom": "^6.4.0",
     "react-spinners": "^0.13.8",
     "validator": "^13.9.0",
-    "youtube-dl-exec": "^2.1.11",
-    "youtube-videos-uploader": "^2.0.9"
+    "youtube-dl-exec": "^2.1.11"
   },
   "devDependencies": {
     "@electron/notarize": "^1.2.3",
@@ -260,7 +258,9 @@
       "output": "release/build"
     },
     "extraResources": [
-      "./assets/**"
+      "./assets/**",
+      {"from": "./node_modules/youtube-dl-exec/bin", "to": "../"},
+      {"from": "./node_modules/youtube-dl-exec/bin", "to": "./app/dist/bin"}
     ],
     "publish": {
       "provider": "github",
