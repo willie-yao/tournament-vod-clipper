@@ -41,13 +41,16 @@ const electronHandler = {
     getTournamentFolders(arg: string) {
       return ipcRenderer.invoke('get-tournament-folders', arg)
     },
+    openGoogleLogin(arg: string) {
+      return ipcRenderer.invoke('open-google-login', arg)
+    },
     uploadVideos(args: object) {
       return ipcRenderer.invoke('upload-videos', args)
     },
     getApiKey() {
       return ipcRenderer.invoke('get-api-key');
     },
-    on(channel: Channels, func: (...args: unknown[]) => void) {
+    on(channel: any, func: (...args: unknown[]) => void) {
       const subscription = (_event: IpcRendererEvent, ...args: unknown[]) =>
         func(...args);
       ipcRenderer.on(channel, subscription);

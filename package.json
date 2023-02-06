@@ -113,6 +113,8 @@
     "@emotion/react": "^11.10.5",
     "@emotion/styled": "^11.10.5",
     "@fontsource/roboto": "^4.5.8",
+    "@getstation/electron-google-oauth2": "^2.1.0",
+    "@google-cloud/local-auth": "^2.1.1",
     "@mui/icons-material": "^5.11.0",
     "@mui/material": "^5.11.6",
     "@mui/x-date-pickers": "^5.0.17",
@@ -123,6 +125,7 @@
     "electron-log": "^4.4.8",
     "electron-store": "^8.1.0",
     "electron-updater": "^5.2.3",
+    "googleapis": "^110.0.0",
     "graphql": "^16.6.0",
     "moment": "^2.29.4",
     "react": "^18.2.0",
@@ -130,6 +133,7 @@
     "react-router-dom": "^6.4.0",
     "react-spinners": "^0.13.8",
     "validator": "^13.9.0",
+    "yargs": "^17.6.2",
     "youtube-dl-exec": "^2.1.11"
   },
   "devDependencies": {
@@ -259,8 +263,14 @@
     },
     "extraResources": [
       "./assets/**",
-      {"from": "./node_modules/youtube-dl-exec/bin", "to": "../"},
-      {"from": "./node_modules/youtube-dl-exec/bin", "to": "./app/dist/bin"}
+      {
+        "from": "./node_modules/youtube-dl-exec/bin",
+        "to": "../"
+      },
+      {
+        "from": "./node_modules/youtube-dl-exec/bin",
+        "to": "./app/dist/bin"
+      }
     ],
     "publish": {
       "provider": "github",

@@ -8,7 +8,7 @@
  * When running `npm run build` or `npm run build:main`, this file is compiled to
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
-import path from 'path';
+import path, { resolve } from 'path';
 import { app, BrowserWindow, shell, ipcMain, safeStorage } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
@@ -18,12 +18,65 @@ import youtubeDl from 'youtube-dl-exec';
 import * as dotenv from 'dotenv'; // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 dotenv.config();
 import Store from 'electron-store';
+import ElectronGoogleOAuth2 from '@getstation/electron-google-oauth2';
 // import { upload } from 'youtube-videos-uploader'
 // import { Video } from 'youtube-videos-uploader/dist/types';
 
 const fs = require('fs');
 const store = new Store();
 const isDev = require('electron-is-dev');
+
+// initialize the Youtube API library
+const {google} = require('googleapis');
+const youtube = google.youtube('v3');
+const readline = require('readline');
+const {authenticate} = require('@google-cloud/local-auth');
+
+// very basic example of uploading a video to youtube
+async function runSample(fileName: string) {
+  // Obtain user credentials to use for the request
+  const auth = await authenticate({
+    keyfilePath: path.join(__dirname, '../oauth2.keys.json'),
+    scopes: [
+      'https://www.googleapis.com/auth/youtube.upload',
+      'https://www.googleapis.com/auth/youtube',
+    ],
+  });
+  google.options({auth});
+
+  const fileSize = fs.statSync(fileName).size;
+  const res = await youtube.videos.insert(
+    {
+      part: 'id,snippet,status',
+      notifySubscribers: false,
+      requestBody: {
+        snippet: {
+          title: 'Node.js YouTube Upload Test',
+          description: 'Testing YouTube upload via Google APIs Node.js Client',
+        },
+        status: {
+          privacyStatus: 'private',
+        },
+      },
+      media: {
+        body: fs.createReadStream(fileName),
+      },
+    },
+    {
+      // Use the `onUploadProgress` event from Axios to track the
+      // number of bytes uploaded to this point.
+      onUploadProgress: (evt: any) => {
+        const progress = (evt.bytesRead / fileSize) * 100;
+        readline.clearLine(process.stdout, 0);
+        readline.cursorTo(process.stdout, 0, null);
+        process.stdout.write(`${Math.round(progress)}% complete`);
+      },
+    }
+  );
+  console.log('\n\n');
+  console.log(res.data);
+  return res.data;
+}
 
 class AppUpdater {
   constructor() {
@@ -34,6 +87,35 @@ class AppUpdater {
 }
 
 let mainWindow: BrowserWindow | null = null;
+
+// Deep linked url
+let deeplinkingUrl: any
+
+// Force Single Instance Application
+const gotTheLock = app.requestSingleInstanceLock()
+if (gotTheLock) {
+  console.log("Got the lock")
+  console.log("process.argv", process.argv)
+  app.on('second-instance', (e, argv) => {
+    // Someone tried to run a second instance, we should focus our window.
+    console.log("second instance")
+    // Protocol handler for win32
+    // argv: An array of the second instance’s (command line / deep linked) arguments
+    if (process.platform == 'win32') {
+      // Keep only command line / deep linked arguments
+      deeplinkingUrl = argv.slice(1)
+    }
+    logEverywhere('app.makeSingleInstance# ' + deeplinkingUrl)
+
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
+} else {
+  console.log("Did not get the lock")
+  app.quit()
+}
 
 ipcMain.handle('create-folder', async (event, arg) => {
   fs.mkdir('./test-folder', { recursive: true }, (err: Error) => {
@@ -68,16 +150,36 @@ ipcMain.handle('get-tournament-folders', async(event, arg) => {
   return fs.readdirSync(arg).filter((file: any) => fs.statSync(arg + '/'+ file).isDirectory())
 })
 
+ipcMain.handle('open-google-login', async(event, arg) => {
+  // shell.openExternal("http://localhost:3000/")
+
+  // const myApiOauth = new ElectronGoogleOAuth2(
+  //   ['https://www.googleapis.com/auth/youtube.upload'],
+  //   { successRedirectURL: 'tournamentvodclipper://' }
+  // );
+
+  return myApiOauth.openAuthWindowAndGetTokens()
+})
+
 ipcMain.handle('upload-videos', async(event, args) => {
   // const credentials = { email: args.email, recoveryemail: args.recoveryemail, pass: safeStorage.decryptString(Buffer.from(store.get('ytPassword') as Buffer))}
   // const videoList: Video[] = []
-  // fs.readdirSync(args.path).forEach((videoName: any) => {
-  //   if (path.extname(videoName).toLowerCase() === '.mp4') {
-  //     const videoMetadata = { path: args.path + videoName, title: videoName.replace(/\.[^/.]+$/, ""), description: args.description, playlist: args.playlistName, isNotForKid: true }
-  //     videoList.push(videoMetadata)
-  //     console.log("videoMetadata", videoMetadata)
-  //   }
-  // })
+  fs.readdirSync(args.path).forEach((videoName: any) => {
+    if (path.extname(videoName).toLowerCase() === '.mp4') {
+      runSample(args.path + videoName).then(
+        (data: any) => {
+          console.log(data);
+          return data
+        }
+      ).catch((err: any) => {
+        console.log(err);
+        return err
+      })
+      // const videoMetadata = { path: args.path + videoName, title: videoName.replace(/\.[^/.]+$/, ""), description: args.description, playlist: args.playlistName, isNotForKid: true }
+      // videoList.push(videoMetadata)
+      // console.log("videoMetadata", videoMetadata)
+    }
+  })
   // return upload(credentials, videoList)
 })
 
@@ -200,9 +302,34 @@ const createWindow = async () => {
   new AppUpdater();
 };
 
+// Log both at dev console and at running node console instance
+function logEverywhere(s: any) {
+  console.log(s)
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.executeJavaScript(`console.log("${s}")`)
+  }
+}
+
 /**
  * Add event listeners...
- */
+*/
+
+if (isDev && process.platform === 'win32') {
+  // Set the path of electron.exe and your app.
+  // These two additional parameters are only available on windows.
+  // Setting this is required to get this working in dev mode.
+  app.setAsDefaultProtocolClient('tournamentvodclipper', process.execPath, [process.argv[1]]);
+} else {
+  app.setAsDefaultProtocolClient('tournamentvodclipper');
+}
+
+app.on('open-url', function(event, url) {
+  console.log("open-url called")
+  event.preventDefault()
+  deeplinkingUrl = url
+  logEverywhere('open-url# ' + deeplinkingUrl)
+  mainWindow?.webContents.send('login-success', { deeplinkingUrl })
+})
 
 app.on('window-all-closed', () => {
   // Respect the OSX convention of having the application in memory even

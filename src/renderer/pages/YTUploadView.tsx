@@ -37,6 +37,7 @@ const YTUploadView = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [infoMessage, setInfoMessage] = useState('')
+  const [accessToken, setAccessToken] = useState('')
   const path = './downloadedVODs';
 
   useEffect(() => {
@@ -92,16 +93,19 @@ const YTUploadView = () => {
       description: description,
       playlistName: selectedFolder,
     };
-    window.electron.ipcRenderer
-      .uploadVideos(params)
-      .then((result) => {
-        setSuccessMessage('Upload complete! ' + result);
-        setSuccessOpen(true);
-      })
-      .catch((error) => {
-        setErrorMessage('Error uploading: ' + error);
-        setErrorOpen(true);
-      });
+    window.electron.ipcRenderer.openGoogleLogin("hello").then((token) => {
+      setAccessToken(token.access_token)
+    })
+    // window.electron.ipcRenderer
+    //   .uploadVideos(params)
+    //   .then((result) => {
+    //     setSuccessMessage('Upload complete! ' + result);
+    //     setSuccessOpen(true);
+    //   })
+    //   .catch((error) => {
+    //     setErrorMessage('Error uploading: ' + error);
+    //     setErrorOpen(true);
+    //   });
   };
 
   return (
