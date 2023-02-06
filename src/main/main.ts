@@ -30,53 +30,6 @@ const isDev = require('electron-is-dev');
 const {google} = require('googleapis');
 const youtube = google.youtube('v3');
 const readline = require('readline');
-const {authenticate} = require('@google-cloud/local-auth');
-
-// very basic example of uploading a video to youtube
-async function runSample(fileName: string) {
-  // Obtain user credentials to use for the request
-  const auth = await authenticate({
-    keyfilePath: path.join(__dirname, '../oauth2.keys.json'),
-    scopes: [
-      'https://www.googleapis.com/auth/youtube.upload',
-      'https://www.googleapis.com/auth/youtube',
-    ],
-  });
-  google.options({auth});
-
-  const fileSize = fs.statSync(fileName).size;
-  const res = await youtube.videos.insert(
-    {
-      part: 'id,snippet,status',
-      notifySubscribers: false,
-      requestBody: {
-        snippet: {
-          title: 'Node.js YouTube Upload Test',
-          description: 'Testing YouTube upload via Google APIs Node.js Client',
-        },
-        status: {
-          privacyStatus: 'private',
-        },
-      },
-      media: {
-        body: fs.createReadStream(fileName),
-      },
-    },
-    {
-      // Use the `onUploadProgress` event from Axios to track the
-      // number of bytes uploaded to this point.
-      onUploadProgress: (evt: any) => {
-        const progress = (evt.bytesRead / fileSize) * 100;
-        readline.clearLine(process.stdout, 0);
-        readline.cursorTo(process.stdout, 0, null);
-        process.stdout.write(`${Math.round(progress)}% complete`);
-      },
-    }
-  );
-  console.log('\n\n');
-  console.log(res.data);
-  return res.data;
-}
 
 class AppUpdater {
   constructor() {
@@ -158,26 +111,49 @@ ipcMain.handle('open-google-login', async(event, arg) => {
   //   { successRedirectURL: 'tournamentvodclipper://' }
   // );
 
-  return myApiOauth.openAuthWindowAndGetTokens()
+  // return myApiOauth.openAuthWindowAndGetTokens()
 })
 
 ipcMain.handle('upload-videos', async(event, args) => {
   // const credentials = { email: args.email, recoveryemail: args.recoveryemail, pass: safeStorage.decryptString(Buffer.from(store.get('ytPassword') as Buffer))}
   // const videoList: Video[] = []
   fs.readdirSync(args.path).forEach((videoName: any) => {
+    const fileSize = fs.statSync(args.path + videoName).size;
     if (path.extname(videoName).toLowerCase() === '.mp4') {
-      runSample(args.path + videoName).then(
-        (data: any) => {
-          console.log(data);
-          return data
+      console.log('videoName', videoName)
+      return youtube.videos.insert(
+        {
+          part: 'id,snippet,status',
+          notifySubscribers: false,
+          requestBody: {
+            snippet: {
+              title: videoName.replace(/\.[^/.]+$/, ""),
+              description: args.description,
+            },
+            status: {
+              privacyStatus: 'unlisted',
+            },
+          },
+          media: {
+            body: fs.createReadStream(args.path + videoName),
+          },
+          access_token: args.accessToken
+        },
+        {
+          // Use the `onUploadProgress` event from Axios to track the
+          // number of bytes uploaded to this point.
+          onUploadProgress: (evt: any) => {
+            const progress = (evt.bytesRead / fileSize) * 100;
+            readline.clearLine(process.stdout, 0);
+            readline.cursorTo(process.stdout, 0, null);
+            process.stdout.write(`${Math.round(progress)}% complete`);
+          },
         }
-      ).catch((err: any) => {
-        console.log(err);
-        return err
+      ).then((response: any) => {
+        console.log("response", response)
+      }).catch((error: any) => {
+        return error
       })
-      // const videoMetadata = { path: args.path + videoName, title: videoName.replace(/\.[^/.]+$/, ""), description: args.description, playlist: args.playlistName, isNotForKid: true }
-      // videoList.push(videoMetadata)
-      // console.log("videoMetadata", videoMetadata)
     }
   })
   // return upload(credentials, videoList)

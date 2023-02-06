@@ -83,6 +83,18 @@ const YTUploadView = () => {
     window.electron.store.setSecret('ytPassword', value);
   };
 
+  const login = () => {
+    window.electron.ipcRenderer.openGoogleLogin("hello").then((token) => {
+      setAccessToken(token.access_token)
+    }).then(() => {
+      setSuccessMessage('Login successful!');
+      setSuccessOpen(true);
+    }).catch((err) => {
+      setErrorMessage('Error logging in: ' + err);
+      setErrorOpen(true);
+    })
+  }
+
   const uploadVideos = () => {
     setInfoMessage('Your videos are being uploaded! Check your YouTube account for progress updates.');
     setInfoOpen(true);
@@ -92,20 +104,17 @@ const YTUploadView = () => {
       recoveryemail: ytRecoveryEmail,
       description: description,
       playlistName: selectedFolder,
+      accessToken: accessToken,
     };
-    window.electron.ipcRenderer.openGoogleLogin("hello").then((token) => {
-      setAccessToken(token.access_token)
-    })
-    // window.electron.ipcRenderer
-    //   .uploadVideos(params)
-    //   .then((result) => {
-    //     setSuccessMessage('Upload complete! ' + result);
-    //     setSuccessOpen(true);
-    //   })
-    //   .catch((error) => {
-    //     setErrorMessage('Error uploading: ' + error);
-    //     setErrorOpen(true);
-    //   });
+    window.electron.ipcRenderer.uploadVideos(params)
+      // .then((result) => {
+      //   setSuccessMessage('Upload complete! ' + result);
+      //   setSuccessOpen(true);
+      // })
+      // .catch((error) => {
+      //   setErrorMessage('Error uploading: ' + error);
+      //   setErrorOpen(true);
+      // });
   };
 
   return (
@@ -171,6 +180,15 @@ const YTUploadView = () => {
           rows={3}
           multiline
         />
+        <Button
+          disabled={buttonDisabled}
+          variant="contained"
+          color="secondary"
+          sx={{ width: '40vw', marginTop: '20px', color: 'white' }}
+          onClick={() => login()}
+        >
+          Login
+        </Button>
         <Button
           disabled={buttonDisabled}
           variant="contained"
