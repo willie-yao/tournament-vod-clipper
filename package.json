@@ -208,8 +208,8 @@
     "webpack-merge": "^5.8.0"
   },
   "build": {
-    "productName": "ElectronReact",
-    "appId": "org.erb.ElectronReact",
+    "productName": "Tournament VOD Clipper",
+    "appId": "org.erb.TournamentVODClipper",
     "asar": false,
     "asarUnpack": "**\\*.{node,dll}",
     "files": [

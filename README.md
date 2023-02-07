@@ -3,7 +3,7 @@
 This is a tool built in React and Electron to help you clip VODs of tournaments automatically! It's a work in progress, so please be patient and expect some bugs ><. If you run into any issues or have any suggestions, please make an issue [here](https://github.com/willie-yao/tournament-vod-clipper/issues) so I can fix it ASAP!
 
 ## Main Features
-- Automatically clips Twitch or YouTube VODs of matches from a start.gg bracket
+- Automatically clips Twitch VODs of matches from a start.gg bracket
 - Clips and downloads matches in parallel
 - Upload VODs to YouTube automatically
 
@@ -34,9 +34,8 @@ This tool clips VODs automatically by retrieving timestamps of when matches are 
 - Once you have your token, paste it into the `Start.GG API Key` field in the tool
 - Next, you need to enter the Start.GG event slug. You can find this in the URL of the event page. For example, the slug for the following event is `microspacing-69`:
   - tournament/microspacing-69/event/singles-de
-- Then, enter the VOD url for the stream in the `VOD Link` field. This can be a Twitch or YouTube link. For example:
-  - Twitch: https://www.twitch.tv/videos/123456789
-  - YouTube: https://www.youtube.com/watch?v=123456789
+- Then, enter the VOD url for the stream in the `VOD Link` field. This can only be a Twitch link at the moment. For example:
+  - https://www.twitch.tv/videos/123456789
 - To retrieve only the streamed sets, enter the station number assigned to the stream setup in the `Stream Station Number` field
 - Finally, click the `Retrieve Sets` button. This will take you to a new page.
 
@@ -47,7 +46,7 @@ This tool clips VODs automatically by retrieving timestamps of when matches are 
 
 ### Uploading VODs to YouTube
 - Once the VODs are downloaded, you can navigate to the upload page by clicking the `Upload` button.
-- You will need to enter your YouTube email, recovery email (if applicable), and password.
+- You will need to login to your YouTube account. Click the `Login` button and follow the instructions.
 - Next, select the tournament you want to upload VODs from using the `VOD Folder` box.
 - Finally, click the `Upload` button. You should see the VODs being processed on your YouTube account!
 

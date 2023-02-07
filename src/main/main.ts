@@ -9,7 +9,7 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from 'path';
-import { app, BrowserWindow, shell, ipcMain, safeStorage } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, safeStorage, session } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
@@ -325,6 +325,27 @@ app
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.
       if (mainWindow === null) createWindow();
+    });
+    // works for dumb iFrames
+    session.defaultSession.webRequest.onHeadersReceived({
+      urls: [
+        'https://www.twitch.tv/*',
+        'https://player.twitch.tv/*',
+        'https://embed.twitch.tv/*'
+      ]
+    }, (details, cb) => {
+      var responseHeaders = details.responseHeaders;
+
+      console.log('headers', details.url, responseHeaders);
+
+      if (responseHeaders) {
+        delete responseHeaders['Content-Security-Policy'];
+      }
+
+      cb({
+        cancel: false,
+        responseHeaders
+      });
     });
   })
   .catch(console.log);
