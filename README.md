@@ -11,8 +11,6 @@ This is a tool built in React and Electron to help you clip VODs of tournaments 
 
 Windows: This tool is Windows-only for the time being. Releases for Mac and Linux will be out shortly.
 
-Python3: This tool requires Python3 to run. You can download it from the Windows store here: https://www.microsoft.com/en-us/p/python-3/9nblggh083nz
-
 ## How to Use
 
 ### Pre-requesites
