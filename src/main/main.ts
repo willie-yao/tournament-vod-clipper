@@ -15,15 +15,17 @@ import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import youtubeDl from 'youtube-dl-exec';
-import * as dotenv from 'dotenv'; // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
-dotenv.config();
 import Store from 'electron-store';
-import { upload } from 'youtube-videos-uploader'
-import { Video } from 'youtube-videos-uploader/dist/types';
-
+import ElectronGoogleOAuth2 from '@getstation/electron-google-oauth2';
+require('dotenv').config();
 const fs = require('fs');
 const store = new Store();
 const isDev = require('electron-is-dev');
+
+// initialize the Youtube API library
+const { google } = require('googleapis');
+const youtube = google.youtube('v3');
+const readline = require('readline');
 
 class AppUpdater {
   constructor() {
@@ -35,15 +37,44 @@ class AppUpdater {
 
 let mainWindow: BrowserWindow | null = null;
 
+// Deep linked url
+let deeplinkingUrl: any;
+
+// Force Single Instance Application
+const gotTheLock = app.requestSingleInstanceLock();
+if (gotTheLock) {
+  console.log('Got the lock');
+  console.log('process.argv', process.argv);
+  app.on('second-instance', (e, argv) => {
+    // Someone tried to run a second instance, we should focus our window.
+    console.log('second instance');
+    // Protocol handler for win32
+    // argv: An array of the second instance’s (command line / deep linked) arguments
+    if (process.platform == 'win32') {
+      // Keep only command line / deep linked arguments
+      deeplinkingUrl = argv.slice(1);
+    }
+    logEverywhere('app.makeSingleInstance# ' + deeplinkingUrl);
+
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+} else {
+  console.log('Did not get the lock');
+  app.quit();
+}
+
 ipcMain.handle('create-folder', async (event, arg) => {
   fs.mkdir('./test-folder', { recursive: true }, (err: Error) => {
     if (err) throw err;
   });
 });
 
-ipcMain.handle('open-folder', async(event, arg) => {
-  shell.openPath(process.cwd() + path.sep + 'downloadedVODs' + path.sep + arg)
-})
+ipcMain.handle('open-folder', async (event, arg) => {
+  shell.openPath(process.cwd() + path.sep + 'downloadedVODs' + path.sep + arg);
+});
 
 ipcMain.handle('retrieve-video-information', async (event, arg) => {
   return youtubeDl(arg.vodUrl, {
@@ -60,26 +91,71 @@ ipcMain.handle('download-video', async (event, arg) => {
   return youtubeDl(arg.vodUrl, {
     // @ts-ignore
     downloadSections: '*' + arg.startTime + '-' + arg.endTime,
-    output: './downloadedVODs/' + arg.tournamentName + "/" + arg.title + '.mp4',
+    output: './downloadedVODs/' + arg.tournamentName + '/' + arg.title + '.mp4',
   });
 });
 
-ipcMain.handle('get-tournament-folders', async(event, arg) => {
-  return fs.readdirSync(arg).filter((file: any) => fs.statSync(arg + '/'+ file).isDirectory())
-})
+ipcMain.handle('get-tournament-folders', async (event, arg) => {
+  return fs
+    .readdirSync(arg)
+    .filter((file: any) => fs.statSync(arg + '/' + file).isDirectory());
+});
 
-ipcMain.handle('upload-videos', async(event, args) => {
-  const credentials = { email: args.email, recoveryemail: args.recoveryemail, pass: safeStorage.decryptString(Buffer.from(store.get('ytPassword') as Buffer))}
-  const videoList: Video[] = []
+ipcMain.handle('open-google-login', async (event, arg) => {
+  const myApiOauth = new ElectronGoogleOAuth2(
+    process.env.GOOGLE_CLIENT_ID!,
+    process.env.GOOGLE_CLIENT_SECRET!,
+    ['https://www.googleapis.com/auth/youtube.upload'],
+    { successRedirectURL: 'tournamentvodclipper://' }
+  );
+
+  return myApiOauth.openAuthWindowAndGetTokens();
+});
+
+ipcMain.handle('upload-videos', async (event, args) => {
   fs.readdirSync(args.path).forEach((videoName: any) => {
+    const fileSize = fs.statSync(args.path + videoName).size;
     if (path.extname(videoName).toLowerCase() === '.mp4') {
-      const videoMetadata = { path: args.path + videoName, title: videoName.replace(/\.[^/.]+$/, ""), description: args.description, playlist: args.playlistName, isNotForKid: true }
-      videoList.push(videoMetadata)
-      console.log("videoMetadata", videoMetadata)
+      console.log('videoName', videoName);
+      return youtube.videos
+        .insert(
+          {
+            part: 'id,snippet,status',
+            notifySubscribers: false,
+            requestBody: {
+              snippet: {
+                title: videoName.replace(/\.[^/.]+$/, ''),
+                description: args.description,
+              },
+              status: {
+                privacyStatus: 'unlisted',
+              },
+            },
+            media: {
+              body: fs.createReadStream(args.path + videoName),
+            },
+            access_token: args.accessToken,
+          },
+          {
+            // Use the `onUploadProgress` event from Axios to track the
+            // number of bytes uploaded to this point.
+            onUploadProgress: (evt: any) => {
+              const progress = (evt.bytesRead / fileSize) * 100;
+              readline.clearLine(process.stdout, 0);
+              readline.cursorTo(process.stdout, 0, null);
+              process.stdout.write(`${Math.round(progress)}% complete`);
+            },
+          }
+        )
+        .then((response: any) => {
+          console.log('response', response);
+        })
+        .catch((error: any) => {
+          return error;
+        });
     }
-  })
-  return upload(credentials, videoList)
-})
+  });
+});
 
 ipcMain.handle('get-api-key', async (event, arg) => {
   if (isDev) {
@@ -99,17 +175,19 @@ ipcMain.on('electron-store-set', async (event, key, val) => {
 ipcMain.on('electron-store-delete', async (event, val) => {
   store.delete(val);
 });
-ipcMain.on('electron-store-set-secret', async(event, key, val) => {
-  store.set(key, safeStorage.encryptString(val))
-})
+ipcMain.on('electron-store-set-secret', async (event, key, val) => {
+  store.set(key, safeStorage.encryptString(val));
+});
 ipcMain.on('electron-store-get-secret', async (event, val) => {
-  let encryptedVal = store.get(val)
+  let encryptedVal = store.get(val);
   if (encryptedVal) {
-    event.returnValue = safeStorage.decryptString(Buffer.from(encryptedVal as Buffer));
+    event.returnValue = safeStorage.decryptString(
+      Buffer.from(encryptedVal as Buffer)
+    );
   } else {
-    event.returnValue = ''
+    event.returnValue = '';
   }
-})
+});
 
 ipcMain.on('ipc-example', async (event, arg) => {
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
@@ -200,9 +278,36 @@ const createWindow = async () => {
   new AppUpdater();
 };
 
+// Log both at dev console and at running node console instance
+function logEverywhere(s: any) {
+  console.log(s);
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.executeJavaScript(`console.log("${s}")`);
+  }
+}
+
 /**
  * Add event listeners...
  */
+
+if (isDev && process.platform === 'win32') {
+  // Set the path of electron.exe and your app.
+  // These two additional parameters are only available on windows.
+  // Setting this is required to get this working in dev mode.
+  app.setAsDefaultProtocolClient('tournamentvodclipper', process.execPath, [
+    process.argv[1],
+  ]);
+} else {
+  app.setAsDefaultProtocolClient('tournamentvodclipper');
+}
+
+app.on('open-url', function (event, url) {
+  console.log('open-url called');
+  event.preventDefault();
+  deeplinkingUrl = url;
+  logEverywhere('open-url# ' + deeplinkingUrl);
+  mainWindow?.webContents.send('login-success', { deeplinkingUrl });
+});
 
 app.on('window-all-closed', () => {
   // Respect the OSX convention of having the application in memory even
