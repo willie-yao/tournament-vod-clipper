@@ -6,7 +6,7 @@ import { useTheme } from '@mui/material/styles';
 import { PropagateLoader } from 'react-spinners';
 import { useNavigate } from 'react-router-dom';
 import HiddenTextField from 'renderer/common/HiddenTextField';
-// import validator from 'validator';
+import SnackbarPopup from 'renderer/common/SnackbarPopup';
 
 export interface VODMetadata {
   title: string;
@@ -37,6 +37,8 @@ const RetrieveSets = (
   }
 
   const [waiting, setWaiting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [errorOpen, setErrorOpen] = useState(false);
 
   const [getSets, { loading, error, data }] = useLazyQuery(
     GET_SETS_AT_STATION,
@@ -113,6 +115,10 @@ const RetrieveSets = (
               tournamentName: data.event.tournament.name,
             },
           });
+        }).catch((err) => {
+          setErrorMessage("Error retrieving sets: " + err.message);
+          setErrorOpen(true);
+          setWaiting(false);
         });
     }
   }, [data]);
@@ -127,6 +133,7 @@ const RetrieveSets = (
         justifyContent: 'center',
       }}
     >
+      {SnackbarPopup(errorMessage, 'error', errorOpen, setErrorOpen)}
       <Button
         variant="contained"
         onClick={() => {

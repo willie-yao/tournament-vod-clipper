@@ -83,6 +83,8 @@ ipcMain.handle('retrieve-video-information', async (event, arg) => {
   }).then((output) => {
     // @ts-ignore
     return output.timestamp;
+  }).catch((error) => {
+    return error;
   });
 });
 

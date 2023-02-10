@@ -50,6 +50,15 @@ const SetsView = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [infoMessage, setInfoMessage] = useState('')
   const [downloaded, setDownloaded] = useState(false)
+  const [enableDownload, setEnableDownload] = useState(false)
+
+  useEffect(() => {
+    if (checked.length == location.state.sets.length + 1) {
+      setEnableDownload(false)
+    } else {
+      setEnableDownload(true)
+    }
+  }, [checked])
 
   const handleSelectAll = () => {
     let newChecked = [...checked];
@@ -319,6 +328,7 @@ const SetsView = () => {
       </List>
       <Box sx={{ display: 'flex', justifyContent: 'space-around', width: '100%' }}>
         <Button
+          disabled={!enableDownload}
           variant="contained"
           color="secondary"
           sx={{ width: '27vw', marginTop: '20px', color: 'white' }}
@@ -326,6 +336,7 @@ const SetsView = () => {
             setDownloaded(true)
             setInfoMessage('Your VODs are being downloaded to ./downloadedVODs/' + location.state.tournamentName);
             setInfoOpen(true)
+            setEnableDownload(false)
             location.state.sets.map((set: VODMetadata) => {
               if (set.download) {
                 console.log('Downloading set: ', set);
@@ -340,10 +351,12 @@ const SetsView = () => {
                   .then((res: any) => {
                     setSuccessMessage('Download complete: ' + set.title);
                     setSuccessOpen(true);
+                    setEnableDownload(true);
                   })
                   .catch((err: any) => {
                     setErrorMessage('Download failed: ' + err);
                     setErrorOpen(true);
+                    setEnableDownload(true);
                   });
               }
             });
@@ -361,6 +374,7 @@ const SetsView = () => {
           Open VOD Folder
         </Button>
         <Button
+          disabled={!downloaded}
           variant="contained"
           color="secondary"
           sx={{ width: '27vw', marginTop: '20px', color: 'white' }}
