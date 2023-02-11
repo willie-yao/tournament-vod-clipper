@@ -63,7 +63,14 @@ const YTUploadView = () => {
       playlistName: selectedFolder,
       accessToken: accessToken,
     };
-    window.electron.ipcRenderer.uploadVideos(params)
+    window.electron.ipcRenderer.uploadVideos(params).then((response) => {
+      console.log(response);
+      setSuccessMessage('Upload successful!');
+      setSuccessOpen(true);
+    }).catch((err) => {
+      setErrorMessage('Error uploading: ' + err);
+      setErrorOpen(true);
+    })
   };
 
   return (

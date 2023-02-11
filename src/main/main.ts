@@ -115,7 +115,7 @@ ipcMain.handle('open-google-login', async (event, arg) => {
 });
 
 ipcMain.handle('upload-videos', async (event, args) => {
-  fs.readdirSync(args.path).forEach((videoName: any) => {
+  return fs.readdirSync(args.path).forEach((videoName: any) => {
     const fileSize = fs.statSync(args.path + videoName).size;
     if (path.extname(videoName).toLowerCase() === '.mp4') {
       console.log('videoName', videoName);
@@ -153,7 +153,8 @@ ipcMain.handle('upload-videos', async (event, args) => {
           console.log('response', response);
         })
         .catch((error: any) => {
-          return error;
+          console.log('error', error);
+          return error.errors[0].message;
         });
     }
   });
