@@ -57,19 +57,26 @@ const YTUploadView = () => {
   const uploadVideos = () => {
     setInfoMessage('Your videos are being uploaded! Check your YouTube account for progress updates.');
     setInfoOpen(true);
-    const params = {
-      path: './downloadedVODs/' + selectedFolder + '/',
-      description: description,
-      playlistName: selectedFolder,
-      accessToken: accessToken,
-    };
-    window.electron.ipcRenderer.uploadVideos(params).then((response) => {
-      console.log(response);
-      setSuccessMessage('Upload successful!');
-      setSuccessOpen(true);
-    }).catch((err) => {
-      setErrorMessage('Error uploading: ' + err);
-      setErrorOpen(true);
+    window.electron.ipcRenderer.getVideosInFolder('./downloadedVODs/' + selectedFolder + '/').then((result) => {
+      result.forEach((video: string) => {
+        const params = {
+          path: './downloadedVODs/' + selectedFolder + '/' + video,
+          description: description,
+          playlistName: selectedFolder,
+          accessToken: accessToken,
+          videoName: video,
+        };
+        window.electron.ipcRenderer.uploadVideos(params).then((response) => {
+          console.log(response);
+          setSuccessMessage('Upload successful!');
+          setSuccessOpen(true);
+        }).catch((err) => {
+          if (!err.message.includes('Error: An object could not be cloned.')) {
+            setErrorMessage('Error uploading: ' + err);
+            setErrorOpen(true);
+          }
+        })
+      })
     })
   };
 
