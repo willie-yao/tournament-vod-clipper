@@ -41,6 +41,9 @@ const electronHandler = {
     getTournamentFolders(arg: string) {
       return ipcRenderer.invoke('get-tournament-folders', arg)
     },
+    getVideosInFolder(arg: string) {
+      return ipcRenderer.invoke('get-videos-in-folder', arg)
+    },
     openGoogleLogin(arg: string) {
       return ipcRenderer.invoke('open-google-login', arg)
     },

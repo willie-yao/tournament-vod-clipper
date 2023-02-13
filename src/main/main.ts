@@ -103,6 +103,10 @@ ipcMain.handle('get-tournament-folders', async (event, arg) => {
     .filter((file: any) => fs.statSync(arg + '/' + file).isDirectory());
 });
 
+ipcMain.handle('get-videos-in-folder', async (event, arg) => {
+  return fs.readdirSync(arg).filter((file: any) => path.extname(file).toLowerCase() === '.mp4');
+});
+
 ipcMain.handle('open-google-login', async (event, arg) => {
   const myApiOauth = new ElectronGoogleOAuth2(
     process.env.GOOGLE_CLIENT_ID!,
@@ -169,7 +173,7 @@ ipcMain.handle('upload-videos', async (event, args) => {
           return error.errors[0].message;
         });
     }
-  });
+  })
 });
 
 ipcMain.handle('get-api-key', async (event, arg) => {
