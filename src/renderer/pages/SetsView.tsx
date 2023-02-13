@@ -237,12 +237,6 @@ const SetsView = () => {
   const ThumbnailOptionsModal = () => {
     const ref: React.RefObject<ReactInstance> = React.createRef();
 
-    // useEffect(() => {
-    //   if (ref.current) {
-    //     exportComponentAsJPEG(ref).then((response) => console.log("response", response)).catch((error) => console.log("error", error))
-    //   }
-    // })
-
     const onImageChange = (event: any) => {
       if (event.target.files && event.target.files[0]) {
         setThumbnailLogo(URL.createObjectURL(event.target.files[0]));
@@ -284,17 +278,16 @@ const SetsView = () => {
 
   const generateThumbnail = (set: VODMetadata) => {
     var thumbnail = document.getElementById(set.title)
-    // thumbnail!.setAttribute('display', 'block')
-    console.log("thumbnail:" , thumbnail)
     html2canvas(thumbnail!)
     .then((canvas) => {
-      console.log("ref", set.ref)
-      console.log("canvas", canvas)
       const img = canvas.toDataURL('image/png')
       const base64Data = img.replace(/^data:image\/png;base64,/, "");
       const buf = Buffer.from(base64Data, "base64");
-      console.log("buf", buf)
-      window.electron.ipcRenderer.saveThumbnail(buf)
+      window.electron.ipcRenderer.saveThumbnail({
+        folderName: set.tournamentName,
+        fileName: set.title,
+        buf: buf
+      })
     })
   }
 
@@ -474,9 +467,11 @@ const SetsView = () => {
       <Box sx={{position: 'relative', overflow: 'hidden'}}>
         <Box sx={{position: 'absolute', width: '1280px', height: '720px', right: '-640px', top: '360', overflow: 'hidden', zIndex: '-999'}}>
           {location.state.sets.map((set: any) => {
+            const ref: React.RefObject<ReactInstance> = React.createRef();
             return (
               <ThumbnailGenerator
-                ref={set.ref}
+                key={set.title + thumbnailColor}
+                ref={ref}
                 bgColor={thumbnailColor}
                 logo={thumbnailLogo}
                 player1={set.player1}

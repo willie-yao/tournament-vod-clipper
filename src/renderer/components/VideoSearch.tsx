@@ -18,7 +18,6 @@ export interface VODMetadata {
   character1: string;
   character2: string;
   tournamentName: string;
-  ref: React.RefObject<ReactInstance>;
 }
 
 const RetrieveSets = (
@@ -114,7 +113,6 @@ const RetrieveSets = (
               character1: characterStrings[0],
               character2: characterStrings[1],
               tournamentName: data.event.tournament.name,
-              ref: createRef(),
             };
             return metadata;
           });

@@ -5,7 +5,7 @@ import DefaultIcon from '../../../assets/icon.png';
 
 const ThumbnailText = (text: string, variant: any) => {
   return (
-    <Typography variant={variant} sx={{ color: 'white', fontWeight: 'bold', textAlign: 'center'}}>
+    <Typography variant={variant} sx={{ color: 'white', fontWeight: 'bold', textAlign: 'center'}} noWrap>
       {text}
     </Typography>
   )
@@ -58,13 +58,13 @@ const ThumbnailGenerator = React.forwardRef<Ref, Props>((props, ref) => {
         </Grid>
         <Grid item xs={12}>
           <Grid container sx={{ width: '100%', height: '110px', backgroundColor: 'black'}}>
-            <Grid item xs={2} className="centered-flex">
-            </Grid>
-            <Grid item xs={8} className="centered-flex">
+            {/* <Grid item xs={2} className="centered-flex">
+            </Grid> */}
+            <Grid item xs={12} className="centered-flex">
               {ThumbnailText(props.bottomText!, "h2")}
             </Grid>
-            <Grid item xs={2} className="centered-flex">
-            </Grid>
+            {/* <Grid item xs={2} className="centered-flex"> */}
+            {/* </Grid> */}
           </Grid>
         </Grid>
       </Grid>

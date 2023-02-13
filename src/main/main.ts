@@ -116,14 +116,14 @@ ipcMain.handle('open-google-login', async (event, arg) => {
 
 ipcMain.handle('save-thumbnail', async (event, args) => {
   console.log("Saving thumbnail: ", args)
-  // const img = args.toDataURL('image/png')
-  // const base64Data = img.replace(/^data:image\/png;base64,/, "");
-  // const buf = Buffer.from(base64Data, "base64");
-  return fs.writeFile("./downloadedVODs/asdf.jpeg", args, function (err: any) {
+  fs.mkdir('./downloadedVODs/' + args.folderName.replace(":", "#") + "/thumbnails", { recursive: true }, (err: Error) => {
+    if (err) throw err;
+  })
+  fs.writeFile("./downloadedVODs/" + args.folderName.replace(":", "#") + "/thumbnails/" + args.fileName.replace(":", "#") + ".jpg", args.buf, function (err: any) {
     if (err) {
       console.log(err);
     }
-  });
+  })
 })
 
 ipcMain.handle('upload-videos', async (event, args) => {
