@@ -39,6 +39,8 @@ import moment from 'moment'
 import ThumbnailGenerator from 'renderer/components/ThumbnailGenerator';
 import { exportComponentAsJPEG } from 'react-component-export-image';
 import { MuiColorInput } from 'mui-color-input'
+import html2canvas from 'html2canvas';
+import {Buffer} from 'buffer';
 
 const SetsView = () => {
   const theme = useTheme();
@@ -58,6 +60,7 @@ const SetsView = () => {
   const [thumbnailModalOpen, setThumbnailModalOpen] = useState(false)
   const [thumbnailColor, setThumbnailColor] = useState('#B9F3FC')
   const [thumbnailLogo, setThumbnailLogo] = useState('')
+  const [refMap, setRefMap] = useState(new Map())
 
   const inputFile = React.useRef<HTMLInputElement | null>(null);
 
@@ -279,6 +282,22 @@ const SetsView = () => {
     )
   }
 
+  const generateThumbnail = (set: VODMetadata) => {
+    var thumbnail = document.getElementById(set.title)
+    // thumbnail!.setAttribute('display', 'block')
+    console.log("thumbnail:" , thumbnail)
+    html2canvas(thumbnail!)
+    .then((canvas) => {
+      console.log("ref", set.ref)
+      console.log("canvas", canvas)
+      const img = canvas.toDataURL('image/png')
+      const base64Data = img.replace(/^data:image\/png;base64,/, "");
+      const buf = Buffer.from(base64Data, "base64");
+      console.log("buf", buf)
+      window.electron.ipcRenderer.saveThumbnail(buf)
+    })
+  }
+
   const handleToggle = (set: any) => {
     const currentIndex = checked.indexOf(set);
     const newChecked = [...checked];
@@ -408,6 +427,7 @@ const SetsView = () => {
             location.state.sets.map((set: VODMetadata) => {
               if (set.download) {
                 console.log('Downloading set: ', set);
+                generateThumbnail(set)
                 window.electron.ipcRenderer
                   .downloadVideo({
                     vodUrl: location.state.vodUrl,
@@ -450,6 +470,23 @@ const SetsView = () => {
         >
           Continue to Upload
         </Button>
+      </Box>
+      <Box sx={{position: 'relative', overflow: 'hidden'}}>
+        <Box sx={{position: 'absolute', width: '1280px', height: '720px', right: '-640px', top: '360', overflow: 'hidden', zIndex: '-999'}}>
+          {location.state.sets.map((set: any) => {
+            return (
+              <ThumbnailGenerator
+                ref={set.ref}
+                bgColor={thumbnailColor}
+                logo={thumbnailLogo}
+                player1={set.player1}
+                player2={set.player2}
+                bottomText={set.tournamentName}
+                title={set.title}
+              />
+            )
+          })}
+        </Box>
       </Box>
     </Container>
   );

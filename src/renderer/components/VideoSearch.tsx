@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { createRef, useState, useEffect, ReactInstance } from 'react';
 import { Button, Box, TextField } from '@mui/material';
 import { GET_SETS_AT_STATION } from 'renderer/common/StartggQueries';
 import { useLazyQuery } from '@apollo/client';
@@ -13,6 +13,12 @@ export interface VODMetadata {
   startTime: string;
   endTime: string;
   download: boolean;
+  player1: string;
+  player2: string;
+  character1: string;
+  character2: string;
+  tournamentName: string;
+  ref: React.RefObject<ReactInstance>;
 }
 
 const RetrieveSets = (
@@ -103,6 +109,12 @@ const RetrieveSets = (
                 .toISOString()
                 .slice(11, 19),
               download: true,
+              player1: set.slots[0].entrant.name.split('|').pop().trim(),
+              player2: set.slots[1].entrant.name.split('|').pop().trim(),
+              character1: characterStrings[0],
+              character2: characterStrings[1],
+              tournamentName: data.event.tournament.name,
+              ref: createRef(),
             };
             return metadata;
           });

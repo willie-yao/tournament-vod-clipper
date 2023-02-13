@@ -44,6 +44,9 @@ const electronHandler = {
     openGoogleLogin(arg: string) {
       return ipcRenderer.invoke('open-google-login', arg)
     },
+    saveThumbnail(args: any) {
+      return ipcRenderer.invoke('save-thumbnail', args)
+    },
     uploadVideos(args: object) {
       return ipcRenderer.invoke('upload-videos', args)
     },

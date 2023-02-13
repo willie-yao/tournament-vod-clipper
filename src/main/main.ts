@@ -114,6 +114,18 @@ ipcMain.handle('open-google-login', async (event, arg) => {
   return myApiOauth.openAuthWindowAndGetTokens();
 });
 
+ipcMain.handle('save-thumbnail', async (event, args) => {
+  console.log("Saving thumbnail: ", args)
+  // const img = args.toDataURL('image/png')
+  // const base64Data = img.replace(/^data:image\/png;base64,/, "");
+  // const buf = Buffer.from(base64Data, "base64");
+  return fs.writeFile("./downloadedVODs/asdf.jpeg", args, function (err: any) {
+    if (err) {
+      console.log(err);
+    }
+  });
+})
+
 ipcMain.handle('upload-videos', async (event, args) => {
   return fs.readdirSync(args.path).forEach((videoName: any) => {
     const fileSize = fs.statSync(args.path + videoName).size;

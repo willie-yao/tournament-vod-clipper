@@ -19,13 +19,16 @@ interface Props {
   player1?: string;
   player2?: string;
   bottomText?: string;
+  visible?: boolean;
+  title?: string;
 }
 export type Ref = ReactInstance;
 
 // Create Document Component
 const ThumbnailGenerator = React.forwardRef<Ref, Props>((props, ref) => {
+  let displayOption = props.visible ? 'block' : 'none';
   return (
-    <Box ref={ref} sx={{ height: '720px', width: '1280px', backgroundColor: '#B9F3FC', scale: props.scale, transformOrigin: 'top left' }}>
+    <Box id={props.title} ref={ref} sx={{ height: '720px', width: '1280px', backgroundColor: '#B9F3FC', scale: props.scale, transformOrigin: 'top left', display: displayOption }}>
       <Grid container>
         <Grid item xs={12}>
           <Grid container sx={{ width: '100%', height: '110px', backgroundColor: 'black'}}>
@@ -75,7 +78,8 @@ ThumbnailGenerator.defaultProps = {
   logo: DefaultIcon,
   player1: 'Player 1',
   player2: 'Player 2',
-  bottomText: 'Grand Finals'
+  bottomText: 'Grand Finals',
+  visible: true
 }
 
 export default ThumbnailGenerator
