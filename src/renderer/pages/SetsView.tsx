@@ -38,6 +38,7 @@ import SkipNextIcon from '@mui/icons-material/SkipNext';
 import moment from 'moment'
 import ThumbnailGenerator from 'renderer/components/ThumbnailGenerator';
 import { exportComponentAsJPEG } from 'react-component-export-image';
+import { MuiColorInput } from 'mui-color-input'
 
 const SetsView = () => {
   const theme = useTheme();
@@ -55,6 +56,7 @@ const SetsView = () => {
   const [downloaded, setDownloaded] = useState(false)
   const [enableDownload, setEnableDownload] = useState(false)
   const [thumbnailModalOpen, setThumbnailModalOpen] = useState(false)
+  const [thumbnailColor, setThumbnailColor] = useState('#B9F3FC')
 
   useEffect(() => {
     if (checked.length == location.state.sets.length + 1) {
@@ -229,11 +231,11 @@ const SetsView = () => {
   const ThumbnailOptionsModal = () => {
     const ref: React.RefObject<ReactInstance> = React.createRef();
 
-    useEffect(() => {
-      if (ref.current) {
-        exportComponentAsJPEG(ref).then((response) => console.log("response", response)).catch((error) => console.log("error", error))
-      }
-    })
+    // useEffect(() => {
+    //   if (ref.current) {
+    //     exportComponentAsJPEG(ref).then((response) => console.log("response", response)).catch((error) => console.log("error", error))
+    //   }
+    // })
 
     return (
       <Dialog
@@ -243,15 +245,16 @@ const SetsView = () => {
           setThumbnailModalOpen(false)
         }}
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', height:'50vh', minWidth: '50vw', padding: '20px' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', height:'80vh', minWidth: '50vw', padding: '20px' }}>
           <Typography variant="h6" component="h2" textAlign="center" gutterBottom>
             Thumbnail Options
           </Typography>
           <FormGroup>
             <FormControlLabel control={<Switch defaultChecked />} label="Download Thumbnails" />
           </FormGroup>
-          <Box sx={{ width: '256px', height: '144px', overflow: 'hidden'}}>
-            <ThumbnailGenerator ref={ref} scale="0.2" />
+          <MuiColorInput value={thumbnailColor} onChange={(color) => setThumbnailColor(color)} />
+          <Box sx={{ width: '426px', height: '240px', overflow: 'hidden'}}>
+            <ThumbnailGenerator bgColor={thumbnailColor} ref={ref} scale="0.34" />
           </Box>
         </Box>
       </Dialog>

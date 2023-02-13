@@ -14,6 +14,7 @@ const ThumbnailText = (text: string, variant: any) => {
 interface Props {
   children?: ReactNode;
   scale: string;
+  bgColor: string;
 }
 export type Ref = ReactInstance;
 
@@ -36,7 +37,7 @@ const ThumbnailGenerator = React.forwardRef<Ref, Props>((props, ref) => {
           </Grid>
         </Grid>
         <Grid item xs={12}>
-          <Grid container sx={{ width: '100%', height: '500px', backgroundColor: '#B9F3FC'}}>
+          <Grid container sx={{ width: '100%', height: '500px', backgroundColor: props.bgColor}}>
             <Grid item xs={5} className="centered-flex">
               <img src={Hero} />
             </Grid>
@@ -63,5 +64,10 @@ const ThumbnailGenerator = React.forwardRef<Ref, Props>((props, ref) => {
     </Box>
   )
 });
+
+ThumbnailGenerator.defaultProps = {
+  scale: '1',
+  bgColor: '#B9F3FC'
+}
 
 export default ThumbnailGenerator
