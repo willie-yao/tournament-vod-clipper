@@ -87,3 +87,7 @@ a:hover {
   justify-content: center;
   align-items: center;
 }
+
+.MuiColorInput-TextField{
+  width: 50%;
+}

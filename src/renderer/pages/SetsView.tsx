@@ -57,6 +57,9 @@ const SetsView = () => {
   const [enableDownload, setEnableDownload] = useState(false)
   const [thumbnailModalOpen, setThumbnailModalOpen] = useState(false)
   const [thumbnailColor, setThumbnailColor] = useState('#B9F3FC')
+  const [thumbnailLogo, setThumbnailLogo] = useState('')
+
+  const inputFile = React.useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (checked.length == location.state.sets.length + 1) {
@@ -237,6 +240,12 @@ const SetsView = () => {
     //   }
     // })
 
+    const onImageChange = (event: any) => {
+      if (event.target.files && event.target.files[0]) {
+        setThumbnailLogo(URL.createObjectURL(event.target.files[0]));
+      }
+     }
+
     return (
       <Dialog
         open={thumbnailModalOpen}
@@ -252,9 +261,18 @@ const SetsView = () => {
           <FormGroup>
             <FormControlLabel control={<Switch defaultChecked />} label="Download Thumbnails" />
           </FormGroup>
-          <MuiColorInput value={thumbnailColor} onChange={(color) => setThumbnailColor(color)} />
+          <MuiColorInput label="Background Color" value={thumbnailColor} onChange={(color) => setThumbnailColor(color)} />
+          <Button
+            variant="contained"
+            color="secondary"
+            sx={{ width: '50%', color: 'white' }}
+            onClick={() => inputFile!.current!.click()}
+          >
+            Select Logo
+          </Button>
+          <input type='file' id="img" name="img" accept="image/*" onChange={(event) => onImageChange(event)} ref={inputFile} style={{display: 'none'}}/>
           <Box sx={{ width: '426px', height: '240px', overflow: 'hidden'}}>
-            <ThumbnailGenerator bgColor={thumbnailColor} ref={ref} scale="0.34" />
+            <ThumbnailGenerator bgColor={thumbnailColor} ref={ref} scale="0.335" logo={thumbnailLogo} />
           </Box>
         </Box>
       </Dialog>

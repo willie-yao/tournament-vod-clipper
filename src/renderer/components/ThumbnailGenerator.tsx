@@ -13,8 +13,12 @@ const ThumbnailText = (text: string, variant: any) => {
 
 interface Props {
   children?: ReactNode;
-  scale: string;
-  bgColor: string;
+  scale?: string;
+  bgColor?: string;
+  logo?: string;
+  player1?: string;
+  player2?: string;
+  bottomText?: string;
 }
 export type Ref = ReactInstance;
 
@@ -26,13 +30,13 @@ const ThumbnailGenerator = React.forwardRef<Ref, Props>((props, ref) => {
         <Grid item xs={12}>
           <Grid container sx={{ width: '100%', height: '110px', backgroundColor: 'black'}}>
             <Grid item xs={5} className="centered-flex">
-              {ThumbnailText('Player 1', "h3")}
+              {ThumbnailText(props.player1!, "h3")}
             </Grid>
             <Grid item xs={2} className="centered-flex">
               {ThumbnailText('VS', "h1")}
             </Grid>
             <Grid item xs={5} className="centered-flex">
-              {ThumbnailText('Player 2', "h3")}
+              {ThumbnailText(props.player2!, "h3")}
             </Grid>
           </Grid>
         </Grid>
@@ -42,7 +46,7 @@ const ThumbnailGenerator = React.forwardRef<Ref, Props>((props, ref) => {
               <img src={Hero} />
             </Grid>
             <Grid item xs={2} className="centered-flex">
-              <img src={DefaultIcon} />
+              <img src={props.logo} width="250px" height="250px" />
             </Grid>
             <Grid item xs={5} className="centered-flex">
               <img src={Hero} />
@@ -54,7 +58,7 @@ const ThumbnailGenerator = React.forwardRef<Ref, Props>((props, ref) => {
             <Grid item xs={2} className="centered-flex">
             </Grid>
             <Grid item xs={8} className="centered-flex">
-              {ThumbnailText('Grand Finals', "h2")}
+              {ThumbnailText(props.bottomText!, "h2")}
             </Grid>
             <Grid item xs={2} className="centered-flex">
             </Grid>
@@ -67,7 +71,11 @@ const ThumbnailGenerator = React.forwardRef<Ref, Props>((props, ref) => {
 
 ThumbnailGenerator.defaultProps = {
   scale: '1',
-  bgColor: '#B9F3FC'
+  bgColor: '#B9F3FC',
+  logo: DefaultIcon,
+  player1: 'Player 1',
+  player2: 'Player 2',
+  bottomText: 'Grand Finals'
 }
 
 export default ThumbnailGenerator
