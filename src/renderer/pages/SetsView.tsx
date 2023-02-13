@@ -21,12 +21,13 @@ import {
   Card,
   CardContent,
   CardMedia,
-  Tooltip
+  Tooltip,
+  Switch
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import { useLocation, useNavigate } from 'react-router-dom';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ReactInstance } from 'react';
 import { useTheme } from '@mui/material/styles';
 import { VODMetadata } from 'renderer/components/VideoSearch';
 import SnackbarPopup from 'renderer/common/SnackbarPopup';
@@ -35,6 +36,8 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 import moment from 'moment'
+import ThumbnailGenerator from 'renderer/components/ThumbnailGenerator';
+import { exportComponentAsJPEG } from 'react-component-export-image';
 
 const SetsView = () => {
   const theme = useTheme();
@@ -51,6 +54,7 @@ const SetsView = () => {
   const [infoMessage, setInfoMessage] = useState('')
   const [downloaded, setDownloaded] = useState(false)
   const [enableDownload, setEnableDownload] = useState(false)
+  const [thumbnailModalOpen, setThumbnailModalOpen] = useState(false)
 
   useEffect(() => {
     if (checked.length == location.state.sets.length + 1) {
@@ -222,6 +226,38 @@ const SetsView = () => {
     )
   }
 
+  const ThumbnailOptionsModal = () => {
+    const ref: React.RefObject<ReactInstance> = React.createRef();
+
+    useEffect(() => {
+      if (ref.current) {
+        exportComponentAsJPEG(ref).then((response) => console.log("response", response)).catch((error) => console.log("error", error))
+      }
+    })
+
+    return (
+      <Dialog
+        open={thumbnailModalOpen}
+        onClose={(event: any) => {
+          event.stopPropagation()
+          setThumbnailModalOpen(false)
+        }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', height:'50vh', minWidth: '50vw', padding: '20px' }}>
+          <Typography variant="h6" component="h2" textAlign="center" gutterBottom>
+            Thumbnail Options
+          </Typography>
+          <FormGroup>
+            <FormControlLabel control={<Switch defaultChecked />} label="Download Thumbnails" />
+          </FormGroup>
+          <Box sx={{ width: '256px', height: '144px', overflow: 'hidden'}}>
+            <ThumbnailGenerator ref={ref} scale="0.2" />
+          </Box>
+        </Box>
+      </Dialog>
+    )
+  }
+
   const handleToggle = (set: any) => {
     const currentIndex = checked.indexOf(set);
     const newChecked = [...checked];
@@ -256,24 +292,35 @@ const SetsView = () => {
       <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
         Select Sets to Download
       </Typography>
-      <FormGroup>
+      {ThumbnailOptionsModal()}
+      <Box sx={{ display: 'flex', justifyContent: 'space-around', width: '100%' }}>
+        <FormGroup>
+          <Button
+            variant="contained"
+            color="secondary"
+            sx={{ width: '40vw', marginBottom: '20px' }}
+            onClick={(event) => {
+              handleSelectAll();
+              event.stopPropagation();
+              event.preventDefault();
+            }}
+          >
+            <FormControlLabel
+              sx={{ color: 'white' }}
+              control={<Checkbox checked={selectAllChecked} disableRipple />}
+              label="Select All"
+            />
+          </Button>
+        </FormGroup>
         <Button
           variant="contained"
           color="secondary"
-          sx={{ width: '40vw', marginBottom: '20px' }}
-          onClick={(event) => {
-            handleSelectAll();
-            event.stopPropagation();
-            event.preventDefault();
-          }}
+          sx={{ width: '40vw', marginBottom: '20px', color: 'white' }}
+          onClick={() => setThumbnailModalOpen(true)}
         >
-          <FormControlLabel
-            sx={{ color: 'white' }}
-            control={<Checkbox checked={selectAllChecked} disableRipple />}
-            label="Select All"
-          />
+          Thumbnail Options
         </Button>
-      </FormGroup>
+      </Box>
       <List
         className="list-box"
         sx={{

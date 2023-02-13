@@ -123,14 +123,14 @@ ipcMain.handle('upload-videos', async (event, args) => {
         .insert(
           {
             part: 'id,snippet,status',
-            notifySubscribers: false,
+            notifySubscribers: true,
             requestBody: {
               snippet: {
                 title: videoName.replace(/\.[^/.]+$/, ''),
                 description: args.description,
               },
               status: {
-                privacyStatus: 'unlisted',
+                privacyStatus: args.visibility,
               },
             },
             media: {

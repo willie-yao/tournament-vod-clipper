@@ -5,16 +5,21 @@ import {
   MenuItem,
   TextField,
   Typography,
+  FormControl,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
 } from '@mui/material';
 import { useState, useEffect } from 'react';
-import HiddenTextField from 'renderer/common/HiddenTextField';
 import NavMenu from 'renderer/common/NavMenu';
 import SnackbarPopup from 'renderer/common/SnackbarPopup';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 
 const YTUploadView = () => {
   const [description, setDescription] = useState("")
   const [tounamentFolders, setTournamentFolders] = useState<string[]>([]);
   const [selectedFolder, setSelectedFolder] = useState('');
+  const [visibility, setVisibility] = useState('unlisted');
   const [loggedIn, setLoggedIn] = useState(false);
   const [buttonDisabled, setButtonDisabled] = useState(true);
   const [successOpen, setSuccessOpen] = useState(false);
@@ -62,6 +67,7 @@ const YTUploadView = () => {
       description: description,
       playlistName: selectedFolder,
       accessToken: accessToken,
+      visibility: visibility,
     };
     window.electron.ipcRenderer.uploadVideos(params).then((response) => {
       console.log(response);
@@ -87,39 +93,66 @@ const YTUploadView = () => {
           disabled={loggedIn}
           variant="contained"
           color="secondary"
-          sx={{ width: '40vw', color: 'white' }}
+          sx={{ width: '100%', color: 'white' }}
           onClick={() => login()}
         >
           Login
         </Button>
+        <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between' }}>
+          <TextField
+            required
+            disabled={!loggedIn}
+            value={selectedFolder}
+            onChange={(event) => setSelectedFolder(event.target.value as string)}
+            label="VOD Folder"
+            variant="filled"
+            sx={{ width: '75%' }}
+            select
+          >
+            {tounamentFolders.map((folder) => {
+              return (
+                <MenuItem key={folder} value={folder}>
+                  {folder}
+                </MenuItem>
+              );
+            })}
+          </TextField>
+          <Button
+            disabled={!loggedIn}
+            variant="contained"
+            color="secondary"
+            sx={{ width: '10%', color: 'white' }}
+            onClick={() => window.electron.ipcRenderer.openFolder(selectedFolder)}
+          >
+            <FolderOpenIcon />
+          </Button>
+        </Box>
         <TextField
-          required
-          value={selectedFolder}
-          onChange={(event) => setSelectedFolder(event.target.value as string)}
-          label="VOD Folder"
-          variant="filled"
-          select
-        >
-          {tounamentFolders.map((folder) => {
-            return (
-              <MenuItem key={folder} value={folder}>
-                {folder}
-              </MenuItem>
-            );
-          })}
-        </TextField>
-        <TextField
+          disabled={!loggedIn}
           onChange={(event) => setDescription(event.target.value as string)}
           label="Video Description"
           variant="filled"
           rows={3}
           multiline
         />
+        <FormControl disabled={!loggedIn}>
+          <RadioGroup
+            row
+            defaultValue="unlisted"
+            name="radio-buttons-group"
+            value={visibility}
+            onChange={(event) => setVisibility(event.target.value)}
+          >
+            <FormControlLabel value="unlisted" control={<Radio />} label="Unlisted" />
+            <FormControlLabel value="public" control={<Radio />} label="Public" />
+            <FormControlLabel value="private" control={<Radio />} label="Private" />
+          </RadioGroup>
+        </FormControl>
         <Button
           disabled={buttonDisabled}
           variant="contained"
           color="secondary"
-          sx={{ width: '40vw', color: 'white' }}
+          sx={{ width: '100%', color: 'white' }}
           onClick={() => uploadVideos()}
         >
           Upload
