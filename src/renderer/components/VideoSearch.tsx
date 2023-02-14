@@ -44,6 +44,7 @@ const RetrieveSets = (
   const [waiting, setWaiting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [errorOpen, setErrorOpen] = useState(false);
+  let characters = ['', ''];
 
   const [getSets, { loading, error, data }] = useLazyQuery(
     GET_SETS_AT_STATION,
@@ -89,6 +90,8 @@ const RetrieveSets = (
               }
               characterStrings[0] = ' (' + characterArrays[0].join(', ') + ')';
               characterStrings[1] = ' (' + characterArrays[1].join(', ') + ')';
+              characters[0] = characterArrays[0][0]
+              characters[1] = characterArrays[1][0]
             }
             let metadata: VODMetadata = {
               title:
@@ -110,8 +113,8 @@ const RetrieveSets = (
               download: true,
               player1: set.slots[0].entrant.name.split('|').pop().trim(),
               player2: set.slots[1].entrant.name.split('|').pop().trim(),
-              character1: characterStrings[0],
-              character2: characterStrings[1],
+              character1: characters[0],
+              character2: characters[1],
               tournamentName: data.event.tournament.name,
             };
             return metadata;

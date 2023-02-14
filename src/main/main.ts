@@ -118,11 +118,17 @@ ipcMain.handle('open-google-login', async (event, arg) => {
   return myApiOauth.openAuthWindowAndGetTokens();
 });
 
-ipcMain.handle('save-thumbnail', async (event, args) => {
-  console.log("Saving thumbnail: ", args)
-  fs.mkdir('./downloadedVODs/' + args.folderName.replace(":", "#") + "/thumbnails", { recursive: true }, (err: Error) => {
+ipcMain.handle('create-thumbnail-folder', async(event, arg) => {
+  fs.mkdir('./downloadedVODs/' + arg.replace(":", "#") + "/thumbnails", { recursive: true }, (err: Error) => {
     if (err) throw err;
   })
+})
+
+ipcMain.handle('save-thumbnail', async (event, args) => {
+  console.log("Saving thumbnail: ", args)
+  // fs.mkdir('./downloadedVODs/' + args.folderName.replace(":", "#") + "/thumbnails", { recursive: true }, (err: Error) => {
+  //   if (err) throw err;
+  // })
   fs.writeFile("./downloadedVODs/" + args.folderName.replace(":", "#") + "/thumbnails/" + args.fileName.replace(":", "#") + ".jpg", args.buf, function (err: any) {
     if (err) {
       console.log(err);

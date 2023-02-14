@@ -18,14 +18,19 @@ interface Props {
   logo?: string;
   player1?: string;
   player2?: string;
+  character1?: string;
+  character2?: string;
   bottomText?: string;
   visible?: boolean;
   title?: string;
 }
 export type Ref = ReactInstance;
 
+const characterFolder = './characters/';
+
 // Create Document Component
 const ThumbnailGenerator = React.forwardRef<Ref, Props>((props, ref) => {
+  // console.log("images", images)
   let displayOption = props.visible ? 'block' : 'none';
   return (
     <Box id={props.title} ref={ref} sx={{ height: '720px', width: '1280px', backgroundColor: '#B9F3FC', scale: props.scale, transformOrigin: 'top left', display: displayOption }}>
@@ -46,13 +51,13 @@ const ThumbnailGenerator = React.forwardRef<Ref, Props>((props, ref) => {
         <Grid item xs={12}>
           <Grid container sx={{ width: '100%', height: '500px', backgroundColor: props.bgColor}}>
             <Grid item xs={5} className="centered-flex">
-              <img src={Hero} />
+              <img src={require(`${ characterFolder + props.character1 + '.png' }`)} />
             </Grid>
             <Grid item xs={2} className="centered-flex">
-              <img src={props.logo} width="250px" height="250px" />
+              <img src={props.logo === '' ? DefaultIcon : props.logo} width="250px" height="250px" />
             </Grid>
             <Grid item xs={5} className="centered-flex">
-              <img src={Hero} />
+              <img src={require(`${ characterFolder + props.character2 + '.png' }`)} />
             </Grid>
           </Grid>
         </Grid>
@@ -78,6 +83,8 @@ ThumbnailGenerator.defaultProps = {
   logo: DefaultIcon,
   player1: 'Player 1',
   player2: 'Player 2',
+  character1: 'Random Character',
+  character2: 'Random Character',
   bottomText: 'Grand Finals',
   visible: true
 }

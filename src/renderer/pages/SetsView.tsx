@@ -269,7 +269,7 @@ const SetsView = () => {
           </Button>
           <input type='file' id="img" name="img" accept="image/*" onChange={(event) => onImageChange(event)} ref={inputFile} style={{display: 'none'}}/>
           <Box sx={{ width: '426px', height: '240px', overflow: 'hidden'}}>
-            <ThumbnailGenerator bgColor={thumbnailColor} ref={ref} scale="0.335" logo={thumbnailLogo} />
+            <ThumbnailGenerator logo={thumbnailLogo} bgColor={thumbnailColor} ref={ref} scale="0.335" character1={"Hero"} character2={"Kirby"} />
           </Box>
         </Box>
       </Dialog>
@@ -417,6 +417,7 @@ const SetsView = () => {
             setInfoMessage('Your VODs are being downloaded to ./downloadedVODs/' + location.state.tournamentName);
             setInfoOpen(true)
             setEnableDownload(false)
+            window.electron.ipcRenderer.createThumbnailFolder(location.state.tournamentName)
             location.state.sets.map((set: VODMetadata) => {
               if (set.download) {
                 console.log('Downloading set: ', set);
@@ -466,7 +467,7 @@ const SetsView = () => {
       </Box>
       <Box sx={{position: 'relative', overflow: 'hidden'}}>
         <Box sx={{position: 'absolute', width: '1280px', height: '720px', right: '-640px', top: '360', overflow: 'hidden', zIndex: '-999'}}>
-          {location.state.sets.map((set: any) => {
+          {location.state.sets.map((set: VODMetadata) => {
             const ref: React.RefObject<ReactInstance> = React.createRef();
             return (
               <ThumbnailGenerator
@@ -476,6 +477,8 @@ const SetsView = () => {
                 logo={thumbnailLogo}
                 player1={set.player1}
                 player2={set.player2}
+                character1={set.character1}
+                character2={set.character2}
                 bottomText={set.tournamentName}
                 title={set.title}
               />
