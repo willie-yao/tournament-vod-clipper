@@ -60,7 +60,7 @@ const SetsView = () => {
   const [thumbnailModalOpen, setThumbnailModalOpen] = useState(false)
   const [thumbnailColor, setThumbnailColor] = useState('#B9F3FC')
   const [thumbnailLogo, setThumbnailLogo] = useState('')
-  const [refMap, setRefMap] = useState(new Map())
+  const [downloadThumbnails, setDownloadThumbnails] = useState(true)
 
   const inputFile = React.useRef<HTMLInputElement | null>(null);
 
@@ -256,7 +256,7 @@ const SetsView = () => {
             Thumbnail Options
           </Typography>
           <FormGroup>
-            <FormControlLabel control={<Switch defaultChecked />} label="Download Thumbnails" />
+            <FormControlLabel control={<Switch onChange={(event) => setDownloadThumbnails(event.target.checked)} defaultChecked />} label="Download Thumbnails" />
           </FormGroup>
           <MuiColorInput label="Background Color" value={thumbnailColor} onChange={(color) => setThumbnailColor(color)} />
           <Button
@@ -417,11 +417,15 @@ const SetsView = () => {
             setInfoMessage('Your VODs are being downloaded to ./downloadedVODs/' + location.state.tournamentName);
             setInfoOpen(true)
             setEnableDownload(false)
-            window.electron.ipcRenderer.createThumbnailFolder(location.state.tournamentName)
+            if (downloadThumbnails) {
+              window.electron.ipcRenderer.createThumbnailFolder(location.state.tournamentName)
+            }
             location.state.sets.map((set: VODMetadata) => {
               if (set.download) {
                 console.log('Downloading set: ', set);
-                generateThumbnail(set)
+                if (downloadThumbnails) {
+                  generateThumbnail(set)
+                }
                 window.electron.ipcRenderer
                   .downloadVideo({
                     vodUrl: location.state.vodUrl,

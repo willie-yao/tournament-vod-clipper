@@ -44,7 +44,6 @@ const RetrieveSets = (
   const [waiting, setWaiting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [errorOpen, setErrorOpen] = useState(false);
-  let characters = ['', ''];
 
   const [getSets, { loading, error, data }] = useLazyQuery(
     GET_SETS_AT_STATION,
@@ -67,6 +66,7 @@ const RetrieveSets = (
           let characterMap = window.electron.store.get('characterMap');
           const formattedSets = data.event.sets.nodes.map((set: any) => {
             let characterStrings = ['', ''];
+            let characters = ['Random Character', 'Random Character'];
             if (set.games != null) {
               let characterArrays: string[][] = [[], []];
               for (const game of set.games) {

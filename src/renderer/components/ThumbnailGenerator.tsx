@@ -1,7 +1,6 @@
 import React, {ReactInstance, ReactNode} from "react";
 import { Box, Grid, Typography } from "@mui/material";
-import Hero from '../../../assets/characters/Hero.png';
-import DefaultIcon from '../../../assets/icon.png';
+import DefaultIcon from '../../../assets/MsLogo.png';
 
 const ThumbnailText = (text: string, variant: any) => {
   return (
@@ -50,13 +49,13 @@ const ThumbnailGenerator = React.forwardRef<Ref, Props>((props, ref) => {
         </Grid>
         <Grid item xs={12}>
           <Grid container sx={{ width: '100%', height: '500px', backgroundColor: props.bgColor}}>
-            <Grid item xs={5} className="centered-flex">
+            <Grid sx={{ position: 'relative', left: '-50px', bottom: '10px'}} item xs={5} className="centered-flex">
               <img src={require(`${ characterFolder + props.character1 + '.png' }`)} />
             </Grid>
             <Grid item xs={2} className="centered-flex">
               <img src={props.logo === '' ? DefaultIcon : props.logo} width="250px" height="250px" />
             </Grid>
-            <Grid item xs={5} className="centered-flex">
+            <Grid sx={{ position: 'relative', left: '50px', bottom: '10px'}} item xs={5} className="centered-flex">
               <img src={require(`${ characterFolder + props.character2 + '.png' }`)} />
             </Grid>
           </Grid>
