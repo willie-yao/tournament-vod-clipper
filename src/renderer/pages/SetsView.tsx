@@ -21,12 +21,13 @@ import {
   Card,
   CardContent,
   CardMedia,
-  Tooltip
+  Tooltip,
+  Switch
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import { useLocation, useNavigate } from 'react-router-dom';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ReactInstance } from 'react';
 import { useTheme } from '@mui/material/styles';
 import { VODMetadata } from 'renderer/components/VideoSearch';
 import SnackbarPopup from 'renderer/common/SnackbarPopup';
@@ -35,6 +36,11 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 import moment from 'moment'
+import ThumbnailGenerator from 'renderer/components/ThumbnailGenerator';
+import { exportComponentAsJPEG } from 'react-component-export-image';
+import { MuiColorInput } from 'mui-color-input'
+import html2canvas from 'html2canvas';
+import {Buffer} from 'buffer';
 
 const SetsView = () => {
   const theme = useTheme();
@@ -51,6 +57,12 @@ const SetsView = () => {
   const [infoMessage, setInfoMessage] = useState('')
   const [downloaded, setDownloaded] = useState(false)
   const [enableDownload, setEnableDownload] = useState(false)
+  const [thumbnailModalOpen, setThumbnailModalOpen] = useState(false)
+  const [thumbnailColor, setThumbnailColor] = useState('#B9F3FC')
+  const [thumbnailLogo, setThumbnailLogo] = useState('')
+  const [downloadThumbnails, setDownloadThumbnails] = useState(true)
+
+  const inputFile = React.useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (checked.length == location.state.sets.length + 1) {
@@ -222,6 +234,63 @@ const SetsView = () => {
     )
   }
 
+  const ThumbnailOptionsModal = () => {
+    const ref: React.RefObject<ReactInstance> = React.createRef();
+
+    const onImageChange = (event: any) => {
+      if (event.target.files && event.target.files[0]) {
+        setThumbnailLogo(URL.createObjectURL(event.target.files[0]));
+      }
+     }
+
+    return (
+      <Dialog
+        open={thumbnailModalOpen}
+        onClose={(event: any) => {
+          event.stopPropagation()
+          setThumbnailModalOpen(false)
+        }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', height:'80vh', minWidth: '50vw', padding: '20px' }}>
+          <Typography variant="h6" component="h2" textAlign="center" gutterBottom>
+            Thumbnail Options
+          </Typography>
+          <FormGroup>
+            <FormControlLabel control={<Switch onChange={(event) => setDownloadThumbnails(event.target.checked)} defaultChecked />} label="Download Thumbnails" />
+          </FormGroup>
+          <MuiColorInput label="Background Color" value={thumbnailColor} onChange={(color) => setThumbnailColor(color)} />
+          <Button
+            variant="contained"
+            color="secondary"
+            sx={{ width: '50%', color: 'white' }}
+            onClick={() => inputFile!.current!.click()}
+          >
+            Select Logo
+          </Button>
+          <input type='file' id="img" name="img" accept="image/*" onChange={(event) => onImageChange(event)} ref={inputFile} style={{display: 'none'}}/>
+          <Box sx={{ width: '426px', height: '240px', overflow: 'hidden'}}>
+            <ThumbnailGenerator logo={thumbnailLogo} bgColor={thumbnailColor} ref={ref} scale="0.335" character1={"Hero"} character2={"Kirby"} />
+          </Box>
+        </Box>
+      </Dialog>
+    )
+  }
+
+  const generateThumbnail = (set: VODMetadata) => {
+    var thumbnail = document.getElementById(set.title)
+    html2canvas(thumbnail!)
+    .then((canvas) => {
+      const img = canvas.toDataURL('image/png')
+      const base64Data = img.replace(/^data:image\/png;base64,/, "");
+      const buf = Buffer.from(base64Data, "base64");
+      window.electron.ipcRenderer.saveThumbnail({
+        folderName: set.tournamentName,
+        fileName: set.title,
+        buf: buf
+      })
+    })
+  }
+
   const handleToggle = (set: any) => {
     const currentIndex = checked.indexOf(set);
     const newChecked = [...checked];
@@ -256,24 +325,35 @@ const SetsView = () => {
       <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
         Select Sets to Download
       </Typography>
-      <FormGroup>
+      {ThumbnailOptionsModal()}
+      <Box sx={{ display: 'flex', justifyContent: 'space-around', width: '100%' }}>
+        <FormGroup>
+          <Button
+            variant="contained"
+            color="secondary"
+            sx={{ width: '40vw', marginBottom: '20px' }}
+            onClick={(event) => {
+              handleSelectAll();
+              event.stopPropagation();
+              event.preventDefault();
+            }}
+          >
+            <FormControlLabel
+              sx={{ color: 'white' }}
+              control={<Checkbox checked={selectAllChecked} disableRipple />}
+              label="Select All"
+            />
+          </Button>
+        </FormGroup>
         <Button
           variant="contained"
           color="secondary"
-          sx={{ width: '40vw', marginBottom: '20px' }}
-          onClick={(event) => {
-            handleSelectAll();
-            event.stopPropagation();
-            event.preventDefault();
-          }}
+          sx={{ width: '40vw', marginBottom: '20px', color: 'white' }}
+          onClick={() => setThumbnailModalOpen(true)}
         >
-          <FormControlLabel
-            sx={{ color: 'white' }}
-            control={<Checkbox checked={selectAllChecked} disableRipple />}
-            label="Select All"
-          />
+          Thumbnail Options
         </Button>
-      </FormGroup>
+      </Box>
       <List
         className="list-box"
         sx={{
@@ -337,9 +417,15 @@ const SetsView = () => {
             setInfoMessage('Your VODs are being downloaded to ./downloadedVODs/' + location.state.tournamentName);
             setInfoOpen(true)
             setEnableDownload(false)
+            if (downloadThumbnails) {
+              window.electron.ipcRenderer.createThumbnailFolder(location.state.tournamentName)
+            }
             location.state.sets.map((set: VODMetadata) => {
               if (set.download) {
                 console.log('Downloading set: ', set);
+                if (downloadThumbnails) {
+                  generateThumbnail(set)
+                }
                 window.electron.ipcRenderer
                   .downloadVideo({
                     vodUrl: location.state.vodUrl,
@@ -382,6 +468,27 @@ const SetsView = () => {
         >
           Continue to Upload
         </Button>
+      </Box>
+      <Box sx={{position: 'relative', overflow: 'hidden'}}>
+        <Box sx={{position: 'absolute', width: '1280px', height: '720px', right: '-640px', top: '360', overflow: 'hidden', zIndex: '-999'}}>
+          {location.state.sets.map((set: VODMetadata) => {
+            const ref: React.RefObject<ReactInstance> = React.createRef();
+            return (
+              <ThumbnailGenerator
+                key={set.title + thumbnailColor}
+                ref={ref}
+                bgColor={thumbnailColor}
+                logo={thumbnailLogo}
+                player1={set.player1}
+                player2={set.player2}
+                character1={set.character1}
+                character2={set.character2}
+                bottomText={set.tournamentName}
+                title={set.title}
+              />
+            )
+          })}
+        </Box>
       </Box>
     </Container>
   );

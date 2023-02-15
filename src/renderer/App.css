@@ -81,3 +81,13 @@ a:hover {
 .timepicker {
   width: 78vw;
 }
+
+.centered-flex {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.MuiColorInput-TextField{
+  width: 50%;
+}

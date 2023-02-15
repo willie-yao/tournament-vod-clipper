@@ -73,7 +73,7 @@ ipcMain.handle('create-folder', async (event, arg) => {
 });
 
 ipcMain.handle('open-folder', async (event, arg) => {
-  shell.openPath(process.cwd() + path.sep + 'downloadedVODs' + path.sep + arg);
+  shell.openPath(process.cwd() + path.sep + 'downloadedVODs' + path.sep + arg.replace(":", "#"));
 });
 
 ipcMain.handle('retrieve-video-information', async (event, arg) => {
@@ -118,37 +118,68 @@ ipcMain.handle('open-google-login', async (event, arg) => {
   return myApiOauth.openAuthWindowAndGetTokens();
 });
 
-ipcMain.handle('upload-videos', async (event, args) => {
-  const fileSize = fs.statSync(args.path).size;
-  return youtube.videos.insert(
-    {
-      part: 'id,snippet,status',
-      notifySubscribers: false,
-      requestBody: {
-        snippet: {
-          title: args.videoName.replace(/\.[^/.]+$/, ''),
-          description: args.description,
-        },
-        status: {
-          privacyStatus: 'unlisted',
-        },
-      },
-      media: {
-        body: fs.createReadStream(args.path),
-      },
-      access_token: args.accessToken,
-    },
-    {
-      // Use the `onUploadProgress` event from Axios to track the
-      // number of bytes uploaded to this point.
-      onUploadProgress: (evt: any) => {
-        const progress = (evt.bytesRead / fileSize) * 100;
-        readline.clearLine(process.stdout, 0);
-        readline.cursorTo(process.stdout, 0, null);
-        process.stdout.write(`${Math.round(progress)}% complete`);
-      },
+ipcMain.handle('create-thumbnail-folder', async(event, arg) => {
+  fs.mkdir('./downloadedVODs/' + arg.replace(":", "#") + "/thumbnails", { recursive: true }, (err: Error) => {
+    if (err) throw err;
+  })
+})
+
+ipcMain.handle('save-thumbnail', async (event, args) => {
+  console.log("Saving thumbnail: ", args)
+  // fs.mkdir('./downloadedVODs/' + args.folderName.replace(":", "#") + "/thumbnails", { recursive: true }, (err: Error) => {
+  //   if (err) throw err;
+  // })
+  fs.writeFile("./downloadedVODs/" + args.folderName.replace(":", "#") + "/thumbnails/" + args.fileName.replace(":", "#") + ".jpg", args.buf, function (err: any) {
+    if (err) {
+      console.log(err);
     }
-  )
+  })
+})
+
+ipcMain.handle('upload-videos', async (event, args) => {
+  return fs.readdirSync(args.path).forEach((videoName: any) => {
+    const fileSize = fs.statSync(args.path + videoName).size;
+    if (path.extname(videoName).toLowerCase() === '.mp4') {
+      console.log('videoName', videoName);
+      return youtube.videos
+        .insert(
+          {
+            part: 'id,snippet,status',
+            notifySubscribers: true,
+            requestBody: {
+              snippet: {
+                title: videoName.replace(/\.[^/.]+$/, ''),
+                description: args.description,
+              },
+              status: {
+                privacyStatus: args.visibility,
+              },
+            },
+            media: {
+              body: fs.createReadStream(args.path + videoName),
+            },
+            access_token: args.accessToken,
+          },
+          {
+            // Use the `onUploadProgress` event from Axios to track the
+            // number of bytes uploaded to this point.
+            onUploadProgress: (evt: any) => {
+              const progress = (evt.bytesRead / fileSize) * 100;
+              readline.clearLine(process.stdout, 0);
+              readline.cursorTo(process.stdout, 0, null);
+              process.stdout.write(`${Math.round(progress)}% complete`);
+            },
+          }
+        )
+        .then((response: any) => {
+          console.log('response', response);
+        })
+        .catch((error: any) => {
+          console.log('error', error);
+          return error.errors[0].message;
+        });
+    }
+  })
 });
 
 ipcMain.handle('get-api-key', async (event, arg) => {

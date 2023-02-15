@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { createRef, useState, useEffect, ReactInstance } from 'react';
 import { Button, Box, TextField } from '@mui/material';
 import { GET_SETS_AT_STATION } from 'renderer/common/StartggQueries';
 import { useLazyQuery } from '@apollo/client';
@@ -13,6 +13,11 @@ export interface VODMetadata {
   startTime: string;
   endTime: string;
   download: boolean;
+  player1: string;
+  player2: string;
+  character1: string;
+  character2: string;
+  tournamentName: string;
 }
 
 const RetrieveSets = (
@@ -61,6 +66,7 @@ const RetrieveSets = (
           let characterMap = window.electron.store.get('characterMap');
           const formattedSets = data.event.sets.nodes.map((set: any) => {
             let characterStrings = ['', ''];
+            let characters = ['Random Character', 'Random Character'];
             if (set.games != null) {
               let characterArrays: string[][] = [[], []];
               for (const game of set.games) {
@@ -84,6 +90,8 @@ const RetrieveSets = (
               }
               characterStrings[0] = ' (' + characterArrays[0].join(', ') + ')';
               characterStrings[1] = ' (' + characterArrays[1].join(', ') + ')';
+              characters[0] = characterArrays[0][0]
+              characters[1] = characterArrays[1][0]
             }
             let metadata: VODMetadata = {
               title:
@@ -103,6 +111,11 @@ const RetrieveSets = (
                 .toISOString()
                 .slice(11, 19),
               download: true,
+              player1: set.slots[0].entrant.name.split('|').pop().trim(),
+              player2: set.slots[1].entrant.name.split('|').pop().trim(),
+              character1: characters[0],
+              character2: characters[1],
+              tournamentName: data.event.tournament.name,
             };
             return metadata;
           });
