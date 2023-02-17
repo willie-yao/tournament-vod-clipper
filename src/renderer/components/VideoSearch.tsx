@@ -1,7 +1,7 @@
 import { createRef, useState, useEffect, ReactInstance } from 'react';
 import { Button, Box, TextField } from '@mui/material';
-import { GET_SETS_AT_STATION } from 'renderer/common/StartggQueries';
-import { useLazyQuery } from '@apollo/client';
+import { GET_SETS_AT_STATION, GET_SETS_AT_STREAM_STATION } from 'renderer/common/StartggQueries';
+import { useLazyQuery, useApolloClient } from '@apollo/client';
 import { useTheme } from '@mui/material/styles';
 import { PropagateLoader } from 'react-spinners';
 import { useNavigate } from 'react-router-dom';
@@ -20,16 +20,25 @@ export interface VODMetadata {
   tournamentName: string;
 }
 
+function isNumber(value: string | number): boolean
+{
+  return ((value != null) &&
+          (value !== '') &&
+          !isNaN(Number(value.toString())));
+}
+
 const RetrieveSets = (
   eventId: string,
   vodUrl: string,
-  stationNumber: number,
+  station: string,
   buttonDisabled: boolean,
   setButtonDisabled: React.Dispatch<React.SetStateAction<boolean>>,
 ): JSX.Element => {
   const navigate = useNavigate();
   const theme = useTheme();
+  const client = useApolloClient();
   let options = {};
+  let pageNum = 1;
   let apikey = window.electron.store.get('apikey');
   if (apikey != '') {
     options = {
@@ -44,9 +53,90 @@ const RetrieveSets = (
   const [waiting, setWaiting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [errorOpen, setErrorOpen] = useState(false);
+  let totalData: any[] = []
+
+  let query;
+  isNumber(station) ? (query = GET_SETS_AT_STATION) : (query = GET_SETS_AT_STREAM_STATION);
+
+  const formatSetData = (responseData: any) => {
+    console.log("Format set data: ", responseData)
+    window.electron.ipcRenderer
+      .retrieveVideoInformation({ vodUrl: vodUrl })
+      .then((timestamp) => {
+        let characterMap = window.electron.store.get('characterMap');
+        const formattedSets = responseData.event.sets.nodes.map((set: any) => {
+          let characterStrings = ['', ''];
+          let characters = ['Random Character', 'Random Character'];
+          if (set.games != null) {
+            let characterArrays: string[][] = [[], []];
+            for (const game of set.games) {
+              if (game.selections != null) {
+                let entrantIds = [
+                  set.slots[0].entrant.id,
+                  set.slots[1].entrant.id,
+                ];
+                for (let i = 0; i < 2; i++) {
+                  for (let j = 0; j < 2; j++) {
+                    if (game.selections[j].entrant.id == entrantIds[i]) {
+                      let character: string =
+                        characterMap[game.selections[j].selectionValue];
+                      characterArrays[i].indexOf(character) === -1
+                        ? characterArrays[i].push(character)
+                        : null;
+                    }
+                  }
+                }
+              }
+            }
+            characterStrings[0] = ' (' + characterArrays[0].join(', ') + ')';
+            characterStrings[1] = ' (' + characterArrays[1].join(', ') + ')';
+            characters[0] = characterArrays[0][0]
+            characters[1] = characterArrays[1][0]
+          }
+          let metadata: VODMetadata = {
+            title:
+              set.slots[0].entrant.name.split('|').pop().trim() +
+              characterStrings[0] +
+              ' vs ' +
+              set.slots[1].entrant.name.split('|').pop().trim() +
+              characterStrings[1] +
+              ' - ' +
+              set.fullRoundText +
+              ' - ' +
+              responseData.event.tournament.name,
+            startTime: new Date((set.startedAt - timestamp) * 1000)
+              .toISOString()
+              .slice(11, 19),
+            endTime: new Date((set.completedAt - timestamp) * 1000)
+              .toISOString()
+              .slice(11, 19),
+            download: true,
+            player1: set.slots[0].entrant.name.split('|').pop().trim(),
+            player2: set.slots[1].entrant.name.split('|').pop().trim(),
+            character1: characters[0],
+            character2: characters[1],
+            tournamentName: responseData.event.tournament.name,
+          };
+          return metadata;
+        });
+        setWaiting(false);
+        console.log("All sets", formattedSets)
+        navigate('/SetsView', {
+          state: {
+            sets: formattedSets,
+            vodUrl: vodUrl,
+            tournamentName: responseData.event.tournament.name,
+          },
+        });
+      }).catch((err) => {
+        setErrorMessage("Error retrieving sets: " + err.message);
+        setErrorOpen(true);
+        setWaiting(false);
+      });
+  }
 
   const [getSets, { loading, error, data }] = useLazyQuery(
-    GET_SETS_AT_STATION,
+    query,
     options
   );
 
@@ -59,82 +149,18 @@ const RetrieveSets = (
   })
 
   useEffect(() => {
-    if (data) {
-      window.electron.ipcRenderer
-        .retrieveVideoInformation({ vodUrl: vodUrl })
-        .then((timestamp) => {
-          let characterMap = window.electron.store.get('characterMap');
-          const formattedSets = data.event.sets.nodes.map((set: any) => {
-            let characterStrings = ['', ''];
-            let characters = ['Random Character', 'Random Character'];
-            if (set.games != null) {
-              let characterArrays: string[][] = [[], []];
-              for (const game of set.games) {
-                if (game.selections != null) {
-                  let entrantIds = [
-                    set.slots[0].entrant.id,
-                    set.slots[1].entrant.id,
-                  ];
-                  for (let i = 0; i < 2; i++) {
-                    for (let j = 0; j < 2; j++) {
-                      if (game.selections[j].entrant.id == entrantIds[i]) {
-                        let character: string =
-                          characterMap[game.selections[j].selectionValue];
-                        characterArrays[i].indexOf(character) === -1
-                          ? characterArrays[i].push(character)
-                          : null;
-                      }
-                    }
-                  }
-                }
-              }
-              characterStrings[0] = ' (' + characterArrays[0].join(', ') + ')';
-              characterStrings[1] = ' (' + characterArrays[1].join(', ') + ')';
-              characters[0] = characterArrays[0][0]
-              characters[1] = characterArrays[1][0]
-            }
-            let metadata: VODMetadata = {
-              title:
-                set.slots[0].entrant.name.split('|').pop().trim() +
-                characterStrings[0] +
-                ' vs ' +
-                set.slots[1].entrant.name.split('|').pop().trim() +
-                characterStrings[1] +
-                ' - ' +
-                set.fullRoundText +
-                ' - ' +
-                data.event.tournament.name,
-              startTime: new Date((set.startedAt - timestamp) * 1000)
-                .toISOString()
-                .slice(11, 19),
-              endTime: new Date((set.completedAt - timestamp) * 1000)
-                .toISOString()
-                .slice(11, 19),
-              download: true,
-              player1: set.slots[0].entrant.name.split('|').pop().trim(),
-              player2: set.slots[1].entrant.name.split('|').pop().trim(),
-              character1: characters[0],
-              character2: characters[1],
-              tournamentName: data.event.tournament.name,
-            };
-            return metadata;
-          });
-          setWaiting(false);
-          console.log("All sets", formattedSets)
-          navigate('/SetsView', {
-            state: {
-              sets: formattedSets,
-              vodUrl: vodUrl,
-              tournamentName: data.event.tournament.name,
-            },
-          });
-        }).catch((err) => {
-          setErrorMessage("Error retrieving sets: " + err.message);
-          setErrorOpen(true);
-          setWaiting(false);
-        });
+    if (data && isNumber(station)) {
+      formatSetData(data);
     }
   }, [data]);
+
+  const getNextPage = async () => {
+    await client.query({query: GET_SETS_AT_STREAM_STATION, variables: {eventId: eventId, page: pageNum}}).then((res: any) => {
+      console.log("Res: ", res)
+      totalData.push(res.data.event.sets.nodes)
+      pageNum++;
+    })
+  }
 
   return (
     <Box
@@ -151,9 +177,23 @@ const RetrieveSets = (
         variant="contained"
         onClick={() => {
           setWaiting(true);
-          getSets({
-            variables: { eventId: eventId, stationNumbers: [stationNumber] },
-          });
+          if (isNumber(station)) {
+            getSets({
+              variables: { eventId: eventId, stationNumbers: [station] },
+            });
+          } else {
+            client.query({query: GET_SETS_AT_STREAM_STATION, variables: {eventId: eventId, page: pageNum}}).then(async (res: any) => {
+              console.log("Res: ", res)
+              totalData.push(res.data.event.sets.nodes)
+              pageNum++;
+              while (pageNum < res.data.event.sets.pageInfo.totalPages) {
+                await getNextPage()
+              }
+              let dataCopy = structuredClone(res.data)
+              dataCopy.event.sets.nodes = totalData.flat();
+              formatSetData(dataCopy)
+            })
+          }
         }}
         sx={{ marginBottom: '25px', width: '100%' }}
         disabled={buttonDisabled}
@@ -172,7 +212,7 @@ const VideoSearch = () => {
   const [vodUrl, setVodUrl] = useState('');
   const [eventId, setEventId] = useState('');
   const [buttonDisabled, setButtonDisabled] = useState(true);
-  const [stationNumber, setStationNumber] = useState(0);
+  const [station, setStation] = useState('');
   const [urlError, setUrlError] = useState(false);
   const [slugError, setSlugError] = useState(false);
 
@@ -184,7 +224,7 @@ const VideoSearch = () => {
     if (
       eventId != '' &&
       vodUrl != '' &&
-      stationNumber != 0 &&
+      station != '' &&
       window.electron.store.get('apikey') &&
       !urlError &&
       !slugError
@@ -246,14 +286,13 @@ const VideoSearch = () => {
       />
       <TextField
         className="textfield"
-        label="Stream Station Number"
-        type="number"
+        label="Stream Station"
         variant="filled"
-        onChange={(event) => setStationNumber(parseInt(event.target.value))}
-        helperText="The station number the stream is assigned to."
+        onChange={(event) => setStation(event.target.value)}
+        helperText="Can be name of twitch stream or a number."
         sx={{ marginBottom: '25px' }}
       />
-      {RetrieveSets(eventId, vodUrl, stationNumber, buttonDisabled, setButtonDisabled)}
+      {RetrieveSets(eventId, vodUrl, station, buttonDisabled, setButtonDisabled)}
     </Box>
   );
 };
