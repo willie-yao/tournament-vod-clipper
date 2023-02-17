@@ -1,6 +1,9 @@
 import { createRef, useState, useEffect, ReactInstance } from 'react';
 import { Button, Box, TextField } from '@mui/material';
-import { GET_SETS_AT_STATION, GET_SETS_AT_STREAM_STATION } from 'renderer/common/StartggQueries';
+import {
+  GET_SETS_AT_STATION,
+  GET_SETS_AT_STREAM_STATION,
+} from 'renderer/common/StartggQueries';
 import { useLazyQuery, useApolloClient } from '@apollo/client';
 import { useTheme } from '@mui/material/styles';
 import { PropagateLoader } from 'react-spinners';
@@ -20,11 +23,8 @@ export interface VODMetadata {
   tournamentName: string;
 }
 
-function isNumber(value: string | number): boolean
-{
-  return ((value != null) &&
-          (value !== '') &&
-          !isNaN(Number(value.toString())));
+function isNumber(value: string | number): boolean {
+  return value != null && value !== '' && !isNaN(Number(value.toString()));
 }
 
 const RetrieveSets = (
@@ -32,7 +32,7 @@ const RetrieveSets = (
   vodUrl: string,
   station: string,
   buttonDisabled: boolean,
-  setButtonDisabled: React.Dispatch<React.SetStateAction<boolean>>,
+  setButtonDisabled: React.Dispatch<React.SetStateAction<boolean>>
 ): JSX.Element => {
   const navigate = useNavigate();
   const theme = useTheme();
@@ -53,13 +53,14 @@ const RetrieveSets = (
   const [waiting, setWaiting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [errorOpen, setErrorOpen] = useState(false);
-  let totalData: any[] = []
+  let totalData: any[] = [];
 
   let query;
-  isNumber(station) ? (query = GET_SETS_AT_STATION) : (query = GET_SETS_AT_STREAM_STATION);
+  isNumber(station)
+    ? (query = GET_SETS_AT_STATION)
+    : (query = GET_SETS_AT_STREAM_STATION);
 
   const formatSetData = (responseData: any) => {
-    console.log("Format set data: ", responseData)
     window.electron.ipcRenderer
       .retrieveVideoInformation({ vodUrl: vodUrl })
       .then((timestamp) => {
@@ -90,8 +91,8 @@ const RetrieveSets = (
             }
             characterStrings[0] = ' (' + characterArrays[0].join(', ') + ')';
             characterStrings[1] = ' (' + characterArrays[1].join(', ') + ')';
-            characters[0] = characterArrays[0][0]
-            characters[1] = characterArrays[1][0]
+            characters[0] = characterArrays[0][0];
+            characters[1] = characterArrays[1][0];
           }
           let metadata: VODMetadata = {
             title:
@@ -120,7 +121,7 @@ const RetrieveSets = (
           return metadata;
         });
         setWaiting(false);
-        console.log("All sets", formattedSets)
+        console.log('All sets', formattedSets);
         navigate('/SetsView', {
           state: {
             sets: formattedSets,
@@ -128,25 +129,23 @@ const RetrieveSets = (
             tournamentName: responseData.event.tournament.name,
           },
         });
-      }).catch((err) => {
-        setErrorMessage("Error retrieving sets: " + err.message);
+      })
+      .catch((err) => {
+        setErrorMessage('Error retrieving sets: ' + err.message);
         setErrorOpen(true);
         setWaiting(false);
       });
-  }
+  };
 
-  const [getSets, { loading, error, data }] = useLazyQuery(
-    query,
-    options
-  );
+  const [getSets, { loading, error, data }] = useLazyQuery(query, options);
 
   useEffect(() => {
     if (loading || waiting) {
-      setButtonDisabled(true)
+      setButtonDisabled(true);
     } else if (error) {
-      setButtonDisabled(false)
+      setButtonDisabled(false);
     }
-  })
+  });
 
   useEffect(() => {
     if (data && isNumber(station)) {
@@ -155,12 +154,20 @@ const RetrieveSets = (
   }, [data]);
 
   const getNextPage = async () => {
-    await client.query({query: GET_SETS_AT_STREAM_STATION, variables: {eventId: eventId, page: pageNum}}).then((res: any) => {
-      console.log("Res: ", res)
-      totalData.push(res.data.event.sets.nodes)
-      pageNum++;
-    })
-  }
+    await client
+      .query({
+        query: GET_SETS_AT_STREAM_STATION,
+        variables: { eventId: eventId, page: pageNum },
+      })
+      .then((res: any) => {
+        totalData.push(
+          res.data.event.sets.nodes.filter(
+            (set: any) => set.stream && set.stream.streamName == station
+          )
+        );
+        pageNum++;
+      });
+  };
 
   return (
     <Box
@@ -182,17 +189,25 @@ const RetrieveSets = (
               variables: { eventId: eventId, stationNumbers: [station] },
             });
           } else {
-            client.query({query: GET_SETS_AT_STREAM_STATION, variables: {eventId: eventId, page: pageNum}}).then(async (res: any) => {
-              console.log("Res: ", res)
-              totalData.push(res.data.event.sets.nodes)
-              pageNum++;
-              while (pageNum < res.data.event.sets.pageInfo.totalPages) {
-                await getNextPage()
-              }
-              let dataCopy = structuredClone(res.data)
-              dataCopy.event.sets.nodes = totalData.flat();
-              formatSetData(dataCopy)
-            })
+            client
+              .query({
+                query: GET_SETS_AT_STREAM_STATION,
+                variables: { eventId: eventId, page: pageNum },
+              })
+              .then(async (res: any) => {
+                totalData.push(
+                  res.data.event.sets.nodes.filter(
+                    (set: any) => set.stream && set.stream.streamName == station
+                  )
+                );
+                pageNum++;
+                while (pageNum < res.data.event.sets.pageInfo.totalPages) {
+                  await getNextPage();
+                }
+                let dataCopy = structuredClone(res.data);
+                dataCopy.event.sets.nodes = totalData.flat();
+                formatSetData(dataCopy);
+              });
           }
         }}
         sx={{ marginBottom: '25px', width: '100%' }}
@@ -236,9 +251,11 @@ const VideoSearch = () => {
   });
 
   function isValidURL(url: string) {
-    var res = url.match(/(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/g);
-    return (res !== null)
-  };
+    var res = url.match(
+      /(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/g
+    );
+    return res !== null;
+  }
 
   useEffect(() => {
     if (isValidURL(vodUrl) || vodUrl == '') {
@@ -292,7 +309,13 @@ const VideoSearch = () => {
         helperText="Can be name of twitch stream or a number."
         sx={{ marginBottom: '25px' }}
       />
-      {RetrieveSets(eventId, vodUrl, station, buttonDisabled, setButtonDisabled)}
+      {RetrieveSets(
+        eventId,
+        vodUrl,
+        station,
+        buttonDisabled,
+        setButtonDisabled
+      )}
     </Box>
   );
 };
