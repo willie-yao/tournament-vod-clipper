@@ -22,7 +22,7 @@ import {
   CardContent,
   CardMedia,
   Tooltip,
-  Switch
+  Switch,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
@@ -35,12 +35,12 @@ import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
-import moment from 'moment'
+import moment from 'moment';
 import ThumbnailGenerator from 'renderer/components/ThumbnailGenerator';
 import { exportComponentAsJPEG } from 'react-component-export-image';
-import { MuiColorInput } from 'mui-color-input'
+import { MuiColorInput } from 'mui-color-input';
 import html2canvas from 'html2canvas';
-import {Buffer} from 'buffer';
+import { Buffer } from 'buffer';
 
 const SetsView = () => {
   const theme = useTheme();
@@ -54,23 +54,23 @@ const SetsView = () => {
   const [infoOpen, setInfoOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [infoMessage, setInfoMessage] = useState('')
-  const [downloaded, setDownloaded] = useState(false)
-  const [enableDownload, setEnableDownload] = useState(false)
-  const [thumbnailModalOpen, setThumbnailModalOpen] = useState(false)
-  const [thumbnailColor, setThumbnailColor] = useState('#B9F3FC')
-  const [thumbnailLogo, setThumbnailLogo] = useState('')
-  const [downloadThumbnails, setDownloadThumbnails] = useState(true)
+  const [infoMessage, setInfoMessage] = useState('');
+  const [downloaded, setDownloaded] = useState(false);
+  const [enableDownload, setEnableDownload] = useState(false);
+  const [thumbnailModalOpen, setThumbnailModalOpen] = useState(false);
+  const [thumbnailColor, setThumbnailColor] = useState('#B9F3FC');
+  const [thumbnailLogo, setThumbnailLogo] = useState('');
+  const [downloadThumbnails, setDownloadThumbnails] = useState(true);
 
   const inputFile = React.useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (checked.length == location.state.sets.length + 1) {
-      setEnableDownload(false)
+      setEnableDownload(false);
     } else {
-      setEnableDownload(true)
+      setEnableDownload(true);
     }
-  }, [checked])
+  }, [checked]);
 
   const handleSelectAll = () => {
     let newChecked = [...checked];
@@ -89,91 +89,127 @@ const SetsView = () => {
     setSelectAllChecked(!selectAllChecked);
   };
 
-  const EditTimestampModal = (set: any, setIndex: number, open: boolean, setOpen: React.Dispatch<React.SetStateAction<boolean>>) => {
-    const [newStartTime, setNewStartTime] = useState(moment(set.startTime, 'HH:mm:ss'))
-    const [newEndTime, setNewEndTime] = useState(moment(set.endTime, 'HH:mm:ss'))
-    const [skipTime, setSkipTime] = useState(moment(set.startTime, 'HH:mm:ss'))
-    const [embedLink, setEmbedLink] = useState("")
-    const [newTitle, setNewTitle] = useState(set.title)
-    const [timeError, setTimeError] = useState(false)
-    const [randomKey, setRandomKey] = useState(Math.random())
+  const EditTimestampModal = (
+    set: any,
+    setIndex: number,
+    open: boolean,
+    setOpen: React.Dispatch<React.SetStateAction<boolean>>
+  ) => {
+    const [newStartTime, setNewStartTime] = useState(
+      moment(set.startTime, 'HH:mm:ss')
+    );
+    const [newEndTime, setNewEndTime] = useState(
+      moment(set.endTime, 'HH:mm:ss')
+    );
+    const [skipTime, setSkipTime] = useState(moment(set.startTime, 'HH:mm:ss'));
+    const [embedLink, setEmbedLink] = useState('');
+    const [newTitle, setNewTitle] = useState(set.title);
+    const [timeError, setTimeError] = useState(false);
+    const [randomKey, setRandomKey] = useState(Math.random());
 
-    let partUrl = location.state.vodUrl.split('/')
-    let twitchId = partUrl.pop() || partUrl.pop()
+    let partUrl = location.state.vodUrl.split('/');
+    let twitchId = partUrl.pop() || partUrl.pop();
 
     useEffect(() => {
       if (newEndTime.isBefore(newStartTime)) {
-        setTimeError(true)
+        setTimeError(true);
       } else {
-        setTimeError(false)
+        setTimeError(false);
       }
-    })
+    });
 
     useEffect(() => {
-      let split = skipTime.format('HH:mm:ss').split(':')
+      let split = skipTime.format('HH:mm:ss').split(':');
       if (split.length === 3) {
-        let hours = split[0]
-        let minutes = split[1]
-        let seconds = split[2]
-        let twitchFormat = ""
-        if (hours !== "00") {
-          twitchFormat = twitchFormat.concat(hours.replace(/^0+/, ''), "h")
+        let hours = split[0];
+        let minutes = split[1];
+        let seconds = split[2];
+        let twitchFormat = '';
+        if (hours !== '00') {
+          twitchFormat = twitchFormat.concat(hours.replace(/^0+/, ''), 'h');
         }
-        if (minutes !== "00") {
-          twitchFormat = twitchFormat.concat(minutes.replace(/^0+/, ''), "m")
+        if (minutes !== '00') {
+          twitchFormat = twitchFormat.concat(minutes.replace(/^0+/, ''), 'm');
         } else {
-          twitchFormat = twitchFormat.concat("0m")
+          twitchFormat = twitchFormat.concat('0m');
         }
-        if (seconds !== "00") {
-          twitchFormat = twitchFormat.concat(seconds.replace(/^0+/, ''), "s")
+        if (seconds !== '00') {
+          twitchFormat = twitchFormat.concat(seconds.replace(/^0+/, ''), 's');
         } else {
-          twitchFormat = twitchFormat.concat("0s")
+          twitchFormat = twitchFormat.concat('0s');
         }
-        setEmbedLink("https://player.twitch.tv/?video=" + twitchId + "&t=" + twitchFormat + "&parent=localhost&muted=true")
+        setEmbedLink(
+          'https://player.twitch.tv/?video=' +
+            twitchId +
+            '&t=' +
+            twitchFormat +
+            '&parent=localhost&muted=true'
+        );
       }
-    })
+    });
 
     return (
       <Dialog
         open={open}
         onClose={(event: any) => {
-          event.stopPropagation()
-          setOpen(false)
+          event.stopPropagation();
+          setOpen(false);
         }}
         // onClick={(event: any) => event.stopPropagation()}
       >
         <LocalizationProvider dateAdapter={AdapterMoment}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height:'100vh', minWidth: '50vw', padding: '20px' }}>
-            <Typography variant="h6" component="h2" textAlign="center" gutterBottom>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-around',
+              height: '100vh',
+              minWidth: '50vw',
+              padding: '20px',
+            }}
+          >
+            <Typography
+              variant="h6"
+              component="h2"
+              textAlign="center"
+              gutterBottom
+            >
               Edit Match
             </Typography>
             {/* <ReactTwitchEmbedVideo video={twitchId}/> */}
             <Card sx={{ height: '35vh', width: '100%' }}>
               <iframe
                 src={embedLink}
-                height='100%'
-                width='100%'
+                height="100%"
+                width="100%"
                 key={randomKey}
-              >
-              </iframe>
+              ></iframe>
             </Card>
             <TextField
               className="textfield"
               label="Title"
               defaultValue={newTitle}
               onChange={(event) => {
-                event.stopPropagation()
-                event.preventDefault()
-                setNewTitle(event.target.value)
+                event.stopPropagation();
+                event.preventDefault();
+                setNewTitle(event.target.value);
               }}
-              helperText={newTitle.length + "/100 | YouTube title character limit"}
+              helperText={
+                newTitle.length + '/100 | YouTube title character limit'
+              }
             />
-            <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between' }}>
+            <Box
+              sx={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'space-between',
+              }}
+            >
               <TimePicker
                 label="Start Time"
                 value={newStartTime}
                 onChange={(newValue: any) => {
-                  setNewStartTime(newValue)
+                  setNewStartTime(newValue);
                 }}
                 renderInput={(params) => <TextField {...params} />}
                 inputFormat="HH:mm:ss"
@@ -183,17 +219,29 @@ const SetsView = () => {
                 className="timepicker"
               />
               <Tooltip title="Skip to start">
-                <IconButton onClick={() => newStartTime === skipTime ? setRandomKey(Math.random()) : setSkipTime(newStartTime)}>
+                <IconButton
+                  onClick={() =>
+                    newStartTime === skipTime
+                      ? setRandomKey(Math.random())
+                      : setSkipTime(newStartTime)
+                  }
+                >
                   <SkipNextIcon />
                 </IconButton>
               </Tooltip>
             </Box>
-            <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between' }}>
+            <Box
+              sx={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'space-between',
+              }}
+            >
               <TimePicker
                 label="End Time"
                 value={newEndTime}
                 onChange={(newValue: any) => {
-                  setNewEndTime(newValue)
+                  setNewEndTime(newValue);
                 }}
                 renderInput={(params) => <TextField {...params} />}
                 inputFormat="HH:mm:ss"
@@ -203,13 +251,21 @@ const SetsView = () => {
                 className="timepicker"
               />
               <Tooltip title="Skip to end">
-                <IconButton onClick={() => newEndTime === skipTime ? setRandomKey(Math.random()) : setSkipTime(newEndTime)}>
+                <IconButton
+                  onClick={() =>
+                    newEndTime === skipTime
+                      ? setRandomKey(Math.random())
+                      : setSkipTime(newEndTime)
+                  }
+                >
                   <SkipNextIcon />
                 </IconButton>
               </Tooltip>
             </Box>
           </Box>
-          <Box sx={{display: 'flex', justifyContent: 'center', width: '100%'}}>
+          <Box
+            sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}
+          >
             <Button
               disableFocusRipple
               disabled={timeError}
@@ -218,12 +274,14 @@ const SetsView = () => {
               size="medium"
               sx={{ color: 'white', width: '50%', marginBottom: '5vh' }}
               onClick={(event) => {
-                event.stopPropagation()
-                location.state.sets[setIndex].startTime = newStartTime.format("HH:mm:ss")
-                location.state.sets[setIndex].endTime = newEndTime.format("HH:mm:ss")
-                location.state.sets[setIndex].title = newTitle
-                console.log("set", location.state.sets[setIndex])
-                setOpen(false)
+                event.stopPropagation();
+                location.state.sets[setIndex].startTime =
+                  newStartTime.format('HH:mm:ss');
+                location.state.sets[setIndex].endTime =
+                  newEndTime.format('HH:mm:ss');
+                location.state.sets[setIndex].title = newTitle;
+                console.log('set', location.state.sets[setIndex]);
+                setOpen(false);
               }}
             >
               Change
@@ -231,8 +289,8 @@ const SetsView = () => {
           </Box>
         </LocalizationProvider>
       </Dialog>
-    )
-  }
+    );
+  };
 
   const ThumbnailOptionsModal = () => {
     const ref: React.RefObject<ReactInstance> = React.createRef();
@@ -241,24 +299,53 @@ const SetsView = () => {
       if (event.target.files && event.target.files[0]) {
         setThumbnailLogo(URL.createObjectURL(event.target.files[0]));
       }
-     }
+    };
 
     return (
       <Dialog
         open={thumbnailModalOpen}
         onClose={(event: any) => {
-          event.stopPropagation()
-          setThumbnailModalOpen(false)
+          event.stopPropagation();
+          setThumbnailModalOpen(false);
         }}
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', height:'80vh', minWidth: '50vw', padding: '20px' }}>
-          <Typography variant="h6" component="h2" textAlign="center" gutterBottom>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            height: '80vh',
+            minWidth: '50vw',
+            padding: '20px',
+          }}
+        >
+          <Typography
+            variant="h6"
+            component="h2"
+            textAlign="center"
+            gutterBottom
+          >
             Thumbnail Options
           </Typography>
           <FormGroup>
-            <FormControlLabel control={<Switch onChange={(event) => setDownloadThumbnails(event.target.checked)} defaultChecked />} label="Download Thumbnails" />
+            <FormControlLabel
+              control={
+                <Switch
+                  onChange={(event) =>
+                    setDownloadThumbnails(event.target.checked)
+                  }
+                  defaultChecked
+                />
+              }
+              label="Download Thumbnails"
+            />
           </FormGroup>
-          <MuiColorInput label="Background Color" value={thumbnailColor} onChange={(color) => setThumbnailColor(color)} />
+          <MuiColorInput
+            label="Background Color"
+            value={thumbnailColor}
+            onChange={(color) => setThumbnailColor(color)}
+          />
           <Button
             variant="contained"
             color="secondary"
@@ -267,29 +354,43 @@ const SetsView = () => {
           >
             Select Logo
           </Button>
-          <input type='file' id="img" name="img" accept="image/*" onChange={(event) => onImageChange(event)} ref={inputFile} style={{display: 'none'}}/>
-          <Box sx={{ width: '426px', height: '240px', overflow: 'hidden'}}>
-            <ThumbnailGenerator logo={thumbnailLogo} bgColor={thumbnailColor} ref={ref} scale="0.335" character1={"Hero"} character2={"Kirby"} />
+          <input
+            type="file"
+            id="img"
+            name="img"
+            accept="image/*"
+            onChange={(event) => onImageChange(event)}
+            ref={inputFile}
+            style={{ display: 'none' }}
+          />
+          <Box sx={{ width: '426px', height: '240px', overflow: 'hidden' }}>
+            <ThumbnailGenerator
+              logo={thumbnailLogo}
+              bgColor={thumbnailColor}
+              ref={ref}
+              scale="0.335"
+              character1={'Hero'}
+              character2={'Kirby'}
+            />
           </Box>
         </Box>
       </Dialog>
-    )
-  }
+    );
+  };
 
   const generateThumbnail = (set: VODMetadata) => {
-    var thumbnail = document.getElementById(set.title)
-    html2canvas(thumbnail!)
-    .then((canvas) => {
-      const img = canvas.toDataURL('image/png')
-      const base64Data = img.replace(/^data:image\/png;base64,/, "");
-      const buf = Buffer.from(base64Data, "base64");
+    var thumbnail = document.getElementById(set.title);
+    html2canvas(thumbnail!).then((canvas) => {
+      const img = canvas.toDataURL('image/png');
+      const base64Data = img.replace(/^data:image\/png;base64,/, '');
+      const buf = Buffer.from(base64Data, 'base64');
       window.electron.ipcRenderer.saveThumbnail({
         folderName: set.tournamentName,
         fileName: set.title,
-        buf: buf
-      })
-    })
-  }
+        buf: buf,
+      });
+    });
+  };
 
   const handleToggle = (set: any) => {
     const currentIndex = checked.indexOf(set);
@@ -304,7 +405,6 @@ const SetsView = () => {
 
     setChecked(newChecked);
   };
-
 
   return (
     <Container
@@ -326,7 +426,9 @@ const SetsView = () => {
         Select Sets to Download
       </Typography>
       {ThumbnailOptionsModal()}
-      <Box sx={{ display: 'flex', justifyContent: 'space-around', width: '100%' }}>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'space-around', width: '100%' }}
+      >
         <FormGroup>
           <Button
             variant="contained"
@@ -357,6 +459,8 @@ const SetsView = () => {
       <List
         className="list-box"
         sx={{
+          minWidth: '100%',
+          minHeight: '50vh',
           '&::-webkit-scrollbar': {
             width: '0.4em',
           },
@@ -371,8 +475,19 @@ const SetsView = () => {
           },
         }}
       >
+        {location.state.sets.length == 0 && (
+          <Typography
+            sx={{ marginTop: '23vh' }}
+            variant="h6"
+            component="h2"
+            textAlign="center"
+            gutterBottom
+          >
+            No sets found
+          </Typography>
+        )}
         {location.state.sets.map((set: any, index: number) => {
-          const [open, setOpen] = useState(false)
+          const [open, setOpen] = useState(false);
           return (
             <ListItem key={set.title}>
               <ListItemButton
@@ -380,7 +495,7 @@ const SetsView = () => {
                 sx={{ borderRadius: '5px' }}
                 onClick={() => {
                   if (!open) {
-                    handleToggle(set)
+                    handleToggle(set);
                   }
                 }}
               >
@@ -393,38 +508,47 @@ const SetsView = () => {
                   />
                 </ListItemIcon>
                 <ListItemText primary={set.title} />
-                <IconButton onClick={(event) => {
-                  event.stopPropagation()
-                  event.preventDefault();
-                  setOpen(true)
-                }}>
+                <IconButton
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    event.preventDefault();
+                    setOpen(true);
+                  }}
+                >
                   <EditIcon />
                 </IconButton>
                 {EditTimestampModal(set, index, open, setOpen)}
               </ListItemButton>
             </ListItem>
-          )
+          );
         })}
       </List>
-      <Box sx={{ display: 'flex', justifyContent: 'space-around', width: '100%' }}>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'space-around', width: '100%' }}
+      >
         <Button
           disabled={!enableDownload}
           variant="contained"
           color="secondary"
           sx={{ width: '27vw', marginTop: '20px', color: 'white' }}
           onClick={() => {
-            setDownloaded(true)
-            setInfoMessage('Your VODs are being downloaded to ./downloadedVODs/' + location.state.tournamentName);
-            setInfoOpen(true)
-            setEnableDownload(false)
+            setDownloaded(true);
+            setInfoMessage(
+              'Your VODs are being downloaded to ./downloadedVODs/' +
+                location.state.tournamentName
+            );
+            setInfoOpen(true);
+            setEnableDownload(false);
             if (downloadThumbnails) {
-              window.electron.ipcRenderer.createThumbnailFolder(location.state.tournamentName)
+              window.electron.ipcRenderer.createThumbnailFolder(
+                location.state.tournamentName
+              );
             }
             location.state.sets.map((set: VODMetadata) => {
               if (set.download) {
                 console.log('Downloading set: ', set);
                 if (downloadThumbnails) {
-                  generateThumbnail(set)
+                  generateThumbnail(set);
                 }
                 window.electron.ipcRenderer
                   .downloadVideo({
@@ -455,7 +579,11 @@ const SetsView = () => {
           variant="contained"
           color="secondary"
           sx={{ width: '27vw', marginTop: '20px', color: 'white' }}
-          onClick={() => window.electron.ipcRenderer.openFolder(location.state.tournamentName)}
+          onClick={() =>
+            window.electron.ipcRenderer.openFolder(
+              location.state.tournamentName
+            )
+          }
         >
           Open VOD Folder
         </Button>
@@ -469,8 +597,18 @@ const SetsView = () => {
           Continue to Upload
         </Button>
       </Box>
-      <Box sx={{position: 'relative', overflow: 'hidden'}}>
-        <Box sx={{position: 'absolute', width: '1280px', height: '720px', right: '-640px', top: '360', overflow: 'hidden', zIndex: '-999'}}>
+      <Box sx={{ position: 'relative', overflow: 'hidden' }}>
+        <Box
+          sx={{
+            position: 'absolute',
+            width: '1280px',
+            height: '720px',
+            right: '-640px',
+            top: '360',
+            overflow: 'hidden',
+            zIndex: '-999',
+          }}
+        >
           {location.state.sets.map((set: VODMetadata) => {
             const ref: React.RefObject<ReactInstance> = React.createRef();
             return (
@@ -486,7 +624,7 @@ const SetsView = () => {
                 bottomText={set.tournamentName}
                 title={set.title}
               />
-            )
+            );
           })}
         </Box>
       </Box>

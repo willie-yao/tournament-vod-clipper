@@ -16,7 +16,7 @@ import SnackbarPopup from 'renderer/common/SnackbarPopup';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 
 const YTUploadView = () => {
-  const [description, setDescription] = useState("")
+  const [description, setDescription] = useState('');
   const [tounamentFolders, setTournamentFolders] = useState<string[]>([]);
   const [selectedFolder, setSelectedFolder] = useState('');
   const [visibility, setVisibility] = useState('unlisted');
@@ -27,8 +27,8 @@ const YTUploadView = () => {
   const [infoOpen, setInfoOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [infoMessage, setInfoMessage] = useState('')
-  const [accessToken, setAccessToken] = useState('')
+  const [infoMessage, setInfoMessage] = useState('');
+  const [accessToken, setAccessToken] = useState('');
   const path = './downloadedVODs';
 
   useEffect(() => {
@@ -39,7 +39,7 @@ const YTUploadView = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedFolder != '' || !loggedIn) {
+    if (selectedFolder != '' && loggedIn) {
       setButtonDisabled(false);
     } else {
       setButtonDisabled(true);
@@ -47,20 +47,26 @@ const YTUploadView = () => {
   });
 
   const login = () => {
-    window.electron.ipcRenderer.openGoogleLogin("hello").then((token) => {
-      setAccessToken(token.access_token)
-    }).then(() => {
-      setSuccessMessage('Login successful!');
-      setSuccessOpen(true);
-      setLoggedIn(true);
-    }).catch((err) => {
-      setErrorMessage('Error logging in: ' + err);
-      setErrorOpen(true);
-    })
-  }
+    window.electron.ipcRenderer
+      .openGoogleLogin('hello')
+      .then((token) => {
+        setAccessToken(token.access_token);
+      })
+      .then(() => {
+        setSuccessMessage('Login successful!');
+        setSuccessOpen(true);
+        setLoggedIn(true);
+      })
+      .catch((err) => {
+        setErrorMessage('Error logging in: ' + err);
+        setErrorOpen(true);
+      });
+  };
 
   const uploadVideos = () => {
-    setInfoMessage('Your videos are being uploaded! Check your YouTube account for progress updates.');
+    setInfoMessage(
+      'Your videos are being uploaded! Check your YouTube account for progress updates.'
+    );
     setInfoOpen(true);
     const params = {
       path: './downloadedVODs/' + selectedFolder + '/',
@@ -69,14 +75,17 @@ const YTUploadView = () => {
       accessToken: accessToken,
       visibility: visibility,
     };
-    window.electron.ipcRenderer.uploadVideos(params).then((response) => {
-      console.log(response);
-      setSuccessMessage('Upload successful!');
-      setSuccessOpen(true);
-    }).catch((err) => {
-      setErrorMessage('Error uploading: ' + err);
-      setErrorOpen(true);
-    })
+    window.electron.ipcRenderer
+      .uploadVideos(params)
+      .then((response) => {
+        console.log(response);
+        setSuccessMessage('Upload successful!');
+        setSuccessOpen(true);
+      })
+      .catch((err) => {
+        setErrorMessage('Error uploading: ' + err);
+        setErrorOpen(true);
+      });
   };
 
   return (
@@ -98,12 +107,20 @@ const YTUploadView = () => {
         >
           Login
         </Button>
-        <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between' }}>
+        <Box
+          sx={{
+            width: '100%',
+            display: 'flex',
+            justifyContent: 'space-between',
+          }}
+        >
           <TextField
             required
             disabled={!loggedIn}
             value={selectedFolder}
-            onChange={(event) => setSelectedFolder(event.target.value as string)}
+            onChange={(event) =>
+              setSelectedFolder(event.target.value as string)
+            }
             label="VOD Folder"
             variant="filled"
             sx={{ width: '75%' }}
@@ -122,7 +139,9 @@ const YTUploadView = () => {
             variant="contained"
             color="secondary"
             sx={{ width: '10%', color: 'white' }}
-            onClick={() => window.electron.ipcRenderer.openFolder(selectedFolder)}
+            onClick={() =>
+              window.electron.ipcRenderer.openFolder(selectedFolder)
+            }
           >
             <FolderOpenIcon />
           </Button>
@@ -143,9 +162,21 @@ const YTUploadView = () => {
             value={visibility}
             onChange={(event) => setVisibility(event.target.value)}
           >
-            <FormControlLabel value="unlisted" control={<Radio />} label="Unlisted" />
-            <FormControlLabel value="public" control={<Radio />} label="Public" />
-            <FormControlLabel value="private" control={<Radio />} label="Private" />
+            <FormControlLabel
+              value="unlisted"
+              control={<Radio />}
+              label="Unlisted"
+            />
+            <FormControlLabel
+              value="public"
+              control={<Radio />}
+              label="Public"
+            />
+            <FormControlLabel
+              value="private"
+              control={<Radio />}
+              label="Private"
+            />
           </RadioGroup>
         </FormControl>
         <Button

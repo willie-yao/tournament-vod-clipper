@@ -306,7 +306,7 @@ const VideoSearch = () => {
         label="Stream Station"
         variant="filled"
         onChange={(event) => setStation(event.target.value)}
-        helperText="Can be name of twitch stream or a number."
+        helperText="Name of a twitch channel or a station number."
         sx={{ marginBottom: '25px' }}
       />
       {RetrieveSets(
