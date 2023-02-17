@@ -32,10 +32,7 @@ This tool clips VODs automatically by retrieving timestamps of when matches are 
 
 ### Retrieving streamed sets
 
-- First, you need to generate a Start.GG authentication token. You can do so by following the instructions here:
-  - https://developer.start.gg/docs/authentication/
-- Once you have your token, paste it into the `Start.GG API Key` field in the tool
-- Next, you need to enter the Start.GG event slug. You can find this in the URL of the event page. For example, the slug for the following event is `microspacing-69`:
+- First, you need to enter the Start.GG event slug. You can find this in the URL of the event page. For example, the slug for the following event is `microspacing-69`:
   - tournament/microspacing-69/event/singles-de
 - Then, enter the VOD url for the stream in the `VOD Link` field. This can only be a Twitch link at the moment. For example:
   - https://www.twitch.tv/videos/123456789
