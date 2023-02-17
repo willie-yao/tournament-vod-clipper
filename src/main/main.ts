@@ -351,6 +351,9 @@ app
       // dock icon is clicked and there are no other windows open.
       if (mainWindow === null) createWindow();
     });
+
+    store.set('apikey', process.env.STARTGG_API_KEY);
+
     // works for dumb iFrames
     session.defaultSession.webRequest.onHeadersReceived({
       urls: [

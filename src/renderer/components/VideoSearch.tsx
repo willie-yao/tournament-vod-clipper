@@ -231,9 +231,9 @@ const VideoSearch = () => {
   const [urlError, setUrlError] = useState(false);
   const [slugError, setSlugError] = useState(false);
 
-  const onChangeFunc = (value: any) => {
-    window.electron.store.set('apikey', value);
-  };
+  // const onChangeFunc = (value: any) => {
+  //   window.electron.store.set('apikey', value);
+  // };
 
   useEffect(() => {
     if (
@@ -277,14 +277,14 @@ const VideoSearch = () => {
   });
 
   return (
-    <Box className="background-card">
-      {HiddenTextField(
+    <Box className="background-card" sx={{ height: '50vh' }}>
+      {/* {HiddenTextField(
         'Start.GG API Key',
         'https://start.gg/admin/profile/developer',
         window.electron.store.get('apikey'),
         onChangeFunc,
         false
-      )}
+      )} */}
       <TextField
         error={slugError}
         className="textfield"
