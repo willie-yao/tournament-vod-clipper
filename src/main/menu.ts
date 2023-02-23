@@ -160,6 +160,12 @@ export default class MenuBuilder {
             shell.openExternal('https://github.com/willie-yao/tournament-vod-clipper/blob/main/README.md');
           },
         },
+        {
+          label: 'Terms and Conditions',
+          click() {
+            shell.openExternal('https://github.com/willie-yao/tournament-vod-clipper#important-terms-and-conditions');
+          },
+        },
       ],
     };
 
@@ -239,6 +245,12 @@ export default class MenuBuilder {
             label: 'How to use',
             click() {
               shell.openExternal('https://github.com/willie-yao/tournament-vod-clipper/blob/main/README.md');
+            },
+          },
+          {
+            label: 'Terms and Conditions',
+            click() {
+              shell.openExternal('https://github.com/willie-yao/tournament-vod-clipper#important-terms-and-conditions');
             },
           },
         ],

@@ -15,7 +15,7 @@ Windows: This tool is Windows-only for the time being. Releases for Mac and Linu
 
 ## Important Terms and Conditions
 
-By using this tool, you are agreeing to be bound by the YouTube Terms of service as well as the following terms and conditions:
+TournamentVODClipper uses YouTube API Services to upload VODs. By using this tool, you are agreeing to be bound by the YouTube Terms of service as well as the following terms and conditions:
 - [YouTube terms of service](https://www.youtube.com/t/terms)
 - [YouTube community guidelines](https://www.youtube.com/t/community_guidelines)
 - [Google privacy policy](https://policies.google.com/privacy?hl=en-US)
