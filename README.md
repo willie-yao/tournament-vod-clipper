@@ -20,7 +20,7 @@ TournamentVODClipper uses YouTube API Services to upload VODs. By using this too
 - [YouTube community guidelines](https://www.youtube.com/t/community_guidelines)
 - [Google privacy policy](https://policies.google.com/privacy?hl=en-US)
 
-TournamentVODClipper stores your Google login and authentication token in a secure local storage on your device and is used to upload videos to YouTube. Upon closing the app, your login is not saved and you will need to login again. In addition, no usage data is being collected from your usage of this tool. Therefore, nothing is being shared with internal or external parties besides the authentication necessary to upload videos.
+TournamentVODClipper stores your Google login and authentication token only within the YouTube upload page's local storage. The token is used to upload videos to YouTube. Upon navigating away from the page, your login is not saved and you will need to login again. In addition, no usage data is being collected from your usage of this tool. Therefore, nothing is being shared with internal or external parties besides the authentication necessary to upload videos.
 
 This tool uses the YouTube Data API to upload VODs to YouTube. Specifically, it uses the [videos.insert](https://developers.google.com/youtube/v3/docs/videos/insert) endpoint.
 
