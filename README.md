@@ -13,7 +13,7 @@ This is a tool built in React and Electron to help you clip VODs of tournaments 
 
 Windows: This tool is Windows-only for the time being. Releases for Mac and Linux will be out shortly.
 
-## Important Terms and Conditions
+## Terms and Conditions + Privacy Policy
 
 TournamentVODClipper uses YouTube API Services to upload VODs. By using this tool, you are agreeing to be bound by the YouTube Terms of service as well as the following terms and conditions:
 - [YouTube terms of service](https://www.youtube.com/t/terms)
@@ -21,6 +21,8 @@ TournamentVODClipper uses YouTube API Services to upload VODs. By using this too
 - [Google privacy policy](https://policies.google.com/privacy?hl=en-US)
 
 TournamentVODClipper stores your Google login and authentication token only within the YouTube upload page's local storage. The token is used to upload videos to YouTube. Upon navigating away from the page, your login is not saved and you will need to login again. In addition, no usage data is being collected from your usage of this tool. Therefore, nothing is being shared with internal or external parties besides the authentication necessary to upload videos.
+
+Important: Your user data will be collected through cookies from your device. The cookies are only used for authentication for uploading videos. Upon logging in on the login page, your login token is stored in a cookie. This cookie is deleted once you close the app.
 
 This tool uses the YouTube Data API to upload VODs to YouTube. Specifically, it uses the [videos.insert](https://developers.google.com/youtube/v3/docs/videos/insert) endpoint.
 
