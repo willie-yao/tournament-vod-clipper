@@ -49,14 +49,14 @@ const ThumbnailGenerator = React.forwardRef<Ref, Props>((props, ref) => {
         </Grid>
         <Grid item xs={12}>
           <Grid container sx={{ width: '100%', height: '500px', backgroundColor: props.bgColor}}>
-            <Grid sx={{ position: 'relative', left: '-50px', bottom: '10px'}} item xs={5} className="centered-flex">
-              <img src={require(`${ characterFolder + props.character1 + '.png' }`)} />
+            <Grid sx={{ position: 'relative', bottom: '-20px'}} item xs={5} className="centered-flex">
+              <img height="450" src={require(`${ characterFolder + props.character1 + '.png' }`)} />
             </Grid>
-            <Grid item xs={2} className="centered-flex">
+            <Grid item xs={2}  sx={{ zIndex: '50' }} className="centered-flex">
               <img src={props.logo === '' ? DefaultIcon : props.logo} width="250px" height="250px" />
             </Grid>
-            <Grid sx={{ position: 'relative', left: '50px', bottom: '10px'}} item xs={5} className="centered-flex">
-              <img src={require(`${ characterFolder + props.character2 + '.png' }`)} />
+            <Grid sx={{ position: 'relative', bottom: '-20px'}} item xs={5} className="centered-flex">
+              <img height="450" src={require(`${ characterFolder + props.character2 + '.png' }`)} />
             </Grid>
           </Grid>
         </Grid>
