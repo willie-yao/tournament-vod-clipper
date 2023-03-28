@@ -60,9 +60,11 @@ const SetsView = () => {
   const [thumbnailModalOpen, setThumbnailModalOpen] = useState(false);
   const [thumbnailColor, setThumbnailColor] = useState('#B9F3FC');
   const [thumbnailLogo, setThumbnailLogo] = useState('');
+  const [thumbnailBg, setThumbnailBg] = useState('');
   const [downloadThumbnails, setDownloadThumbnails] = useState(true);
 
   const inputFile = React.useRef<HTMLInputElement | null>(null);
+  const inputBgFile = React.useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (checked.length == location.state.sets.length + 1) {
@@ -301,6 +303,12 @@ const SetsView = () => {
       }
     };
 
+    const onBgImageChange = (event: any) => {
+      if (event.target.files && event.target.files[0]) {
+        setThumbnailBg(URL.createObjectURL(event.target.files[0]));
+      }
+    };
+
     return (
       <Dialog
         open={thumbnailModalOpen}
@@ -363,9 +371,27 @@ const SetsView = () => {
             ref={inputFile}
             style={{ display: 'none' }}
           />
+          <Button
+            variant="contained"
+            color="secondary"
+            sx={{ width: '50%', color: 'white' }}
+            onClick={() => inputBgFile!.current!.click()}
+          >
+            Select BG Image
+          </Button>
+          <input
+            type="file"
+            id="img"
+            name="img"
+            accept="image/*"
+            onChange={(event) => onBgImageChange(event)}
+            ref={inputBgFile}
+            style={{ display: 'none' }}
+          />
           <Box sx={{ width: '426px', height: '240px', overflow: 'hidden' }}>
             <ThumbnailGenerator
               logo={thumbnailLogo}
+              bgImage={thumbnailBg}
               bgColor={thumbnailColor}
               ref={ref}
               scale="0.335"

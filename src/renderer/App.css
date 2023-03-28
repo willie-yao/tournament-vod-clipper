@@ -91,3 +91,10 @@ a:hover {
 .MuiColorInput-TextField{
   width: 50%;
 }
+
+.bg-image{
+  position: absolute;
+  z-index: 0;
+  height: 720px;
+  width: 1280px;
+}
