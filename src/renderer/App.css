@@ -88,11 +88,11 @@ a:hover {
   align-items: center;
 }
 
-.MuiColorInput-TextField{
+.MuiColorInput-TextField {
   width: 50%;
 }
 
-.bg-image{
+.bg-image {
   position: absolute;
   z-index: 0;
   height: 720px;

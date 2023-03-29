@@ -183,6 +183,9 @@ const RetrieveSets = (
       <Button
         variant="contained"
         onClick={() => {
+          window.electron.store.set('eventId', eventId);
+          window.electron.store.set('station', station);
+          window.electron.store.set('vodUrl', vodUrl);
           setWaiting(true);
           if (isNumber(station)) {
             getSets({
@@ -224,16 +227,12 @@ const RetrieveSets = (
 };
 
 const VideoSearch = () => {
-  const [vodUrl, setVodUrl] = useState('');
-  const [eventId, setEventId] = useState('');
+  const [vodUrl, setVodUrl] = useState(window.electron.store.get('vodUrl') || '');
+  const [eventId, setEventId] = useState(window.electron.store.get('eventId') || '');
   const [buttonDisabled, setButtonDisabled] = useState(true);
-  const [station, setStation] = useState('');
+  const [station, setStation] = useState(window.electron.store.get('station') || '');
   const [urlError, setUrlError] = useState(false);
   const [slugError, setSlugError] = useState(false);
-
-  // const onChangeFunc = (value: any) => {
-  //   window.electron.store.set('apikey', value);
-  // };
 
   useEffect(() => {
     if (
@@ -278,17 +277,11 @@ const VideoSearch = () => {
 
   return (
     <Box className="background-card" sx={{ height: '50vh' }}>
-      {/* {HiddenTextField(
-        'Start.GG API Key',
-        'https://start.gg/admin/profile/developer',
-        window.electron.store.get('apikey'),
-        onChangeFunc,
-        false
-      )} */}
       <TextField
         error={slugError}
         className="textfield"
         label="Start.GG Event Slug"
+        defaultValue={eventId}
         variant="filled"
         onBlur={(event) => setEventId(event.target.value)}
         helperText="tournament/tournament-name/event/event-name"
@@ -297,6 +290,7 @@ const VideoSearch = () => {
         error={urlError}
         className="textfield"
         label="VOD Link"
+        defaultValue={vodUrl}
         variant="filled"
         onBlur={(event) => setVodUrl(event.target.value)}
         helperText="https://www.twitch.tv/videos/123456789"
@@ -304,6 +298,7 @@ const VideoSearch = () => {
       <TextField
         className="textfield"
         label="Stream Station"
+        defaultValue={station}
         variant="filled"
         onChange={(event) => setStation(event.target.value)}
         helperText="Name of a twitch channel or a station number."
