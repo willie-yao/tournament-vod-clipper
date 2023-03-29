@@ -68,24 +68,33 @@ const YTUploadView = () => {
       'Your videos are being uploaded! Check your YouTube account for progress updates.'
     );
     setInfoOpen(true);
-    const params = {
-      path: './downloadedVODs/' + selectedFolder + '/',
-      description: description,
-      playlistName: selectedFolder,
-      accessToken: accessToken,
-      visibility: visibility,
-    };
-    window.electron.ipcRenderer
-      .uploadVideos(params)
-      .then((response) => {
-        console.log(response);
-        setSuccessMessage('Upload successful!');
-        setSuccessOpen(true);
+    window.electron.ipcRenderer.getVideosInFolder('./downloadedVODs/' + selectedFolder + '/').then((result) => {
+      console.log('videos: ', result);
+      result.forEach((video: any) => {
+        const params = {
+          path: './downloadedVODs/' + selectedFolder + '/',
+          description: description,
+          playlistName: selectedFolder,
+          accessToken: accessToken,
+          visibility: visibility,
+          videoName: video,
+        };
+        window.electron.ipcRenderer.uploadSingleVideo(params).then((response) => {
+          console.log("video response", response);
+          setSuccessMessage('Upload successful!');
+          setSuccessOpen(true);
+          const thumbnailParams = {
+            folderName: selectedFolder,
+            videoName: video.replace(/\.[^/.]+$/, ""),
+            videoId: response.id,
+            accessToken: accessToken,
+          }
+          window.electron.ipcRenderer.uploadThumbnail(thumbnailParams).then((thumbnailRes) => {
+            console.log("thumbnail response", thumbnailRes);
+          })
+        })
       })
-      .catch((err) => {
-        setErrorMessage('Error uploading: ' + err);
-        setErrorOpen(true);
-      });
+    });
   };
 
   return (

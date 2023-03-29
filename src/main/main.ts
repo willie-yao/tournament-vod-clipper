@@ -136,6 +136,54 @@ ipcMain.handle('save-thumbnail', async (event, args) => {
   })
 })
 
+ipcMain.handle('upload-thumbnail', async (event, args) => {
+  let filepath = './downloadedVODs/' + args.folderName.replace(":", "#") + '/thumbnails/' + args.videoName.replace(":", "#") + '.jpg'
+  console.log("Uploading thumbnail at path: ", filepath)
+  if (!fs.existsSync(filepath)) {
+    console.log("File does not exist")
+    return
+  }
+  let response: any = await youtube.thumbnails.set(
+    {
+      videoId: args.videoId,
+      media: {
+        body: fs.createReadStream(filepath),
+      },
+      access_token: args.accessToken,
+    }
+  ).catch((error: any) => {
+    console.log(error);
+  });
+
+  return response.data;
+})
+
+ipcMain.handle('upload-single-video', async (event, args) => {
+  let response = await youtube.videos.insert(
+    {
+      part: 'id,snippet,status',
+      notifySubscribers: true,
+      requestBody: {
+        snippet: {
+          title: args.videoName.replace(/\.[^/.]+$/, ''),
+          description: args.description,
+        },
+        status: {
+          privacyStatus: args.visibility,
+        },
+      },
+      media: {
+        body: fs.createReadStream(args.path + args.videoName),
+      },
+      access_token: args.accessToken,
+    }
+  ).catch((error: any) => {
+    console.log(error);
+  });
+
+  return response.data;
+});
+
 ipcMain.handle('upload-videos', async (event, args) => {
   return fs.readdirSync(args.path).forEach((videoName: any) => {
     const fileSize = fs.statSync(args.path + videoName).size;

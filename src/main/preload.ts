@@ -53,6 +53,12 @@ const electronHandler = {
     saveThumbnail(args: object) {
       return ipcRenderer.invoke('save-thumbnail', args)
     },
+    uploadThumbnail(args: object) {
+      return ipcRenderer.invoke('upload-thumbnail', args)
+    },
+    uploadSingleVideo(args: object) {
+      return ipcRenderer.invoke('upload-single-video', args)
+    },
     uploadVideos(args: object) {
       return ipcRenderer.invoke('upload-videos', args)
     },
