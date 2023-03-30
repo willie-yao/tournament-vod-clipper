@@ -410,6 +410,7 @@ app
         'https://embed.twitch.tv/*'
       ]
     }, (details, cb) => {
+      throw("onheadersreceived called")
       var responseHeaders = details.responseHeaders;
 
       console.log('headers', details.url, responseHeaders);
