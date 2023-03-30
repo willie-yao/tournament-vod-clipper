@@ -4,6 +4,7 @@ import './App.css';
 import { Box, Typography, Container, Link, ThemeProvider } from '@mui/material';
 import VideoSearch from './components/VideoSearch';
 import YTUploadView from './pages/YTUploadView';
+import TestPage from './pages/TestPage';
 import ThumbnailGenerator from './components/ThumbnailGenerator';
 import {
   ApolloClient,
@@ -101,7 +102,7 @@ export default function App() {
       <ThemeProvider theme={theme}>
         <Router>
           <Routes>
-            <Route path="/" element={<Main />} />
+            <Route path="/" element={<TestPage />} />
             {/* <Route path="/Main" element={<Main />} /> */}
             <Route path="/SetsView" element={<SetsView />} />
             {/* <Route path="/" element={<YTUploadView />} /> */}
