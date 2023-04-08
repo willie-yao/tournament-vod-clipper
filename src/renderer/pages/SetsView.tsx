@@ -641,6 +641,7 @@ const SetsView = () => {
               <ThumbnailGenerator
                 key={set.title + thumbnailColor}
                 ref={ref}
+                bgImage={thumbnailBg}
                 bgColor={thumbnailColor}
                 logo={thumbnailLogo}
                 player1={set.player1}

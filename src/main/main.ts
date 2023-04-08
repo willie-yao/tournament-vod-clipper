@@ -264,6 +264,9 @@ ipcMain.on('electron-store-get-secret', async (event, val) => {
 
 ipcMain.on('ipc-example', async (event, arg) => {
   store.set('apikey', process.env.STARTGG_API_KEY);
+  store.delete('eventId')
+  store.delete('station')
+  store.delete('vodUrl')
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
   console.log(msgTemplate(arg));
   event.reply('ipc-example', msgTemplate('pong'));
