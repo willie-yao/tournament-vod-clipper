@@ -263,6 +263,7 @@ ipcMain.on('electron-store-get-secret', async (event, val) => {
 });
 
 ipcMain.on('ipc-example', async (event, arg) => {
+  store.set('apikey', process.env.STARTGG_API_KEY);
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
   console.log(msgTemplate(arg));
   event.reply('ipc-example', msgTemplate('pong'));
@@ -399,8 +400,6 @@ app
       // dock icon is clicked and there are no other windows open.
       if (mainWindow === null) createWindow();
     });
-
-    store.set('apikey', process.env.STARTGG_API_KEY);
 
     // works for dumb iFrames
     session.defaultSession.webRequest.onHeadersReceived({
