@@ -56,8 +56,14 @@ const electronHandler = {
     uploadThumbnail(args: object) {
       return ipcRenderer.invoke('upload-thumbnail', args)
     },
+    createPlaylist(args: object) {
+      return ipcRenderer.invoke('create-playlist', args)
+    },
     uploadSingleVideo(args: object) {
       return ipcRenderer.invoke('upload-single-video', args)
+    },
+    addVideoToPlaylist(args: object) {
+      return ipcRenderer.invoke('add-video-to-playlist', args)
     },
     uploadVideos(args: object) {
       return ipcRenderer.invoke('upload-videos', args)

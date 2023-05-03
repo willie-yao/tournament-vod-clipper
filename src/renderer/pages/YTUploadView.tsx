@@ -68,32 +68,50 @@ const YTUploadView = () => {
       'Your videos are being uploaded! Check your YouTube account for progress updates.'
     );
     setInfoOpen(true);
-    window.electron.ipcRenderer.getVideosInFolder('./downloadedVODs/' + selectedFolder + '/').then((result) => {
-      console.log('videos: ', result);
-      result.forEach((video: any) => {
-        const params = {
-          path: './downloadedVODs/' + selectedFolder + '/',
-          description: description,
-          playlistName: selectedFolder,
-          accessToken: accessToken,
-          visibility: visibility,
-          videoName: video,
-        };
-        window.electron.ipcRenderer.uploadSingleVideo(params).then((response) => {
-          console.log("video response", response);
-          setSuccessMessage('Upload successful!');
-          setSuccessOpen(true);
-          const thumbnailParams = {
-            folderName: selectedFolder,
-            videoName: video.replace(/\.[^/.]+$/, ""),
-            videoId: response.id,
+    window.electron.ipcRenderer.createPlaylist({
+      description: description,
+      playlistName: selectedFolder,
+      accessToken: accessToken,
+      visibility: visibility,
+    }).then((playlistResponse) => {
+      console.log("playlist response", playlistResponse);
+      window.electron.ipcRenderer.getVideosInFolder('./downloadedVODs/' + selectedFolder + '/').then((result) => {
+        console.log('videos: ', result);
+        result.forEach((video: any) => {
+          const params = {
+            path: './downloadedVODs/' + selectedFolder + '/',
+            description: description,
+            playlistName: selectedFolder,
             accessToken: accessToken,
-          }
-          window.electron.ipcRenderer.uploadThumbnail(thumbnailParams).then((thumbnailRes) => {
-            console.log("thumbnail response", thumbnailRes);
-          })
-        })
-      })
+            visibility: visibility,
+            videoName: video,
+          };
+          window.electron.ipcRenderer.uploadSingleVideo(params).then((videoResponse) => {
+            console.log("video response", videoResponse);
+            setSuccessMessage('Upload successful!');
+            setSuccessOpen(true);
+            const thumbnailParams = {
+              folderName: selectedFolder,
+              videoName: video.replace(/\.[^/.]+$/, ""),
+              videoId: videoResponse.id,
+              accessToken: accessToken,
+            };
+            window.electron.ipcRenderer.uploadThumbnail(thumbnailParams).then((thumbnailRes) => {
+              console.log("thumbnail response", thumbnailRes);
+            });
+
+            const playlistParams = {
+              playlistId: playlistResponse.id,
+              videoId: videoResponse.id,
+              accessToken: accessToken,
+            };
+
+            window.electron.ipcRenderer.addVideoToPlaylist(playlistParams).then((playlistRes) => {
+              console.log("playlist response", playlistRes);
+            });
+          });
+        });
+      });
     });
   };
 

@@ -1,5 +1,5 @@
-import { createRef, useState, useEffect, ReactInstance } from 'react';
-import { Button, Box, TextField } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { Button, Box, TextField, Dialog, MenuItem, Typography } from '@mui/material';
 import {
   GET_SETS_AT_STATION,
   GET_SETS_AT_STREAM_STATION,
@@ -8,8 +8,8 @@ import { useLazyQuery, useApolloClient } from '@apollo/client';
 import { useTheme } from '@mui/material/styles';
 import { PropagateLoader } from 'react-spinners';
 import { useNavigate } from 'react-router-dom';
-import HiddenTextField from 'renderer/common/HiddenTextField';
 import SnackbarPopup from 'renderer/common/SnackbarPopup';
+import SettingsIcon from '@mui/icons-material/Settings';
 
 export interface VODMetadata {
   title: string;
@@ -27,10 +27,14 @@ function isNumber(value: string | number): boolean {
   return value != null && value !== '' && !isNaN(Number(value.toString()));
 }
 
+const PlayersFirstOption = "Players - Round - Tournament Name"
+const TournamentFirstOption = "Tournament Name: Players - Round"
+
 const RetrieveSets = (
   eventId: string,
   vodUrl: string,
   station: string,
+  titleFormat: string,
   buttonDisabled: boolean,
   setButtonDisabled: React.Dispatch<React.SetStateAction<boolean>>
 ): JSX.Element => {
@@ -94,17 +98,30 @@ const RetrieveSets = (
             characters[0] = characterArrays[0][0];
             characters[1] = characterArrays[1][0];
           }
+          let title = '';
+          if (titleFormat == PlayersFirstOption) {
+            title = set.slots[0].entrant.name.split('|').pop().trim() +
+            characterStrings[0] +
+            ' vs ' +
+            set.slots[1].entrant.name.split('|').pop().trim() +
+            characterStrings[1] +
+            ' - ' +
+            set.fullRoundText +
+            ' - ' +
+            responseData.event.tournament.name
+          } else if (titleFormat == TournamentFirstOption) {
+            title = responseData.event.tournament.name +
+            ': ' +
+            set.slots[0].entrant.name.split('|').pop().trim() +
+            characterStrings[0] +
+            ' vs ' +
+            set.slots[1].entrant.name.split('|').pop().trim() +
+            characterStrings[1] +
+            ' - ' +
+            set.fullRoundText
+          }
           let metadata: VODMetadata = {
-            title:
-              set.slots[0].entrant.name.split('|').pop().trim() +
-              characterStrings[0] +
-              ' vs ' +
-              set.slots[1].entrant.name.split('|').pop().trim() +
-              characterStrings[1] +
-              ' - ' +
-              set.fullRoundText +
-              ' - ' +
-              responseData.event.tournament.name,
+            title: title,
             startTime: new Date((set.startedAt - timestamp) * 1000)
               .toISOString()
               .slice(11, 19),
@@ -213,7 +230,7 @@ const RetrieveSets = (
               });
           }
         }}
-        sx={{ marginBottom: '25px', width: '100%' }}
+        sx={{ marginBottom: '25px', width: '95%' }}
         disabled={buttonDisabled}
       >
         Retrieve Sets
@@ -231,8 +248,10 @@ const VideoSearch = () => {
   const [eventId, setEventId] = useState(window.electron.store.get('eventId') || '');
   const [buttonDisabled, setButtonDisabled] = useState(true);
   const [station, setStation] = useState(window.electron.store.get('station') || '');
+  const [open, setOpen] = useState(false);
   const [urlError, setUrlError] = useState(false);
   const [slugError, setSlugError] = useState(false);
+  const [titleFormat, setTitleFormat] = useState(PlayersFirstOption);
 
   useEffect(() => {
     if (
@@ -275,8 +294,54 @@ const VideoSearch = () => {
     }
   });
 
+  const SettingsModal = () => {
+
+    return (
+      <Dialog
+        open={open}
+        onClose={(event: any) => {
+          event.stopPropagation();
+          setOpen(false);
+        }}
+      >
+        <Box sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-around',
+          alignItems: 'center',
+          height: '20vh',
+          minWidth: '50vw',
+          padding: '20px',
+        }}>
+          <Typography
+              variant="h6"
+              component="h2"
+              textAlign="center"
+              gutterBottom
+            >
+              Additional Options
+          </Typography>
+          <TextField
+            value={titleFormat}
+            sx={{ width: '100%' }}
+            label="Video Title Format"
+            variant="filled"
+            onChange={(event) =>
+              setTitleFormat(event.target.value as string)
+            }
+            select
+          >
+            <MenuItem value={PlayersFirstOption}>{PlayersFirstOption}</MenuItem>
+            <MenuItem value={TournamentFirstOption}>{TournamentFirstOption}</MenuItem>
+          </TextField>
+        </Box>
+      </Dialog>
+    )
+  }
+
   return (
-    <Box className="background-card" sx={{ height: '50vh' }}>
+    <Box className="background-card" sx={{ height: '58vh' }}>
+      {SettingsModal()}
       <TextField
         error={slugError}
         className="textfield"
@@ -304,10 +369,29 @@ const VideoSearch = () => {
         helperText="Name of a twitch channel or a station number."
         sx={{ marginBottom: '25px' }}
       />
+      <Box
+        sx={{
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Button
+          variant="contained"
+          color="secondary"
+          sx={{ marginBottom: '25px', width: '95%', color: 'white' }}
+          onClick={() => setOpen(true)}
+        >
+          Additional Options
+        </Button>
+      </Box>
       {RetrieveSets(
         eventId,
         vodUrl,
         station,
+        titleFormat,
         buttonDisabled,
         setButtonDisabled
       )}

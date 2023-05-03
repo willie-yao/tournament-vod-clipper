@@ -111,7 +111,7 @@ ipcMain.handle('open-google-login', async (event, arg) => {
   const myApiOauth = new ElectronGoogleOAuth2(
     process.env.GOOGLE_CLIENT_ID!,
     process.env.GOOGLE_CLIENT_SECRET!,
-    ['https://www.googleapis.com/auth/youtube.upload'],
+    ['https://www.googleapis.com/auth/youtube.force-ssl', 'https://www.googleapis.com/auth/youtube', 'https://www.googleapis.com/auth/youtubepartner'],
     { successRedirectURL: 'tournamentvodclipper://' }
   );
 
@@ -158,30 +158,78 @@ ipcMain.handle('upload-thumbnail', async (event, args) => {
   return response.data;
 })
 
-ipcMain.handle('upload-single-video', async (event, args) => {
-  let response = await youtube.videos.insert(
-    {
-      part: 'id,snippet,status',
-      notifySubscribers: true,
-      requestBody: {
-        snippet: {
-          title: args.videoName.replace(/\.[^/.]+$/, ''),
-          description: args.description,
+ipcMain.handle('create-playlist', async (event, args) => {
+  try {
+    let response = await youtube.playlists.insert(
+      {
+        part: 'id,snippet,status',
+        requestBody: {
+          snippet: {
+            title: args.playlistName,
+            description: args.description,
+          },
+          status: {
+            privacyStatus: args.visibility,
+          },
         },
-        status: {
-          privacyStatus: args.visibility,
-        },
-      },
-      media: {
-        body: fs.createReadStream(args.path + args.videoName),
-      },
-      access_token: args.accessToken,
-    }
-  ).catch((error: any) => {
-    console.log(error);
-  });
+        access_token: args.accessToken,
+      }
+    )
+    return response.data;
+  } catch (e) {
+    console.log("Error creating playlist", e)
+  }
+});
 
-  return response.data;
+ipcMain.handle('add-video-to-playlist', async (event, args) => {
+  try {
+    let response = await youtube.playlistItems.insert(
+      {
+        part: 'id,snippet,status',
+        requestBody: {
+          snippet: {
+            playlistId: args.playlistId,
+            resourceId: {
+              kind: 'youtube#video',
+              videoId: args.videoId,
+            },
+          },
+        },
+        access_token: args.accessToken,
+      }
+    )
+    return response.data;
+  } catch (e) {
+    console.log("Error adding video to playlist", e)
+  }
+});
+
+ipcMain.handle('upload-single-video', async (event, args) => {
+  try {
+    let response = await youtube.videos.insert(
+      {
+        part: 'id,snippet,status',
+        notifySubscribers: true,
+        requestBody: {
+          snippet: {
+            title: args.videoName.replace(/\.[^/.]+$/, ''),
+            description: args.description,
+          },
+          status: {
+            privacyStatus: args.visibility,
+            selfDeclaredMadeForKids: false,
+          },
+        },
+        media: {
+          body: fs.createReadStream(args.path + args.videoName),
+        },
+        access_token: args.accessToken,
+      }
+    )
+    return response.data;
+  } catch (e) {
+    console.log("Error uploading video", e)
+  }
 });
 
 ipcMain.handle('upload-videos', async (event, args) => {
