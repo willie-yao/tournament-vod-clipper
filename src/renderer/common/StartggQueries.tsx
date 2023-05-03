@@ -84,7 +84,7 @@ export const GET_SETS_AT_STREAM_STATION = gql`
       }
     }
   }
-`
+`;
 
 export const GET_ALL_SETS_AT_EVENT = gql`
   query SetsAtStation($eventId: String!) {
@@ -128,11 +128,11 @@ export const GET_ALL_SETS_AT_EVENT = gql`
 
 export const GET_ALL_CHARACTERS = gql`
   query VideogamesQuery($gameid: ID) {
-    videogame(id: $gameid){
+    videogame(id: $gameid) {
       characters {
         id
         name
       }
     }
   }
-`
+`;

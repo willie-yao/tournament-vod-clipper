@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Button, Box, TextField, Dialog, MenuItem, Typography } from '@mui/material';
+import {
+  Button,
+  Box,
+  TextField,
+  Dialog,
+  MenuItem,
+  Typography,
+} from '@mui/material';
 import {
   GET_SETS_AT_STATION,
   GET_SETS_AT_STREAM_STATION,
@@ -27,8 +34,8 @@ function isNumber(value: string | number): boolean {
   return value != null && value !== '' && !isNaN(Number(value.toString()));
 }
 
-const PlayersFirstOption = "Players - Round - Tournament Name"
-const TournamentFirstOption = "Tournament Name: Players - Round"
+const PlayersFirstOption = 'Players - Round - Tournament Name';
+const TournamentFirstOption = 'Tournament Name: Players - Round';
 
 const RetrieveSets = (
   eventId: string,
@@ -100,25 +107,27 @@ const RetrieveSets = (
           }
           let title = '';
           if (titleFormat == PlayersFirstOption) {
-            title = set.slots[0].entrant.name.split('|').pop().trim() +
-            characterStrings[0] +
-            ' vs ' +
-            set.slots[1].entrant.name.split('|').pop().trim() +
-            characterStrings[1] +
-            ' - ' +
-            set.fullRoundText +
-            ' - ' +
-            responseData.event.tournament.name
+            title =
+              set.slots[0].entrant.name.split('|').pop().trim() +
+              characterStrings[0] +
+              ' vs ' +
+              set.slots[1].entrant.name.split('|').pop().trim() +
+              characterStrings[1] +
+              ' - ' +
+              set.fullRoundText +
+              ' - ' +
+              responseData.event.tournament.name;
           } else if (titleFormat == TournamentFirstOption) {
-            title = responseData.event.tournament.name +
-            ': ' +
-            set.slots[0].entrant.name.split('|').pop().trim() +
-            characterStrings[0] +
-            ' vs ' +
-            set.slots[1].entrant.name.split('|').pop().trim() +
-            characterStrings[1] +
-            ' - ' +
-            set.fullRoundText
+            title =
+              responseData.event.tournament.name +
+              ': ' +
+              set.slots[0].entrant.name.split('|').pop().trim() +
+              characterStrings[0] +
+              ' vs ' +
+              set.slots[1].entrant.name.split('|').pop().trim() +
+              characterStrings[1] +
+              ' - ' +
+              set.fullRoundText;
           }
           let metadata: VODMetadata = {
             title: title,
@@ -244,10 +253,16 @@ const RetrieveSets = (
 };
 
 const VideoSearch = () => {
-  const [vodUrl, setVodUrl] = useState(window.electron.store.get('vodUrl') || '');
-  const [eventId, setEventId] = useState(window.electron.store.get('eventId') || '');
+  const [vodUrl, setVodUrl] = useState(
+    window.electron.store.get('vodUrl') || ''
+  );
+  const [eventId, setEventId] = useState(
+    window.electron.store.get('eventId') || ''
+  );
   const [buttonDisabled, setButtonDisabled] = useState(true);
-  const [station, setStation] = useState(window.electron.store.get('station') || '');
+  const [station, setStation] = useState(
+    window.electron.store.get('station') || ''
+  );
   const [open, setOpen] = useState(false);
   const [urlError, setUrlError] = useState(false);
   const [slugError, setSlugError] = useState(false);
@@ -295,7 +310,6 @@ const VideoSearch = () => {
   });
 
   const SettingsModal = () => {
-
     return (
       <Dialog
         open={open}
@@ -304,40 +318,42 @@ const VideoSearch = () => {
           setOpen(false);
         }}
       >
-        <Box sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-around',
-          alignItems: 'center',
-          height: '20vh',
-          minWidth: '50vw',
-          padding: '20px',
-        }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-around',
+            alignItems: 'center',
+            height: '20vh',
+            minWidth: '50vw',
+            padding: '20px',
+          }}
+        >
           <Typography
-              variant="h6"
-              component="h2"
-              textAlign="center"
-              gutterBottom
-            >
-              Additional Options
+            variant="h6"
+            component="h2"
+            textAlign="center"
+            gutterBottom
+          >
+            Additional Options
           </Typography>
           <TextField
             value={titleFormat}
             sx={{ width: '100%' }}
             label="Video Title Format"
             variant="filled"
-            onChange={(event) =>
-              setTitleFormat(event.target.value as string)
-            }
+            onChange={(event) => setTitleFormat(event.target.value as string)}
             select
           >
             <MenuItem value={PlayersFirstOption}>{PlayersFirstOption}</MenuItem>
-            <MenuItem value={TournamentFirstOption}>{TournamentFirstOption}</MenuItem>
+            <MenuItem value={TournamentFirstOption}>
+              {TournamentFirstOption}
+            </MenuItem>
           </TextField>
         </Box>
       </Dialog>
-    )
-  }
+    );
+  };
 
   return (
     <Box className="background-card" sx={{ height: '58vh' }}>

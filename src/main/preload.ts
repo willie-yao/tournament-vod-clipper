@@ -13,21 +13,21 @@ const electronHandler = {
     },
     // Other method you want to add like has(), reset(), etc.
     delete(key: any) {
-      ipcRenderer.send('electron-store-delete', key)
+      ipcRenderer.send('electron-store-delete', key);
     },
     getSecret(key: any) {
       return ipcRenderer.sendSync('electron-store-get-secret', key);
     },
     setSecret(property: any, val: any) {
       ipcRenderer.send('electron-store-set-secret', property, val);
-    }
+    },
   },
   ipcRenderer: {
     sendMessage(channel: Channels, args: unknown[]) {
       ipcRenderer.send(channel, args);
     },
     openFolder(arg: string) {
-      ipcRenderer.invoke('open-folder', arg)
+      ipcRenderer.invoke('open-folder', arg);
     },
     createFolder(arg: string) {
       ipcRenderer.invoke('create-folder', arg);
@@ -39,34 +39,34 @@ const electronHandler = {
       return ipcRenderer.invoke('retrieve-video-information', args);
     },
     getTournamentFolders(arg: string) {
-      return ipcRenderer.invoke('get-tournament-folders', arg)
+      return ipcRenderer.invoke('get-tournament-folders', arg);
     },
     getVideosInFolder(arg: string) {
-      return ipcRenderer.invoke('get-videos-in-folder', arg)
+      return ipcRenderer.invoke('get-videos-in-folder', arg);
     },
     openGoogleLogin(arg: string) {
-      return ipcRenderer.invoke('open-google-login', arg)
+      return ipcRenderer.invoke('open-google-login', arg);
     },
     createThumbnailFolder(arg: string) {
-      return ipcRenderer.invoke('create-thumbnail-folder', arg)
+      return ipcRenderer.invoke('create-thumbnail-folder', arg);
     },
     saveThumbnail(args: object) {
-      return ipcRenderer.invoke('save-thumbnail', args)
+      return ipcRenderer.invoke('save-thumbnail', args);
     },
     uploadThumbnail(args: object) {
-      return ipcRenderer.invoke('upload-thumbnail', args)
+      return ipcRenderer.invoke('upload-thumbnail', args);
     },
     createPlaylist(args: object) {
-      return ipcRenderer.invoke('create-playlist', args)
+      return ipcRenderer.invoke('create-playlist', args);
     },
     uploadSingleVideo(args: object) {
-      return ipcRenderer.invoke('upload-single-video', args)
+      return ipcRenderer.invoke('upload-single-video', args);
     },
     addVideoToPlaylist(args: object) {
-      return ipcRenderer.invoke('add-video-to-playlist', args)
+      return ipcRenderer.invoke('add-video-to-playlist', args);
     },
     uploadVideos(args: object) {
-      return ipcRenderer.invoke('upload-videos', args)
+      return ipcRenderer.invoke('upload-videos', args);
     },
     getApiKey() {
       return ipcRenderer.invoke('get-api-key');

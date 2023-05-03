@@ -9,7 +9,14 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from 'path';
-import { app, BrowserWindow, shell, ipcMain, safeStorage, session } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  shell,
+  ipcMain,
+  safeStorage,
+  session,
+} from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
@@ -73,19 +80,27 @@ ipcMain.handle('create-folder', async (event, arg) => {
 });
 
 ipcMain.handle('open-folder', async (event, arg) => {
-  shell.openPath(process.cwd() + path.sep + 'downloadedVODs' + path.sep + arg.replace(":", "#"));
+  shell.openPath(
+    process.cwd() +
+      path.sep +
+      'downloadedVODs' +
+      path.sep +
+      arg.replace(':', '#')
+  );
 });
 
 ipcMain.handle('retrieve-video-information', async (event, arg) => {
   return youtubeDl(arg.vodUrl, {
     printJson: true,
     skipDownload: true,
-  }).then((output) => {
-    // @ts-ignore
-    return output.timestamp;
-  }).catch((error) => {
-    return error;
-  });
+  })
+    .then((output) => {
+      // @ts-ignore
+      return output.timestamp;
+    })
+    .catch((error) => {
+      return error;
+    });
 });
 
 ipcMain.handle('download-video', async (event, arg) => {
@@ -104,131 +119,148 @@ ipcMain.handle('get-tournament-folders', async (event, arg) => {
 });
 
 ipcMain.handle('get-videos-in-folder', async (event, arg) => {
-  return fs.readdirSync(arg).filter((file: any) => path.extname(file).toLowerCase() === '.mp4');
+  return fs
+    .readdirSync(arg)
+    .filter((file: any) => path.extname(file).toLowerCase() === '.mp4');
 });
 
 ipcMain.handle('open-google-login', async (event, arg) => {
   const myApiOauth = new ElectronGoogleOAuth2(
     process.env.GOOGLE_CLIENT_ID!,
     process.env.GOOGLE_CLIENT_SECRET!,
-    ['https://www.googleapis.com/auth/youtube.force-ssl', 'https://www.googleapis.com/auth/youtube', 'https://www.googleapis.com/auth/youtubepartner'],
+    [
+      'https://www.googleapis.com/auth/youtube.force-ssl',
+      'https://www.googleapis.com/auth/youtube',
+      'https://www.googleapis.com/auth/youtubepartner',
+    ],
     { successRedirectURL: 'tournamentvodclipper://' }
   );
 
   return myApiOauth.openAuthWindowAndGetTokens();
 });
 
-ipcMain.handle('create-thumbnail-folder', async(event, arg) => {
-  fs.mkdir('./downloadedVODs/' + arg.replace(":", "#") + "/thumbnails", { recursive: true }, (err: Error) => {
-    if (err) throw err;
-  })
-})
+ipcMain.handle('create-thumbnail-folder', async (event, arg) => {
+  fs.mkdir(
+    './downloadedVODs/' + arg.replace(':', '#') + '/thumbnails',
+    { recursive: true },
+    (err: Error) => {
+      if (err) throw err;
+    }
+  );
+});
 
 ipcMain.handle('save-thumbnail', async (event, args) => {
-  console.log("Saving thumbnail: ", args)
+  console.log('Saving thumbnail: ', args);
   // fs.mkdir('./downloadedVODs/' + args.folderName.replace(":", "#") + "/thumbnails", { recursive: true }, (err: Error) => {
   //   if (err) throw err;
   // })
-  fs.writeFile("./downloadedVODs/" + args.folderName.replace(":", "#") + "/thumbnails/" + args.fileName.replace(":", "#") + ".jpg", args.buf, function (err: any) {
-    if (err) {
-      console.log(err);
+  fs.writeFile(
+    './downloadedVODs/' +
+      args.folderName.replace(':', '#') +
+      '/thumbnails/' +
+      args.fileName.replace(':', '#') +
+      '.jpg',
+    args.buf,
+    function (err: any) {
+      if (err) {
+        console.log(err);
+      }
     }
-  })
-})
+  );
+});
 
 ipcMain.handle('upload-thumbnail', async (event, args) => {
-  let filepath = './downloadedVODs/' + args.folderName.replace(":", "#") + '/thumbnails/' + args.videoName.replace(":", "#") + '.jpg'
-  console.log("Uploading thumbnail at path: ", filepath)
+  let filepath =
+    './downloadedVODs/' +
+    args.folderName.replace(':', '#') +
+    '/thumbnails/' +
+    args.videoName.replace(':', '#') +
+    '.jpg';
+  console.log('Uploading thumbnail at path: ', filepath);
   if (!fs.existsSync(filepath)) {
-    console.log("File does not exist")
-    return
+    console.log('File does not exist');
+    return;
   }
-  let response: any = await youtube.thumbnails.set(
-    {
+  let response: any = await youtube.thumbnails
+    .set({
       videoId: args.videoId,
       media: {
         body: fs.createReadStream(filepath),
       },
       access_token: args.accessToken,
-    }
-  ).catch((error: any) => {
-    console.log(error);
-  });
+    })
+    .catch((error: any) => {
+      console.log(error);
+    });
 
   return response.data;
-})
+});
 
 ipcMain.handle('create-playlist', async (event, args) => {
   try {
-    let response = await youtube.playlists.insert(
-      {
-        part: 'id,snippet,status',
-        requestBody: {
-          snippet: {
-            title: args.playlistName,
-            description: args.description,
-          },
-          status: {
-            privacyStatus: args.visibility,
-          },
+    let response = await youtube.playlists.insert({
+      part: 'id,snippet,status',
+      requestBody: {
+        snippet: {
+          title: args.playlistName,
+          description: args.description,
         },
-        access_token: args.accessToken,
-      }
-    )
+        status: {
+          privacyStatus: args.visibility,
+        },
+      },
+      access_token: args.accessToken,
+    });
     return response.data;
   } catch (e) {
-    console.log("Error creating playlist", e)
+    console.log('Error creating playlist', e);
   }
 });
 
 ipcMain.handle('add-video-to-playlist', async (event, args) => {
   try {
-    let response = await youtube.playlistItems.insert(
-      {
-        part: 'id,snippet,status',
-        requestBody: {
-          snippet: {
-            playlistId: args.playlistId,
-            resourceId: {
-              kind: 'youtube#video',
-              videoId: args.videoId,
-            },
+    let response = await youtube.playlistItems.insert({
+      part: 'id,snippet,status',
+      requestBody: {
+        snippet: {
+          playlistId: args.playlistId,
+          resourceId: {
+            kind: 'youtube#video',
+            videoId: args.videoId,
           },
         },
-        access_token: args.accessToken,
-      }
-    )
+      },
+      access_token: args.accessToken,
+    });
     return response.data;
   } catch (e) {
-    console.log("Error adding video to playlist", e)
+    console.log('Error adding video to playlist', e);
   }
 });
 
 ipcMain.handle('upload-single-video', async (event, args) => {
   try {
-    let response = await youtube.videos.insert(
-      {
-        part: 'id,snippet,status',
-        notifySubscribers: true,
-        requestBody: {
-          snippet: {
-            title: args.videoName.replace(/\.[^/.]+$/, ''),
-            description: args.description,
-          },
-          status: {
-            privacyStatus: args.visibility,
-            selfDeclaredMadeForKids: false,
-          },
+    let response = await youtube.videos.insert({
+      part: 'id,snippet,status',
+      notifySubscribers: true,
+      requestBody: {
+        snippet: {
+          title: args.videoName.replace(/\.[^/.]+$/, ''),
+          description: args.description,
         },
-        media: {
-          body: fs.createReadStream(args.path + args.videoName),
+        status: {
+          privacyStatus: args.visibility,
+          selfDeclaredMadeForKids: false,
         },
-        access_token: args.accessToken,
-      }
-    )
+      },
+      media: {
+        body: fs.createReadStream(args.path + args.videoName),
+      },
+      access_token: args.accessToken,
+    });
     return response.data;
   } catch (e) {
-    console.log("Error uploading video", e)
+    console.log('Error uploading video', e);
   }
 });
 
@@ -275,7 +307,7 @@ ipcMain.handle('upload-videos', async (event, args) => {
           return error.errors[0].message;
         });
     }
-  })
+  });
 });
 
 ipcMain.handle('get-api-key', async (event, arg) => {
@@ -312,9 +344,9 @@ ipcMain.on('electron-store-get-secret', async (event, val) => {
 
 ipcMain.on('ipc-example', async (event, arg) => {
   store.set('apikey', process.env.STARTGG_API_KEY);
-  store.delete('eventId')
-  store.delete('station')
-  store.delete('vodUrl')
+  store.delete('eventId');
+  store.delete('station');
+  store.delete('vodUrl');
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
   console.log(msgTemplate(arg));
   event.reply('ipc-example', msgTemplate('pong'));
@@ -453,25 +485,28 @@ app
     });
 
     // works for dumb iFrames
-    session.defaultSession.webRequest.onHeadersReceived({
-      urls: [
-        'https://www.twitch.tv/*',
-        'https://player.twitch.tv/*',
-        'https://embed.twitch.tv/*'
-      ]
-    }, (details, cb) => {
-      var responseHeaders = details.responseHeaders;
+    session.defaultSession.webRequest.onHeadersReceived(
+      {
+        urls: [
+          'https://www.twitch.tv/*',
+          'https://player.twitch.tv/*',
+          'https://embed.twitch.tv/*',
+        ],
+      },
+      (details, cb) => {
+        var responseHeaders = details.responseHeaders;
 
-      console.log('headers', details.url, responseHeaders);
+        console.log('headers', details.url, responseHeaders);
 
-      if (responseHeaders) {
-        delete responseHeaders['Content-Security-Policy'];
+        if (responseHeaders) {
+          delete responseHeaders['Content-Security-Policy'];
+        }
+
+        cb({
+          cancel: false,
+          responseHeaders,
+        });
       }
-
-      cb({
-        cancel: false,
-        responseHeaders
-      });
-    });
+    );
   })
   .catch(console.log);

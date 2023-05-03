@@ -1,8 +1,15 @@
-import { Snackbar, Alert, AlertColor } from "@mui/material";
+import { Snackbar, Alert, AlertColor } from '@mui/material';
 
-const SnackbarPopup = (message: string, severity: AlertColor, open: boolean, setOpen: any) => {
-
-  const handleClose = (event?: React.SyntheticEvent | Event, reason?: string) => {
+const SnackbarPopup = (
+  message: string,
+  severity: AlertColor,
+  open: boolean,
+  setOpen: any
+) => {
+  const handleClose = (
+    event?: React.SyntheticEvent | Event,
+    reason?: string
+  ) => {
     if (reason === 'clickaway') {
       return;
     }
@@ -11,7 +18,12 @@ const SnackbarPopup = (message: string, severity: AlertColor, open: boolean, set
   };
 
   return (
-    <Snackbar open={open} autoHideDuration={6000} onClose={handleClose} anchorOrigin={{ vertical: "top", horizontal: "right" }}>
+    <Snackbar
+      open={open}
+      autoHideDuration={6000}
+      onClose={handleClose}
+      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+    >
       <Alert onClose={handleClose} severity={severity} sx={{ width: '100%' }}>
         {message}
       </Alert>
