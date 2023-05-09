@@ -29,7 +29,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import { useLocation, useNavigate } from 'react-router-dom';
 import React, { useState, useEffect, ReactInstance } from 'react';
 import { useTheme } from '@mui/material/styles';
-import { VODMetadata } from 'renderer/components/VideoSearch';
+import { VODMetadata } from 'renderer/pages/MainView';
 import SnackbarPopup from 'renderer/common/SnackbarPopup';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
