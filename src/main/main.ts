@@ -17,10 +17,8 @@ import {
   safeStorage,
   session,
 } from 'electron';
-import { autoUpdater } from 'electron-updater';
-import log from 'electron-log';
 import MenuBuilder from './menu';
-import { resolveHtmlPath } from './util';
+import { isAuthCallbackUrl, resolveHtmlPath } from './util';
 import youtubeDl from 'youtube-dl-exec';
 import Store from 'electron-store';
 import ElectronGoogleOAuth2 from '@getstation/electron-google-oauth2';
@@ -34,34 +32,21 @@ const { google } = require('googleapis');
 const youtube = google.youtube('v3');
 const readline = require('readline');
 
-class AppUpdater {
-  constructor() {
-    log.transports.file.level = 'info';
-    autoUpdater.logger = log;
-    autoUpdater.checkForUpdatesAndNotify();
-  }
-}
-
 let mainWindow: BrowserWindow | null = null;
-
-// Deep linked url
-let deeplinkingUrl: any;
 
 // Force Single Instance Application
 const gotTheLock = app.requestSingleInstanceLock();
 if (gotTheLock) {
   console.log('Got the lock');
-  console.log('process.argv', process.argv);
   app.on('second-instance', (e, argv) => {
     // Someone tried to run a second instance, we should focus our window.
     console.log('second instance');
-    // Protocol handler for win32
-    // argv: An array of the second instance’s (command line / deep linked) arguments
-    if (process.platform == 'win32') {
-      // Keep only command line / deep linked arguments
-      deeplinkingUrl = argv.slice(1);
+    const callbackUrl = argv.find(isAuthCallbackUrl);
+    if (callbackUrl) {
+      mainWindow?.webContents.send('login-success', {
+        deeplinkingUrl: callbackUrl,
+      });
     }
-    logEverywhere('app.makeSingleInstance# ' + deeplinkingUrl);
 
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
@@ -429,19 +414,7 @@ const createWindow = async () => {
     shell.openExternal(edata.url);
     return { action: 'deny' };
   });
-
-  // Remove this if your app does not use auto updates
-  // eslint-disable-next-line
-  new AppUpdater();
 };
-
-// Log both at dev console and at running node console instance
-function logEverywhere(s: any) {
-  console.log(s);
-  if (mainWindow && mainWindow.webContents) {
-    mainWindow.webContents.executeJavaScript(`console.log("${s}")`);
-  }
-}
 
 /**
  * Add event listeners...
@@ -459,11 +432,12 @@ if (isDev && process.platform === 'win32') {
 }
 
 app.on('open-url', function (event, url) {
-  console.log('open-url called');
   event.preventDefault();
-  deeplinkingUrl = url;
-  logEverywhere('open-url# ' + deeplinkingUrl);
-  mainWindow?.webContents.send('login-success', { deeplinkingUrl });
+  if (!isAuthCallbackUrl(url)) {
+    console.warn('Ignoring unexpected login callback URL');
+    return;
+  }
+  mainWindow?.webContents.send('login-success', { deeplinkingUrl: url });
 });
 
 app.on('window-all-closed', () => {

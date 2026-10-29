@@ -11,3 +11,16 @@ export function resolveHtmlPath(htmlFileName: string) {
   }
   return `file://${path.resolve(__dirname, '../renderer/', htmlFileName)}`;
 }
+
+export function isAuthCallbackUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === 'tournamentvodclipper:' &&
+      url.host === '' &&
+      (url.pathname === '' || url.pathname === '/')
+    );
+  } catch {
+    return false;
+  }
+}

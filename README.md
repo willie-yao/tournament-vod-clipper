@@ -13,6 +13,20 @@ This is a tool built in React and Electron to help you clip VODs of tournaments 
 
 Windows: This tool is Windows-only for the time being. Releases for Mac and Linux will be out shortly.
 
+## Development checks
+
+Use Node.js 22 LTS (`.nvmrc`) and npm 10 or 11.
+
+```sh
+npm ci --ignore-scripts
+npm run typecheck
+npm test -- --runInBand
+```
+
+Unit tests mock Electron and external APIs. They need no packaged bundles, credentials, or native downloader binaries. Desktop builds still require the normal installation scripts and native tools.
+
+Automatic updates are disabled until this app has its own verified release feed.
+
 ## How to Use
 
 ### Pre-requesites

@@ -46,7 +46,8 @@
     "start:main": "cross-env NODE_ENV=development electronmon -r ts-node/register/transpile-only .",
     "start:preload": "cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.preload.dev.ts",
     "start:renderer": "cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true webpack serve --config ./.erb/configs/webpack.config.renderer.dev.ts",
-    "test": "jest"
+    "test": "jest",
+    "typecheck": "tsc --noEmit --incremental false"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
@@ -94,9 +95,6 @@
       "\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$": "<rootDir>/.erb/mocks/fileMock.js",
       "\\.(css|less|sass|scss)$": "identity-obj-proxy"
     },
-    "setupFiles": [
-      "./.erb/scripts/check-build-exists.ts"
-    ],
     "testEnvironment": "jsdom",
     "testEnvironmentOptions": {
       "url": "http://localhost/"
@@ -277,18 +275,14 @@
         "to": "./app/dist/bin"
       }
     ],
-    "publish": {
-      "provider": "github",
-      "owner": "electron-react-boilerplate",
-      "repo": "electron-react-boilerplate"
-    }
+    "publish": null
   },
   "collective": {
     "url": "https://opencollective.com/electron-react-boilerplate-594"
   },
-  "devEngines": {
-    "node": ">=14.x",
-    "npm": ">=7.x"
+  "engines": {
+    "node": "22.x",
+    "npm": "10.x || 11.x"
   },
   "electronmon": {
     "patterns": [

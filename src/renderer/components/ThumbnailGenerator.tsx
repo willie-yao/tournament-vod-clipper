@@ -1,6 +1,6 @@
 import React, { ReactInstance, ReactNode } from 'react';
 import { Box, Grid, Typography } from '@mui/material';
-import DefaultIcon from '../../../assets/MsLogo.png';
+import DefaultIcon from '../../../assets/MSLogo.png';
 
 const ThumbnailText = (text: string, variant: any) => {
   return (
