@@ -1,0 +1,12 @@
+Tournament VOD Clipper native tools
+
+yt-dlp 2026.10.26: https://github.com/yt-dlp/yt-dlp/releases/tag/2026.10.26
+License and source: https://github.com/yt-dlp/yt-dlp/tree/2026.10.26
+
+FFmpeg and ffprobe 9.0.2 are third-party GPLv3 static builds.
+macOS arm64 binaries: https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/
+macOS build scripts: https://git.martin-riedl.de/ffmpeg/build-script
+Windows x64 binaries/build information: https://github.com/GyanD/codexffmpeg/releases/tag/9.0.2
+FFmpeg source: https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz
+
+The accompanying license texts apply to these tools. Pinned artifact URLs and SHA-256 digests are maintained in .erb/scripts/native-tools.js. Provisioning reproduces those binary artifacts; it does not claim bit-identical source builds. Before distributing an application bundle, meet the tools' license and corresponding-source obligations and verify that the source/build information remains available.

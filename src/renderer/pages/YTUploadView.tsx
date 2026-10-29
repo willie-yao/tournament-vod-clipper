@@ -1,4 +1,5 @@
 import {
+  Alert,
   Container,
   Button,
   Box,
@@ -10,220 +11,321 @@ import {
   FormControlLabel,
   Radio,
 } from '@mui/material';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import NavMenu from 'renderer/common/NavMenu';
-import SnackbarPopup from 'renderer/common/SnackbarPopup';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import OutputFolder from '../common/OutputFolder';
+import { getVideoTitleError } from '../../common/files';
+import {
+  UploadSession,
+  uploadSession,
+  uploadComplete,
+} from '../common/uploadSession';
+
+// Confirmed IDs survive navigation, but are never written to disk.
+const sessions = new Map<string, UploadSession>();
+
+interface UploadState {
+  folderName?: string;
+  videoNames?: string[];
+}
 
 const YTUploadView = () => {
+  const { state }: { state: UploadState | null } = useLocation();
   const [description, setDescription] = useState('');
-  const [tounamentFolders, setTournamentFolders] = useState<string[]>([]);
-  const [selectedFolder, setSelectedFolder] = useState('');
+  const [folders, setFolders] = useState<string[]>([]);
+  const [selectedFolder, setSelectedFolder] = useState(state?.folderName || '');
   const [visibility, setVisibility] = useState('unlisted');
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [buttonDisabled, setButtonDisabled] = useState(true);
-  const [successOpen, setSuccessOpen] = useState(false);
-  const [errorOpen, setErrorOpen] = useState(false);
-  const [infoOpen, setInfoOpen] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
-  const [infoMessage, setInfoMessage] = useState('');
   const [accessToken, setAccessToken] = useState('');
-  const path = './downloadedVODs';
+  const [loggingIn, setLoggingIn] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [choosingOutput, setChoosingOutput] = useState(false);
+  const busyRef = useRef(false);
+  const [loading, setLoading] = useState(false);
+  const [root, setRoot] = useState('');
+  const [revision, setRevision] = useState(0);
+  const [session, setSession] = useState<UploadSession | null>(null);
+  const [requestedNames, setRequestedNames] = useState(state?.videoNames);
+  const [error, setError] = useState('');
+  const [summary, setSummary] = useState('');
+  const locked = busy || loggingIn || loading || choosingOutput;
 
   useEffect(() => {
-    window.electron.ipcRenderer.getTournamentFolders(path).then((result) => {
-      console.log('folders: ', result);
-      setTournamentFolders(result);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (selectedFolder != '' && loggedIn) {
-      setButtonDisabled(false);
-    } else {
-      setButtonDisabled(true);
-    }
-  });
-
-  const login = () => {
-    window.electron.ipcRenderer
-      .openGoogleLogin('hello')
-      .then((token) => {
-        setAccessToken(token.access_token);
-      })
-      .then(() => {
-        setSuccessMessage('Login successful!');
-        setSuccessOpen(true);
-        setLoggedIn(true);
-      })
-      .catch((err) => {
-        setErrorMessage('Error logging in: ' + err);
-        setErrorOpen(true);
-      });
-  };
-
-  const uploadVideos = () => {
-    setInfoMessage(
-      'Your videos are being uploaded! Check your YouTube account for progress updates.'
-    );
-    setInfoOpen(true);
-    window.electron.ipcRenderer
-      .createPlaylist({
-        description: description,
-        playlistName: selectedFolder,
-        accessToken: accessToken,
-        visibility: visibility,
-      })
-      .then((playlistResponse) => {
-        console.log('playlist response', playlistResponse);
-        window.electron.ipcRenderer
-          .getVideosInFolder('./downloadedVODs/' + selectedFolder + '/')
-          .then((result) => {
-            console.log('videos: ', result);
-            result.forEach((video: any) => {
-              const params = {
-                path: './downloadedVODs/' + selectedFolder + '/',
-                description: description,
-                playlistName: selectedFolder,
-                accessToken: accessToken,
-                visibility: visibility,
-                videoName: video,
-              };
-              window.electron.ipcRenderer
-                .uploadSingleVideo(params)
-                .then((videoResponse) => {
-                  console.log('video response', videoResponse);
-                  setSuccessMessage('Upload successful!');
-                  setSuccessOpen(true);
-                  const thumbnailParams = {
-                    folderName: selectedFolder,
-                    videoName: video.replace(/\.[^/.]+$/, ''),
-                    videoId: videoResponse.id,
-                    accessToken: accessToken,
-                  };
-                  window.electron.ipcRenderer
-                    .uploadThumbnail(thumbnailParams)
-                    .then((thumbnailRes) => {
-                      console.log('thumbnail response', thumbnailRes);
-                    });
-
-                  const playlistParams = {
-                    playlistId: playlistResponse.id,
-                    videoId: videoResponse.id,
-                    accessToken: accessToken,
-                  };
-
-                  window.electron.ipcRenderer
-                    .addVideoToPlaylist(playlistParams)
-                    .then((playlistRes) => {
-                      console.log('playlist response', playlistRes);
-                    });
-                });
-            });
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const directory =
+          await window.electron.ipcRenderer.getOutputDirectory();
+        const available =
+          await window.electron.ipcRenderer.getTournamentFolders();
+        if (!active) return;
+        setRoot(directory);
+        setFolders(available);
+        if (selectedFolder) {
+          const names = await window.electron.ipcRenderer.getVideosInFolder(
+            selectedFolder
+          );
+          if (!active) return;
+          const selected = requestedNames
+            ? names.filter((name) => requestedNames.includes(name))
+            : names;
+          const key = JSON.stringify([directory, selectedFolder]);
+          const saved = sessions.get(key) || { items: [] };
+          selected.forEach((name) => {
+            if (!saved.items.some((item) => item.videoName === name)) {
+              saved.items.push({
+                videoName: name,
+                title: name.replace(/\.mp4$/i, ''),
+                thumbnailDone: false,
+                thumbnailSkipped: false,
+                playlistDone: false,
+                error: '',
+              });
+            }
           });
-      });
+          sessions.set(key, saved);
+          setSession({
+            ...saved,
+            items: saved.items.filter((item) =>
+              selected.includes(item.videoName)
+            ),
+          });
+          if (saved.metadata) {
+            setDescription(saved.metadata.description);
+            setVisibility(saved.metadata.visibility);
+          }
+        } else {
+          setSession(null);
+        }
+      } catch (failure) {
+        if (active)
+          setError(
+            failure instanceof Error ? failure.message : String(failure)
+          );
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [selectedFolder, requestedNames, revision]);
+
+  const login = async () => {
+    setLoggingIn(true);
+    setError('');
+    try {
+      const token = await window.electron.ipcRenderer.openGoogleLogin();
+      if (typeof token?.access_token !== 'string' || !token.access_token) {
+        throw new Error('Google did not return an access token.');
+      }
+      setAccessToken(token.access_token);
+    } catch (failure) {
+      setError(
+        `Login failed: ${
+          failure instanceof Error ? failure.message : String(failure)
+        }`
+      );
+    } finally {
+      setLoggingIn(false);
+    }
   };
 
+  const upload = async () => {
+    if (busyRef.current || choosingOutput || !session) return;
+    busyRef.current = true;
+    setBusy(true);
+    setError('');
+    setSummary('');
+    const key = JSON.stringify([root, selectedFolder]);
+    const saved = sessions.get(key);
+    const working = { ...session, items: [...session.items] };
+    const report = () => {
+      if (saved) {
+        saved.playlistId = working.playlistId;
+        saved.metadata = working.metadata;
+      }
+      setSession({ ...working, items: [...working.items] });
+    };
+    try {
+      await uploadSession(
+        working,
+        {
+          folderName: selectedFolder,
+          description,
+          visibility,
+          accessToken,
+        },
+        window.electron.ipcRenderer,
+        report
+      );
+      const confirmed = working.items.filter((item) => item.videoId).length;
+      const complete = working.items.filter(uploadComplete).length;
+      const skipped = working.items.filter(
+        (item) => item.thumbnailSkipped
+      ).length;
+      setSummary(
+        `${confirmed} of ${
+          working.items.length
+        } videos confirmed; ${complete} fully processed.${
+          skipped ? ` ${skipped} without an optional thumbnail.` : ''
+        }`
+      );
+      if (complete !== working.items.length)
+        setError(
+          'Some steps need attention. Re-login if needed, then retry failed steps. Confirmed videos will not be uploaded again.'
+        );
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+    } finally {
+      report();
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
+
+  const complete =
+    session !== null &&
+    session.items.length > 0 &&
+    session.items.every(uploadComplete);
+  const metadataLocked = locked || Boolean(session?.playlistId);
   return (
     <Container maxWidth="sm">
-      {NavMenu('/YTUploadView')}
+      {NavMenu('/YTUploadView', locked)}
       <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
         Upload to YouTube
       </Typography>
-      {SnackbarPopup(successMessage, 'success', successOpen, setSuccessOpen)}
-      {SnackbarPopup(errorMessage, 'error', errorOpen, setErrorOpen)}
-      {SnackbarPopup(infoMessage, 'info', infoOpen, setInfoOpen)}
-      <Box className="background-card" sx={{ height: '50vh' }}>
-        <Button
-          disabled={loggedIn}
-          variant="contained"
-          color="secondary"
-          sx={{ width: '100%', color: 'white' }}
-          onClick={() => login()}
-        >
-          Login
+      <OutputFolder
+        disabled={locked}
+        onChoosingChange={setChoosingOutput}
+        onChange={() => {
+          setLoading(true);
+          setFolders([]);
+          setSelectedFolder('');
+          setRequestedNames(undefined);
+          setSession(null);
+          setSummary('');
+          setRevision((value) => value + 1);
+        }}
+      />
+      {error && <Alert severity="error">{error}</Alert>}
+      {summary && (
+        <Alert severity={complete ? 'success' : 'warning'}>{summary}</Alert>
+      )}
+      <Typography variant="body2">
+        Review titles before uploading. Recovery IDs are kept only while this
+        app is open. After a reload, restart, or any unconfirmed request, check
+        both your YouTube channel and playlist before retrying. Playlist
+        creation or membership may already have succeeded.
+      </Typography>
+      <Box className="background-card" sx={{ minHeight: '50vh' }}>
+        <Button disabled={locked} variant="contained" onClick={login}>
+          {accessToken ? 'Sign in again' : 'Login'}
         </Button>
-        <Box
-          sx={{
-            width: '100%',
-            display: 'flex',
-            justifyContent: 'space-between',
+        <TextField
+          required
+          select
+          label="VOD Folder"
+          variant="filled"
+          value={folders.includes(selectedFolder) ? selectedFolder : ''}
+          disabled={locked}
+          onChange={(event) => {
+            setSelectedFolder(event.target.value);
+            setRequestedNames(undefined);
+            setSession(null);
+            setSummary('');
           }}
         >
-          <TextField
-            required
-            disabled={!loggedIn}
-            value={selectedFolder}
-            onChange={(event) =>
-              setSelectedFolder(event.target.value as string)
-            }
-            label="VOD Folder"
-            variant="filled"
-            sx={{ width: '75%' }}
-            select
-          >
-            {tounamentFolders.map((folder) => {
-              return (
-                <MenuItem key={folder} value={folder}>
-                  {folder}
-                </MenuItem>
+          {folders.map((folder) => (
+            <MenuItem key={folder} value={folder}>
+              {folder}
+            </MenuItem>
+          ))}
+        </TextField>
+        <Button
+          disabled={locked || !selectedFolder}
+          onClick={async () => {
+            try {
+              await window.electron.ipcRenderer.openFolder(selectedFolder);
+            } catch (failure) {
+              setError(
+                failure instanceof Error ? failure.message : String(failure)
               );
-            })}
-          </TextField>
-          <Button
-            disabled={!loggedIn}
-            variant="contained"
-            color="secondary"
-            sx={{ width: '10%', color: 'white' }}
-            onClick={() =>
-              window.electron.ipcRenderer.openFolder(selectedFolder)
             }
-          >
-            <FolderOpenIcon />
-          </Button>
-        </Box>
+          }}
+        >
+          Open VOD Folder
+        </Button>
         <TextField
-          disabled={!loggedIn}
-          onChange={(event) => setDescription(event.target.value as string)}
+          disabled={metadataLocked}
           label="Video Description"
           variant="filled"
           rows={3}
           multiline
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
         />
-        <FormControl disabled={!loggedIn}>
+        <FormControl disabled={metadataLocked}>
           <RadioGroup
             row
-            defaultValue="unlisted"
-            name="radio-buttons-group"
             value={visibility}
             onChange={(event) => setVisibility(event.target.value)}
           >
-            <FormControlLabel
-              value="unlisted"
-              control={<Radio />}
-              label="Unlisted"
-            />
-            <FormControlLabel
-              value="public"
-              control={<Radio />}
-              label="Public"
-            />
-            <FormControlLabel
-              value="private"
-              control={<Radio />}
-              label="Private"
-            />
+            {['unlisted', 'public', 'private'].map((value) => (
+              <FormControlLabel
+                key={value}
+                value={value}
+                control={<Radio />}
+                label={value}
+              />
+            ))}
           </RadioGroup>
         </FormControl>
+        {session?.items.map((item) => (
+          <Box
+            key={item.videoName}
+            sx={{ width: '100%', marginBottom: '15px' }}
+          >
+            <TextField
+              fullWidth
+              label={`Title: ${item.videoName}`}
+              value={item.title}
+              disabled={locked || Boolean(item.videoId)}
+              error={Boolean(getVideoTitleError(item.title))}
+              helperText={
+                getVideoTitleError(item.title) ||
+                `${[...item.title].length}/100`
+              }
+              onChange={(event) => {
+                item.title = event.target.value;
+                setSession({ ...session, items: [...session.items] });
+              }}
+            />
+            {item.videoId && (
+              <Typography variant="body2">
+                Video confirmed: {item.videoId}
+                {uploadComplete(item) ? ' (complete)' : ' (follow-up needed)'}
+              </Typography>
+            )}
+            {item.error && <Alert severity="warning">{item.error}</Alert>}
+          </Box>
+        ))}
+        {session?.items.length === 0 && (
+          <Typography>No videos found.</Typography>
+        )}
         <Button
-          disabled={buttonDisabled}
+          disabled={
+            locked || !accessToken || !session?.items.length || complete
+          }
           variant="contained"
-          color="secondary"
-          sx={{ width: '100%', color: 'white' }}
-          onClick={() => uploadVideos()}
+          onClick={upload}
         >
-          Upload
+          {session?.items.some((item) => item.videoId || item.error)
+            ? 'Retry Failed Steps'
+            : 'Upload'}
         </Button>
       </Box>
     </Container>

@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
+import { VideoFile, VideoUpload } from '../common/files';
 
 export type Channels = 'ipc-example';
 export type electronAPI = 'electronAPI';
@@ -15,58 +16,60 @@ const electronHandler = {
     delete(key: any) {
       ipcRenderer.send('electron-store-delete', key);
     },
-    getSecret(key: any) {
-      return ipcRenderer.sendSync('electron-store-get-secret', key);
+    getSecret(key: string): Promise<string> {
+      return ipcRenderer.invoke('electron-store-get-secret', key);
     },
-    setSecret(property: any, val: any) {
-      ipcRenderer.send('electron-store-set-secret', property, val);
+    setSecret(property: string, val: string): Promise<void> {
+      return ipcRenderer.invoke('electron-store-set-secret', property, val);
     },
   },
   ipcRenderer: {
     sendMessage(channel: Channels, args: unknown[]) {
       ipcRenderer.send(channel, args);
     },
-    openFolder(arg: string) {
-      ipcRenderer.invoke('open-folder', arg);
+    getOutputDirectory(): Promise<string> {
+      return ipcRenderer.invoke('get-output-directory');
     },
-    createFolder(arg: string) {
-      ipcRenderer.invoke('create-folder', arg);
+    chooseOutputDirectory(): Promise<string | null> {
+      return ipcRenderer.invoke('choose-output-directory');
     },
-    downloadVideo(args: object) {
+    openFolder(arg: string): Promise<void> {
+      return ipcRenderer.invoke('open-folder', arg);
+    },
+    createFolder(): Promise<string> {
+      return ipcRenderer.invoke('create-folder');
+    },
+    downloadVideo(args: object): Promise<VideoFile> {
       return ipcRenderer.invoke('download-video', args);
     },
-    retrieveVideoInformation(args: object) {
+    retrieveVideoInformation(args: { vodUrl: string }): Promise<number> {
       return ipcRenderer.invoke('retrieve-video-information', args);
     },
-    getTournamentFolders(arg: string) {
-      return ipcRenderer.invoke('get-tournament-folders', arg);
+    getTournamentFolders(): Promise<string[]> {
+      return ipcRenderer.invoke('get-tournament-folders');
     },
-    getVideosInFolder(arg: string) {
+    getVideosInFolder(arg: string): Promise<string[]> {
       return ipcRenderer.invoke('get-videos-in-folder', arg);
     },
-    openGoogleLogin(arg: string) {
-      return ipcRenderer.invoke('open-google-login', arg);
+    openGoogleLogin(): Promise<{ access_token?: string }> {
+      return ipcRenderer.invoke('open-google-login');
     },
-    createThumbnailFolder(arg: string) {
-      return ipcRenderer.invoke('create-thumbnail-folder', arg);
-    },
-    saveThumbnail(args: object) {
+    saveThumbnail(args: VideoFile & { buf: Uint8Array }): Promise<void> {
       return ipcRenderer.invoke('save-thumbnail', args);
     },
-    uploadThumbnail(args: object) {
+    uploadThumbnail(
+      args: VideoFile & { videoId: string; accessToken: string }
+    ): Promise<{ status: 'uploaded' | 'skipped' }> {
       return ipcRenderer.invoke('upload-thumbnail', args);
     },
-    createPlaylist(args: object) {
+    createPlaylist(args: object): Promise<{ id: string }> {
       return ipcRenderer.invoke('create-playlist', args);
     },
-    uploadSingleVideo(args: object) {
+    uploadSingleVideo(args: VideoUpload): Promise<{ id: string }> {
       return ipcRenderer.invoke('upload-single-video', args);
     },
-    addVideoToPlaylist(args: object) {
+    addVideoToPlaylist(args: object): Promise<{ id: string }> {
       return ipcRenderer.invoke('add-video-to-playlist', args);
-    },
-    uploadVideos(args: object) {
-      return ipcRenderer.invoke('upload-videos', args);
     },
     getApiKey() {
       return ipcRenderer.invoke('get-api-key');
