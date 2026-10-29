@@ -25,6 +25,7 @@ import {
   formatSetMetadata,
 } from '../common/tournamentSets';
 import NavMenu from '../common/NavMenu';
+import OutputFolder from '../common/OutputFolder';
 
 interface CharactersResponse {
   videogame: { characters: { id: number; name: string }[] | null } | null;
@@ -39,7 +40,12 @@ function isValidURL(value: string): boolean {
   }
 }
 
-const VideoSearch = () => {
+interface SearchProps {
+  choosingOutput: boolean;
+  onChoosingOutput: (choosing: boolean) => void;
+}
+
+const VideoSearch = ({ choosingOutput, onChoosingOutput }: SearchProps) => {
   const client = useApolloClient();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -71,6 +77,7 @@ const VideoSearch = () => {
   const disabled =
     !settingsReady ||
     savingKey ||
+    choosingOutput ||
     waiting ||
     !apiKey ||
     keyDraft.trim() !== apiKey ||
@@ -195,6 +202,10 @@ const VideoSearch = () => {
     <Box className="background-card" sx={{ minHeight: '58vh' }}>
       {SnackbarPopup(errorMessage, 'error', errorOpen, setErrorOpen)}
       {SnackbarPopup(infoMessage, 'info', infoOpen, setInfoOpen)}
+      <OutputFolder
+        disabled={waiting || savingKey}
+        onChoosingChange={onChoosingOutput}
+      />
       <TextField
         required
         type="password"
@@ -203,7 +214,7 @@ const VideoSearch = () => {
         className="textfield"
         value={keyDraft}
         onChange={(event) => setKeyDraft(event.target.value)}
-        disabled={!settingsReady || savingKey || waiting}
+        disabled={!settingsReady || savingKey || waiting || choosingOutput}
         helperText="Stored securely on this device. Save changes before retrieving sets."
       />
       <Button
@@ -211,7 +222,11 @@ const VideoSearch = () => {
         color="secondary"
         sx={{ width: '95%', marginBottom: '20px' }}
         disabled={
-          !settingsReady || savingKey || waiting || keyDraft.trim() === apiKey
+          !settingsReady ||
+          savingKey ||
+          waiting ||
+          choosingOutput ||
+          keyDraft.trim() === apiKey
         }
         onClick={saveKey}
       >
@@ -224,7 +239,7 @@ const VideoSearch = () => {
         variant="filled"
         value={eventId}
         onChange={(event) => setEventId(event.target.value)}
-        disabled={waiting}
+        disabled={waiting || choosingOutput}
         helperText="tournament/tournament-name/event/event-name"
       />
       <TextField
@@ -234,7 +249,7 @@ const VideoSearch = () => {
         variant="filled"
         value={vodUrl}
         onChange={(event) => setVodUrl(event.target.value)}
-        disabled={waiting}
+        disabled={waiting || choosingOutput}
         helperText="https://www.twitch.tv/videos/123456789"
       />
       <TextField
@@ -243,7 +258,7 @@ const VideoSearch = () => {
         variant="filled"
         value={station}
         onChange={(event) => setStation(event.target.value)}
-        disabled={waiting}
+        disabled={waiting || choosingOutput}
         helperText="Name of a twitch channel or a station number."
         sx={{ marginBottom: '25px' }}
       />
@@ -251,7 +266,7 @@ const VideoSearch = () => {
         variant="contained"
         color="secondary"
         sx={{ marginBottom: '25px', width: '95%', color: 'white' }}
-        disabled={waiting}
+        disabled={waiting || choosingOutput}
         onClick={() => setOpen(true)}
       >
         Additional Options
@@ -304,18 +319,18 @@ const VideoSearch = () => {
 };
 
 const MainView = () => {
-  useEffect(() => {
-    window.electron.ipcRenderer.createFolder('downloadedVODs');
-  }, []);
-
+  const [choosingOutput, setChoosingOutput] = useState(false);
   return (
     <Container maxWidth="sm">
       <Box sx={{ my: 4, alignContent: 'center' }}>
-        {NavMenu('/')}
+        {NavMenu('/', choosingOutput)}
         <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
           Tournament VOD Clipper
         </Typography>
-        <VideoSearch />
+        <VideoSearch
+          choosingOutput={choosingOutput}
+          onChoosingOutput={setChoosingOutput}
+        />
         <Typography variant="body2" color="text.secondary" align="center">
           {'Copyright © '}
           <Link color="inherit" href="https://github.com/willie-yao">

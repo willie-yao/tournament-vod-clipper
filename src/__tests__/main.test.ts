@@ -1,3 +1,4 @@
+import path from 'path';
 import { build } from '../../package.json';
 
 jest.mock('electron', () => ({
@@ -21,6 +22,8 @@ jest.mock('electron', () => ({
     },
   })),
   ipcMain: { handle: jest.fn(), on: jest.fn() },
+  shell: { openPath: jest.fn().mockResolvedValue('') },
+  dialog: { showOpenDialog: jest.fn() },
   safeStorage: {
     isEncryptionAvailable: jest.fn(() => true),
     encryptString: jest.fn((value: string) =>
@@ -46,16 +49,43 @@ jest.mock('electron-is-dev', () => false);
 jest.mock('youtube-dl-exec', () => jest.fn());
 jest.mock('@getstation/electron-google-oauth2', () => jest.fn());
 jest.mock('googleapis', () => ({
-  google: { youtube: jest.fn(() => ({})) },
+  google: {
+    youtube: jest.fn(() => ({
+      videos: { insert: jest.fn() },
+      playlists: { insert: jest.fn() },
+      thumbnails: { set: jest.fn() },
+      playlistItems: { insert: jest.fn() },
+    })),
+  },
+}));
+jest.mock('fs', () => ({ createReadStream: jest.fn(() => ({})) }));
+jest.mock('../main/outputFiles', () => ({
+  __esModule: true,
+  default: jest.fn(() => ({
+    root: jest.fn().mockResolvedValue('/mock/output'),
+    target: jest.fn().mockResolvedValue({
+      folderName: 'test-tournament',
+      videoName: 'test-title.mp4',
+      path: '/mock/video.mp4',
+    }),
+    video: jest.fn().mockResolvedValue('/mock/video.mp4'),
+    saveThumbnail: jest.fn().mockResolvedValue(undefined),
+    thumbnail: jest.fn().mockResolvedValue(null),
+    folders: jest.fn().mockResolvedValue(['Tournament']),
+    videos: jest.fn().mockResolvedValue(['clip.mp4']),
+    tournament: jest.fn().mockResolvedValue('/mock/output/Tournament'),
+  })),
 }));
 jest.mock('dotenv', () => ({ config: jest.fn() }));
 jest.mock('../main/menu', () => jest.fn(() => ({ buildMenu: jest.fn() })));
 
-const { app, BrowserWindow, ipcMain, safeStorage } =
+const { app, BrowserWindow, ipcMain, safeStorage, shell, dialog } =
   jest.requireMock('electron');
 const { autoUpdater } = jest.requireMock('electron-updater');
 const Store = jest.requireMock('electron-store');
 const youtubeDl = jest.requireMock('youtube-dl-exec');
+const OutputFiles = jest.requireMock('../main/outputFiles').default;
+const { google } = jest.requireMock('googleapis');
 const settings = new Map<string, unknown>();
 
 function handler(channel: string) {
@@ -83,6 +113,19 @@ describe('main process startup', () => {
     store.delete.mockImplementation((key: string) => settings.delete(key));
     safeStorage.isEncryptionAvailable.mockReturnValue(true);
     youtubeDl.mockReset();
+    shell.openPath.mockResolvedValue('');
+    const youtube = google.youtube.mock.results[0].value;
+    [
+      youtube.videos.insert,
+      youtube.playlists.insert,
+      youtube.thumbnails.set,
+      youtube.playlistItems.insert,
+    ].forEach((request) =>
+      request.mockReset().mockResolvedValue({ data: { id: 'confirmed' } })
+    );
+    const outputs = OutputFiles.mock.results[0].value;
+    outputs.thumbnail.mockReset().mockResolvedValue(null);
+    outputs.saveThumbnail.mockReset().mockResolvedValue(undefined);
   });
 
   it('does not check for updates and disables publish metadata', () => {
@@ -256,4 +299,129 @@ describe('main process startup', () => {
       expect.objectContaining({ downloadSections: '*90000-90060' })
     );
   });
+
+  it('keeps the legacy root until the user explicitly chooses another directory', async () => {
+    expect(await handler('get-output-directory')()).toBe(
+      path.resolve(process.cwd(), 'downloadedVODs')
+    );
+    dialog.showOpenDialog.mockResolvedValueOnce({
+      canceled: true,
+      filePaths: [],
+    });
+    expect(await handler('choose-output-directory')()).toBeNull();
+    expect(settings.has('outputDirectory')).toBe(false);
+    dialog.showOpenDialog.mockResolvedValueOnce({
+      canceled: false,
+      filePaths: ['/mock/selected'],
+    });
+    expect(await handler('choose-output-directory')()).toBe('/mock/output');
+    expect(settings.get('outputDirectory')).toBe('/mock/output');
+  });
+
+  it('awaits thumbnail writes and reports folder-open failures', async () => {
+    const outputs = OutputFiles.mock.results[0].value;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    outputs.saveThumbnail.mockReturnValueOnce(gate);
+    let settled = false;
+    const pending = handler('save-thumbnail')(
+      {},
+      {
+        folderName: 'Tournament',
+        videoName: 'clip.mp4',
+        buf: Buffer.from('image'),
+      }
+    ).then(() => {
+      settled = true;
+      return undefined;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    release();
+    await pending;
+    expect(settled).toBe(true);
+    outputs.saveThumbnail.mockRejectedValueOnce(new Error('test write failed'));
+    await expect(handler('save-thumbnail')({}, {})).rejects.toThrow(
+      'test write failed'
+    );
+    shell.openPath.mockResolvedValueOnce('test open failed');
+    await expect(handler('open-folder')({}, 'Tournament')).rejects.toThrow(
+      'test open failed'
+    );
+  });
+
+  it.each([
+    'create-playlist',
+    'upload-single-video',
+    'upload-thumbnail',
+    'add-video-to-playlist',
+  ])(
+    'rejects sanitized errors from %s without exposing credentials',
+    async (channel) => {
+      const youtube = google.youtube.mock.results[0].value;
+      const outputs = OutputFiles.mock.results[0].value;
+      outputs.thumbnail.mockResolvedValue('/mock/thumbnail.jpg');
+      [
+        youtube.playlists.insert,
+        youtube.videos.insert,
+        youtube.thumbnails.set,
+        youtube.playlistItems.insert,
+      ].forEach((request) =>
+        request.mockRejectedValue({
+          code: 401,
+          message: 'do-not-echo-test-token',
+          config: { access_token: 'do-not-echo-test-token' },
+        })
+      );
+      const request = handler(channel)(
+        {},
+        {
+          folderName: 'Tournament',
+          videoName: 'clip.mp4',
+          title: 'Valid title',
+          accessToken: 'do-not-echo-test-token',
+          visibility: 'private',
+        }
+      );
+      await expect(request).rejects.toThrow('Sign in again');
+      await expect(request).rejects.not.toThrow('do-not-echo-test-token');
+    }
+  );
+
+  it('rejects invalid titles and absent resource IDs before claiming success', async () => {
+    await expect(
+      handler('upload-single-video')({}, { title: 'x'.repeat(101) })
+    ).rejects.toThrow('1 to 100');
+    const youtube = google.youtube.mock.results[0].value;
+    expect(youtube.videos.insert).not.toHaveBeenCalled();
+    youtube.videos.insert.mockResolvedValueOnce({ data: {} });
+    await expect(
+      handler('upload-single-video')(
+        {},
+        { folderName: 'Tournament', videoName: 'clip.mp4', title: 'valid' }
+      )
+    ).rejects.toThrow('did not confirm');
+    expect(
+      await handler('upload-thumbnail')(
+        {},
+        { folderName: 'Tournament', videoName: 'clip.mp4' }
+      )
+    ).toEqual({ status: 'skipped' });
+  });
+
+  it.each([
+    [403, 'permissions and YouTube quota'],
+    [500, 'connection, account, and the local file'],
+  ])(
+    'reports sanitized guidance for YouTube status %s',
+    async (code, message) => {
+      const youtube = google.youtube.mock.results[0].value;
+      youtube.playlists.insert.mockRejectedValueOnce({ code });
+      await expect(handler('create-playlist')({}, {})).rejects.toThrow(
+        String(message)
+      );
+    }
+  );
 });

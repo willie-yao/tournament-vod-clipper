@@ -1,5 +1,11 @@
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { ApolloLink, Operation, createHttpLink } from '@apollo/client';
 import { MockLink, MockedResponse } from '@apollo/client/testing';
 import App from '../renderer/App';
@@ -35,7 +41,9 @@ function setup(secret = '', mocks: MockedResponse[] = []) {
     }),
   };
   const ipcRenderer = {
-    createFolder: jest.fn(),
+    getOutputDirectory: jest.fn().mockResolvedValue('/mock/output'),
+    chooseOutputDirectory: jest.fn().mockResolvedValue(null),
+    createFolder: jest.fn().mockResolvedValue('/mock/output'),
     retrieveVideoInformation: jest.fn().mockResolvedValue(1000),
   };
   Object.defineProperty(window, 'electron', {
@@ -56,6 +64,29 @@ function setup(secret = '', mocks: MockedResponse[] = []) {
 }
 
 describe('App settings and retrieval', () => {
+  it('locks retrieval and navigation until output-root selection validation completes', async () => {
+    const { ipcRenderer, operations } = setup('test-key');
+    let release!: () => void;
+    const pending = new Promise<null>((resolve) => {
+      release = () => resolve(null);
+    });
+    ipcRenderer.chooseOutputDirectory.mockReturnValueOnce(pending);
+    render(<App />);
+    const choose = screen.getByRole('button', { name: 'Choose Output Folder' });
+    const retrieve = screen.getByRole('button', { name: 'Retrieve Sets' });
+    await waitFor(() => expect(choose).toBeEnabled());
+    await waitFor(() => expect(retrieve).toBeEnabled());
+    fireEvent.click(choose);
+    expect(retrieve).toBeDisabled();
+    expect(screen.getByTestId('MenuIcon').closest('button')).toBeDisabled();
+    fireEvent.click(retrieve);
+    expect(operations).toHaveLength(0);
+    await act(async () => {
+      release();
+    });
+    expect(retrieve).toBeEnabled();
+  });
+
   it('starts offline and requires a saved API key', async () => {
     const { ipcRenderer, operations } = setup();
     render(<App />);
@@ -70,7 +101,7 @@ describe('App settings and retrieval', () => {
     expect(
       screen.getByRole('button', { name: 'Retrieve Sets' })
     ).toBeDisabled();
-    expect(ipcRenderer.createFolder).toHaveBeenCalledWith('downloadedVODs');
+    expect(ipcRenderer.createFolder).toHaveBeenCalledWith();
     expect(operations).toHaveLength(0);
   });
 

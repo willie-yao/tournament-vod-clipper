@@ -5,7 +5,7 @@ This is a tool built in React and Electron to help you clip VODs of tournaments 
 ## Main Features
 
 - Automatically clips Twitch VODs of matches from a start.gg bracket
-- Clips and downloads matches in parallel
+- Clips selected matches one at a time and reports partial failures
 - Generates thumbnails for each match
 - Upload VODs to YouTube automatically
 
@@ -61,7 +61,8 @@ This tool clips VODs automatically by retrieving timestamps of when matches are 
 - To edit timestamps, click on the edit icon next to the set. This will open a modal where you can edit the title, start time, and end time.
 - Times are elapsed `HH:mm:ss` from the VOD's beginning, so `25:00:00` means 25 hours. Incomplete matches and sets before the selected VOD are marked `Needs correction` and left unselected. Confirm their title and enter a nonnegative range with the end after the start before downloading.
 - If you want to customize the thumbnails, click on the `Thumbnail Options` button. This will open a modal where you can customize the logo and background color/image for the thumbnail.
-- When you have selected all the matches, click the `Download VODs` button. Your VODs will be saved to the `/downloadedVODs` folder.
+- The displayed `Output folder` defaults to the existing `downloadedVODs` location. To use another writable folder, click `Choose Output Folder`; choose your old `downloadedVODs` folder to access earlier clips. Existing files are not moved or renamed.
+- Click `Download VODs` to save selected matches and requested thumbnails. Existing clips, partial downloads and thumbnails are not overwritten; choose another title if a name is already in use. Continue to Upload becomes available only when all selected outputs are ready.
 
 ### Uploading VODs to YouTube
 
@@ -70,7 +71,8 @@ This tool clips VODs automatically by retrieving timestamps of when matches are 
 - You will need to login to your YouTube account. Click the `Login` button and follow the instructions.
 - Next, select the tournament you want to upload VODs from using the `VOD Folder` box.
 - You can also select the visibility of the video and the description for all of the videos below.
-- Finally, click the `Upload` button. You should see the VODs being processed on your YouTube account!
+- Review each video's title (1 to 100 characters), then click `Upload`. Videos upload sequentially, and the screen distinguishes confirmed videos from thumbnail or playlist failures.
+- Re-login if needed and use `Retry Failed Steps` to recover a partial batch without re-uploading its confirmed video IDs. Recovery state is in memory only. After an app restart, reload, or unconfirmed request, check your YouTube channel and playlist before retrying.
 
 ## Terms and Conditions + Privacy Policy
 
