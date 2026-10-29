@@ -19,6 +19,7 @@ import {
 } from 'electron';
 import MenuBuilder from './menu';
 import { isAuthCallbackUrl, resolveHtmlPath } from './util';
+import { getClipRangeError } from '../common/clipTime';
 import youtubeDl from 'youtube-dl-exec';
 import Store from 'electron-store';
 import ElectronGoogleOAuth2 from '@getstation/electron-google-oauth2';
@@ -75,24 +76,26 @@ ipcMain.handle('open-folder', async (event, arg) => {
 });
 
 ipcMain.handle('retrieve-video-information', async (event, arg) => {
-  return youtubeDl(arg.vodUrl, {
+  const output = await youtubeDl(arg.vodUrl, {
     printJson: true,
     skipDownload: true,
-  })
-    .then((output) => {
-      // @ts-ignore
-      return output.timestamp;
-    })
-    .catch((error) => {
-      return error;
-    });
+  });
+  const timestamp: unknown =
+    output && typeof output === 'object'
+      ? Object.getOwnPropertyDescriptor(output, 'timestamp')?.value
+      : undefined;
+  if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {
+    throw new Error('The VOD start timestamp is unavailable. Check the VOD URL.');
+  }
+  return timestamp;
 });
 
 ipcMain.handle('download-video', async (event, arg) => {
-  console.log('args', arg);
+  const error = getClipRangeError(arg?.startTime, arg?.endTime);
+  if (error) throw new Error(error);
   return youtubeDl(arg.vodUrl, {
     // @ts-ignore
-    downloadSections: '*' + arg.startTime + '-' + arg.endTime,
+    downloadSections: `*${arg.startTime}-${arg.endTime}`,
     output: './downloadedVODs/' + arg.tournamentName + '/' + arg.title + '.mp4',
   });
 });
@@ -110,9 +113,14 @@ ipcMain.handle('get-videos-in-folder', async (event, arg) => {
 });
 
 ipcMain.handle('open-google-login', async (event, arg) => {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    throw new Error(
+      'Google OAuth is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET before logging in.'
+    );
+  }
   const myApiOauth = new ElectronGoogleOAuth2(
-    process.env.GOOGLE_CLIENT_ID!,
-    process.env.GOOGLE_CLIENT_SECRET!,
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
     [
       'https://www.googleapis.com/auth/youtube.force-ssl',
       'https://www.googleapis.com/auth/youtube',
@@ -313,28 +321,55 @@ ipcMain.on('electron-store-set', async (event, key, val) => {
 ipcMain.on('electron-store-delete', async (event, val) => {
   store.delete(val);
 });
-ipcMain.on('electron-store-set-secret', async (event, key, val) => {
-  store.set(key, safeStorage.encryptString(val));
-});
-ipcMain.on('electron-store-get-secret', async (event, val) => {
-  let encryptedVal = store.get(val);
-  if (encryptedVal) {
-    event.returnValue = safeStorage.decryptString(
-      Buffer.from(encryptedVal as Buffer)
-    );
-  } else {
-    event.returnValue = '';
+ipcMain.handle(
+  'electron-store-set-secret',
+  async (event, key: string, value: string) => {
+    if (typeof key !== 'string' || typeof value !== 'string') {
+      throw new Error('Invalid secret setting.');
+    }
+    if (value === '') {
+      store.delete(key);
+      return;
+    }
+    if (!safeStorage.isEncryptionAvailable()) {
+      throw new Error(
+        'Secure storage is unavailable. Unlock your system keychain and try again.'
+      );
+    }
+    store.set(key, safeStorage.encryptString(value));
   }
-});
-
-ipcMain.on('ipc-example', async (event, arg) => {
-  store.set('apikey', process.env.STARTGG_API_KEY);
-  store.delete('eventId');
-  store.delete('station');
-  store.delete('vodUrl');
-  const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
-  console.log(msgTemplate(arg));
-  event.reply('ipc-example', msgTemplate('pong'));
+);
+ipcMain.handle('electron-store-get-secret', async (event, key: string) => {
+  const value = store.get(key);
+  if (value == null || value === '') return '';
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error(
+      'Secure storage is unavailable. Unlock your system keychain and try again.'
+    );
+  }
+  if (typeof value === 'string') {
+    store.set(key, safeStorage.encryptString(value));
+    return value;
+  }
+  if (Buffer.isBuffer(value)) return safeStorage.decryptString(value);
+  if (typeof value !== 'object' || value === null) {
+    throw new Error('The saved API key is invalid. Save it again in settings.');
+  }
+  const serialized = value as { type?: unknown; data?: unknown };
+  if (
+    serialized.type !== 'Buffer' ||
+    !Array.isArray(serialized.data) ||
+    !serialized.data.every(
+      (byte: unknown) =>
+        typeof byte === 'number' &&
+        Number.isInteger(byte) &&
+        byte >= 0 &&
+        byte <= 255
+    )
+  ) {
+    throw new Error('The saved API key is invalid. Save it again in settings.');
+  }
+  return safeStorage.decryptString(Buffer.from(serialized.data));
 });
 
 if (process.env.NODE_ENV === 'production') {

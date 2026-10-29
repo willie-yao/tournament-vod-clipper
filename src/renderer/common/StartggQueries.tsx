@@ -1,14 +1,21 @@
 import { gql } from '@apollo/client';
 
 export const GET_SETS_AT_STATION = gql`
-  query SetsAtStation($eventId: String!, $stationNumbers: [Int]) {
+  query SetsAtStation($eventId: String!, $stationNumbers: [Int], $page: Int!) {
     event(slug: $eventId) {
       id
       name
       tournament {
         name
       }
-      sets(filters: { stationNumbers: $stationNumbers }) {
+      sets(
+        page: $page
+        perPage: 20
+        filters: { stationNumbers: $stationNumbers }
+      ) {
+        pageInfo {
+          totalPages
+        }
         nodes {
           id
           station {
@@ -41,14 +48,14 @@ export const GET_SETS_AT_STATION = gql`
 `;
 
 export const GET_SETS_AT_STREAM_STATION = gql`
-  query SetsAtStation($eventId: String!, $page: Int) {
+  query SetsAtStreamStation($eventId: String!, $page: Int!) {
     event(slug: $eventId) {
       id
       name
       tournament {
         name
       }
-      sets(page: $page, perPage: 5) {
+      sets(page: $page, perPage: 20) {
         pageInfo {
           totalPages
         }

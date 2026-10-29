@@ -15,11 +15,11 @@ const electronHandler = {
     delete(key: any) {
       ipcRenderer.send('electron-store-delete', key);
     },
-    getSecret(key: any) {
-      return ipcRenderer.sendSync('electron-store-get-secret', key);
+    getSecret(key: string): Promise<string> {
+      return ipcRenderer.invoke('electron-store-get-secret', key);
     },
-    setSecret(property: any, val: any) {
-      ipcRenderer.send('electron-store-set-secret', property, val);
+    setSecret(property: string, val: string): Promise<void> {
+      return ipcRenderer.invoke('electron-store-set-secret', property, val);
     },
   },
   ipcRenderer: {
@@ -35,7 +35,7 @@ const electronHandler = {
     downloadVideo(args: object) {
       return ipcRenderer.invoke('download-video', args);
     },
-    retrieveVideoInformation(args: object) {
+    retrieveVideoInformation(args: { vodUrl: string }): Promise<number> {
       return ipcRenderer.invoke('retrieve-video-information', args);
     },
     getTournamentFolders(arg: string) {

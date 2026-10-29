@@ -46,6 +46,7 @@ This tool clips VODs automatically by retrieving timestamps of when matches are 
 
 ### Retrieving streamed sets
 
+- Create a personal API token in your [start.gg developer settings](https://start.gg/admin/profile/developer), enter it in `Start.gg API key`, and click `Save API Key`. The key is encrypted with your operating system's secure storage and kept across restarts. Saved search fields are preserved too.
 - First, you need to enter the Start.GG event slug. You can find this in the URL of the event page. For example, the slug for the event `microspacing-69` is:
   - tournament/microspacing-69/event/singles-de
 - Then, enter the VOD url for the stream in the `VOD Link` field. This can only be a Twitch link at the moment. For example:
@@ -58,11 +59,13 @@ This tool clips VODs automatically by retrieving timestamps of when matches are 
 - You should be able to see a list of sets that were played on stream! Select the ones that you want to download by clicking on each set.
 - To select all or deselect all, toggle the `Select All` button.
 - To edit timestamps, click on the edit icon next to the set. This will open a modal where you can edit the title, start time, and end time.
+- Times are elapsed `HH:mm:ss` from the VOD's beginning, so `25:00:00` means 25 hours. Incomplete matches and sets before the selected VOD are marked `Needs correction` and left unselected. Confirm their title and enter a nonnegative range with the end after the start before downloading.
 - If you want to customize the thumbnails, click on the `Thumbnail Options` button. This will open a modal where you can customize the logo and background color/image for the thumbnail.
 - When you have selected all the matches, click the `Download VODs` button. Your VODs will be saved to the `/downloadedVODs` folder.
 
 ### Uploading VODs to YouTube
 
+- Source builds require a Google OAuth client configured for a desktop application with the YouTube Data API enabled. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in the launch environment or a local, untracked `.env` file in the launch directory before opening the app. Never commit credentials or tokens.
 - Once the VODs are downloaded, you can navigate to the upload page by clicking the `Upload` button.
 - You will need to login to your YouTube account. Click the `Login` button and follow the instructions.
 - Next, select the tournament you want to upload VODs from using the `VOD Folder` box.
