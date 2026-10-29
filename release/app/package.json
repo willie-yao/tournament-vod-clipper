@@ -1,13 +1,11 @@
 {
-  "name": "electron-react-boilerplate",
-  "version": "4.6.0",
-  "description": "A foundation for scalable desktop apps",
+  "name": "tournament-vod-clipper",
+  "productName": "Tournament VOD Clipper",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Clip tournament Twitch VODs using start.gg match timestamps",
   "license": "MIT",
-  "author": {
-    "name": "Electron React Boilerplate Maintainers",
-    "email": "electronreactboilerplate@gmail.com",
-    "url": "https://github.com/electron-react-boilerplate"
-  },
+  "author": "willie-yao",
   "main": "./dist/main/main.js",
   "scripts": {
     "rebuild": "node -r ts-node/register ../../.erb/scripts/electron-rebuild.js",

@@ -19,15 +19,30 @@ import {
   dialog,
 } from 'electron';
 import MenuBuilder from './menu';
-import { isAuthCallbackUrl, resolveHtmlPath } from './util';
+import {
+  isAuthCallbackUrl,
+  legacyProfilePath,
+  resolveHtmlPath,
+  resolvePreloadPath,
+} from './util';
 import { getClipRangeError } from '../common/clipTime';
 import { getVideoTitleError, VideoUpload } from '../common/files';
 import OutputFiles from './outputFiles';
-import youtubeDl from 'youtube-dl-exec';
+import { runYtDlp } from './nativeTools';
 import Store from 'electron-store';
 import ElectronGoogleOAuth2 from '@getstation/electron-google-oauth2';
 require('dotenv').config();
 const fs = require('fs');
+const explicitProfile = app.commandLine.getSwitchValue('user-data-dir');
+const legacyProfile = explicitProfile
+  ? null
+  : legacyProfilePath(app.getPath('appData'));
+if (explicitProfile) {
+  fs.mkdirSync(path.resolve(explicitProfile), { recursive: true, mode: 0o700 });
+  app.setPath('userData', path.resolve(explicitProfile));
+} else if (legacyProfile) {
+  app.setPath('userData', legacyProfile);
+}
 const store = new Store();
 const outputDirectory = () => {
   const saved = store.get('outputDirectory');
@@ -40,8 +55,16 @@ const outputFiles = new OutputFiles(outputDirectory);
 const isDev = require('electron-is-dev');
 
 // initialize the Youtube API library
-const { google } = require('googleapis');
-const youtube = google.youtube('v3');
+const { youtube: createYoutube } = require('@googleapis/youtube');
+const youtube = createYoutube('v3');
+const nativeContext = () => ({
+  packaged: app.isPackaged,
+  built: process.env.NODE_ENV === 'production',
+  appPath: app.getAppPath(),
+  resourcesPath: process.resourcesPath,
+  platform: process.platform,
+  arch: process.arch,
+});
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -97,10 +120,14 @@ ipcMain.handle('open-folder', async (event, folderName: string) => {
 });
 
 ipcMain.handle('retrieve-video-information', async (event, arg) => {
-  const output = await youtubeDl(arg.vodUrl, {
-    printJson: true,
-    skipDownload: true,
-  });
+  const output = await runYtDlp(
+    arg.vodUrl,
+    {
+      dumpSingleJson: true,
+      skipDownload: true,
+    },
+    nativeContext()
+  );
   const timestamp: unknown =
     output && typeof output === 'object'
       ? Object.getOwnPropertyDescriptor(output, 'timestamp')?.value
@@ -117,12 +144,15 @@ ipcMain.handle('download-video', async (event, arg) => {
   const error = getClipRangeError(arg?.startTime, arg?.endTime);
   if (error) throw new Error(error);
   const target = await outputFiles.target(arg.tournamentName, arg.title);
-  await youtubeDl(arg.vodUrl, {
-    // @ts-ignore
-    downloadSections: `*${arg.startTime}-${arg.endTime}`,
-    output: target.path.replace(/%/g, '%%'),
-    noOverwrites: true,
-  });
+  await runYtDlp(
+    arg.vodUrl,
+    {
+      downloadSections: `*${arg.startTime}-${arg.endTime}`,
+      output: target.path.replace(/%/g, '%%'),
+      noOverwrites: true,
+    },
+    nativeContext()
+  );
   await outputFiles.video(target.folderName, target.videoName);
   return { folderName: target.folderName, videoName: target.videoName };
 });
@@ -138,14 +168,11 @@ ipcMain.handle('open-google-login', async (event, arg) => {
       'Google OAuth is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET before logging in.'
     );
   }
+  registerLoginProtocol();
   const myApiOauth = new ElectronGoogleOAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    [
-      'https://www.googleapis.com/auth/youtube.force-ssl',
-      'https://www.googleapis.com/auth/youtube',
-      'https://www.googleapis.com/auth/youtubepartner',
-    ],
+    ['https://www.googleapis.com/auth/youtube.force-ssl'],
     { successRedirectURL: 'tournamentvodclipper://' }
   );
 
@@ -274,7 +301,6 @@ ipcMain.handle('upload-single-video', async (event, args: VideoUpload) => {
 
 ipcMain.handle('get-api-key', async (event, arg) => {
   if (isDev) {
-    event.returnValue = process.env.REACT_APP_STARTGG_API_KEY;
     return process.env.REACT_APP_STARTGG_API_KEY;
   }
   return '';
@@ -353,24 +379,7 @@ if (isDebug) {
   require('electron-debug')();
 }
 
-const installExtensions = async () => {
-  const installer = require('electron-devtools-installer');
-  const forceDownload = !!process.env.UPGRADE_EXTENSIONS;
-  const extensions = ['REACT_DEVELOPER_TOOLS'];
-
-  return installer
-    .default(
-      extensions.map((name) => installer[name]),
-      forceDownload
-    )
-    .catch(console.log);
-};
-
 const createWindow = async () => {
-  if (isDebug) {
-    await installExtensions();
-  }
-
   const RESOURCES_PATH = app.isPackaged
     ? path.join(process.resourcesPath, 'assets')
     : path.join(__dirname, '../../assets');
@@ -387,9 +396,7 @@ const createWindow = async () => {
     webPreferences: {
       // contextIsolation: false,
       // nodeIntegration: true,
-      preload: app.isPackaged
-        ? path.join(__dirname, 'preload.js')
-        : path.join(__dirname, '../../.erb/dll/preload.js'),
+      preload: resolvePreloadPath(__dirname, app.isPackaged),
     },
   });
 
@@ -424,15 +431,17 @@ const createWindow = async () => {
  * Add event listeners...
  */
 
-if (isDev && process.platform === 'win32') {
-  // Set the path of electron.exe and your app.
-  // These two additional parameters are only available on windows.
-  // Setting this is required to get this working in dev mode.
-  app.setAsDefaultProtocolClient('tournamentvodclipper', process.execPath, [
-    process.argv[1],
-  ]);
-} else {
-  app.setAsDefaultProtocolClient('tournamentvodclipper');
+function registerLoginProtocol() {
+  if (isDev && process.platform === 'win32') {
+    // Set the path of electron.exe and your app.
+    // These two additional parameters are only available on windows.
+    // Setting this is required to get this working in dev mode.
+    app.setAsDefaultProtocolClient('tournamentvodclipper', process.execPath, [
+      process.argv[1],
+    ]);
+  } else {
+    app.setAsDefaultProtocolClient('tournamentvodclipper');
+  }
 }
 
 app.on('open-url', function (event, url) {

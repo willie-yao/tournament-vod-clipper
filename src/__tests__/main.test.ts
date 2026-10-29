@@ -1,8 +1,12 @@
 import path from 'path';
-import { build } from '../../package.json';
+import { build, dependencies } from '../../package.json';
 
 jest.mock('electron', () => ({
   app: {
+    getPath: jest.fn(() => '/mock/appdata'),
+    getAppPath: jest.fn(() => '/mock/app'),
+    setPath: jest.fn(),
+    commandLine: { getSwitchValue: jest.fn(() => '') },
     requestSingleInstanceLock: jest.fn(() => true),
     on: jest.fn(),
     whenReady: jest.fn(() => Promise.resolve()),
@@ -39,26 +43,24 @@ jest.mock('electron', () => ({
     },
   },
 }));
-jest.mock('electron-updater', () => ({
-  autoUpdater: { checkForUpdatesAndNotify: jest.fn() },
-}));
 jest.mock('electron-store', () =>
   jest.fn(() => ({ get: jest.fn(), set: jest.fn(), delete: jest.fn() }))
 );
 jest.mock('electron-is-dev', () => false);
-jest.mock('youtube-dl-exec', () => jest.fn());
+jest.mock('../main/nativeTools', () => ({ runYtDlp: jest.fn() }));
 jest.mock('@getstation/electron-google-oauth2', () => jest.fn());
-jest.mock('googleapis', () => ({
-  google: {
-    youtube: jest.fn(() => ({
-      videos: { insert: jest.fn() },
-      playlists: { insert: jest.fn() },
-      thumbnails: { set: jest.fn() },
-      playlistItems: { insert: jest.fn() },
-    })),
-  },
+jest.mock('@googleapis/youtube', () => ({
+  youtube: jest.fn(() => ({
+    videos: { insert: jest.fn() },
+    playlists: { insert: jest.fn() },
+    thumbnails: { set: jest.fn() },
+    playlistItems: { insert: jest.fn() },
+  })),
 }));
-jest.mock('fs', () => ({ createReadStream: jest.fn(() => ({})) }));
+jest.mock('fs', () => ({
+  createReadStream: jest.fn(() => ({})),
+  existsSync: jest.fn(() => false),
+}));
 jest.mock('../main/outputFiles', () => ({
   __esModule: true,
   default: jest.fn(() => ({
@@ -81,11 +83,10 @@ jest.mock('../main/menu', () => jest.fn(() => ({ buildMenu: jest.fn() })));
 
 const { app, BrowserWindow, ipcMain, safeStorage, shell, dialog } =
   jest.requireMock('electron');
-const { autoUpdater } = jest.requireMock('electron-updater');
 const Store = jest.requireMock('electron-store');
-const youtubeDl = jest.requireMock('youtube-dl-exec');
+const youtubeDl = jest.requireMock('../main/nativeTools').runYtDlp;
 const OutputFiles = jest.requireMock('../main/outputFiles').default;
-const { google } = jest.requireMock('googleapis');
+const google = jest.requireMock('@googleapis/youtube');
 const settings = new Map<string, unknown>();
 
 function handler(channel: string) {
@@ -130,8 +131,9 @@ describe('main process startup', () => {
 
   it('does not check for updates and disables publish metadata', () => {
     expect(BrowserWindow).toHaveBeenCalledTimes(1);
-    expect(autoUpdater.checkForUpdatesAndNotify).not.toHaveBeenCalled();
+    expect(dependencies).not.toHaveProperty('electron-updater');
     expect(build.publish).toBeNull();
+    expect(app.setAsDefaultProtocolClient).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -296,7 +298,8 @@ describe('main process startup', () => {
     );
     expect(youtubeDl).toHaveBeenCalledWith(
       'test-url',
-      expect.objectContaining({ downloadSections: '*90000-90060' })
+      expect.objectContaining({ downloadSections: '*90000-90060' }),
+      expect.any(Object)
     );
   });
 

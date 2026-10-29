@@ -13,6 +13,16 @@ import checkNodeEnv from '../scripts/check-node-env';
 checkNodeEnv('development');
 
 const dist = webpackPaths.dllPath;
+const mainOnlyDependencies = new Set([
+  '@getstation/electron-google-oauth2',
+  '@googleapis/youtube',
+  'dotenv',
+  'electron-debug',
+  'electron-is-dev',
+  'electron-store',
+  'signal-exit',
+  'youtube-dl-exec',
+]);
 
 const configuration: webpack.Configuration = {
   context: webpackPaths.rootPath,
@@ -31,7 +41,9 @@ const configuration: webpack.Configuration = {
   module: require('./webpack.config.renderer.dev').default.module,
 
   entry: {
-    renderer: Object.keys(dependencies || {}),
+    renderer: Object.keys(dependencies || {}).filter(
+      (name) => !mainOnlyDependencies.has(name)
+    ),
   },
 
   output: {
