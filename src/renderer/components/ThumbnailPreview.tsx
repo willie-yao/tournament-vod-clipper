@@ -1,12 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ThumbnailGenerator from './ThumbnailGenerator';
 import { VODMetadata } from '../common/tournamentSets';
-
-export interface ThumbnailStyle {
-  color: string;
-  logo: string;
-  background: string;
-}
+import { ThumbnailStyle } from '../common/thumbnailDrawing';
 
 export default function ThumbnailPreview({
   set,
@@ -33,16 +28,7 @@ export default function ThumbnailPreview({
       aria-label={`Thumbnail for ${set.player1} vs ${set.player2}`}
     >
       <div style={{ transform: `scale(${scale})` }}>
-        <ThumbnailGenerator
-          bgImage={style.background}
-          bgColor={style.color}
-          logo={style.logo}
-          player1={set.player1}
-          player2={set.player2}
-          character1={set.character1}
-          character2={set.character2}
-          bottomText={set.tournamentName}
-        />
+        <ThumbnailGenerator set={set} style={style} />
       </div>
     </div>
   );

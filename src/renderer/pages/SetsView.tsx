@@ -8,8 +8,6 @@ import CheckIcon from '@mui/icons-material/Check';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { MuiColorInput } from 'mui-color-input';
-import html2canvas from 'html2canvas';
-import { Buffer } from 'buffer';
 import { VODMetadata } from '../common/tournamentSets';
 import {
   ClipDraft,
@@ -25,7 +23,10 @@ import {
 import { getVideoTitleError, VideoFile } from '../../common/files';
 import AppShell from '../common/AppShell';
 import OutputFolder from '../common/OutputFolder';
-import ThumbnailGenerator from '../components/ThumbnailGenerator';
+import {
+  DEFAULT_THUMBNAIL_COLOR,
+  exportThumbnail,
+} from '../common/thumbnailDrawing';
 import ThumbnailPreview from '../components/ThumbnailPreview';
 import ClipFields from '../components/ClipFields';
 import VodPlayer, { PlayerHandle, PlayerState } from '../components/VodPlayer';
@@ -80,7 +81,7 @@ export default function SetsView() {
   const [activeTitle, setActiveTitle] = useState('');
   const [choosingOutput, setChoosingOutput] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const [thumbnailColor, setThumbnailColor] = useState('#B9F3FC');
+  const [thumbnailColor, setThumbnailColor] = useState(DEFAULT_THUMBNAIL_COLOR);
   const [thumbnailLogo, setThumbnailLogo] = useState('');
   const [thumbnailBg, setThumbnailBg] = useState('');
   const [downloadThumbnails, setDownloadThumbnails] = useState(true);
@@ -276,15 +277,10 @@ export default function SetsView() {
     );
   };
   const generateThumbnail = async (set: VODMetadata, file: VideoFile) => {
-    const thumbnail = document.getElementById(`thumbnail-${set.id}`);
-    if (!thumbnail) throw new Error('The thumbnail preview is unavailable.');
-    const canvas = await html2canvas(thumbnail);
-    const base64 = canvas
-      .toDataURL('image/jpeg')
-      .replace(/^data:image\/jpeg;base64,/, '');
+    const buf = await exportThumbnail(set, thumbnailStyle);
     await window.electron.ipcRenderer.saveThumbnail({
       ...file,
-      buf: Buffer.from(base64, 'base64'),
+      buf,
     });
   };
 
@@ -1106,7 +1102,7 @@ export default function SetsView() {
                 Create thumbnails for the batch
               </label>
               <MuiColorInput
-                label="Background color"
+                label="Left portrait color"
                 value={thumbnailColor}
                 onChange={setThumbnailColor}
                 disabled={locked}
@@ -1123,7 +1119,7 @@ export default function SetsView() {
                   disabled={locked || !thumbnailLogo}
                   onClick={() => setThumbnailLogo('')}
                 >
-                  Reset logo
+                  Remove logo
                 </Button>
                 <Button
                   variant="outlined"
@@ -1139,6 +1135,10 @@ export default function SetsView() {
                   Remove background
                 </Button>
               </div>
+              <p className="help">
+                Offset Duel keeps a warm opposing field. Custom backgrounds sit
+                behind both portraits; your logo appears in the header.
+              </p>
               <input
                 ref={inputLogo}
                 type="file"
@@ -1173,22 +1173,6 @@ export default function SetsView() {
               </Button>
             </div>
           </Dialog>
-          <div className="thumbnail-export" aria-hidden="true">
-            {sets.map((set) => (
-              <ThumbnailGenerator
-                key={set.id}
-                bgImage={thumbnailBg}
-                bgColor={thumbnailColor}
-                logo={thumbnailLogo}
-                player1={set.player1}
-                player2={set.player2}
-                character1={set.character1}
-                character2={set.character2}
-                bottomText={set.tournamentName}
-                title={`thumbnail-${set.id}`}
-              />
-            ))}
-          </div>
         </>
       )}
     </AppShell>

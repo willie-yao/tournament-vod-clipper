@@ -10,6 +10,7 @@ import { MemoryRouter } from 'react-router-dom';
 import SetsView from '../renderer/pages/SetsView';
 import { VODMetadata } from '../renderer/common/tournamentSets';
 import { vodMetadata } from '../test/fixtures';
+import { exportThumbnail } from '../renderer/common/thumbnailDrawing';
 
 jest.mock(
   '../renderer/components/ThumbnailGenerator',
@@ -17,9 +18,10 @@ jest.mock(
     ({ title }: { title: string }) =>
       <div id={title} />
 );
-jest.mock('html2canvas', () =>
-  jest.fn(async () => ({ toDataURL: () => 'data:image/jpeg;base64,' }))
-);
+jest.mock('../renderer/common/thumbnailDrawing', () => ({
+  DEFAULT_THUMBNAIL_COLOR: '#223d55',
+  exportThumbnail: jest.fn(async () => new Uint8Array([255, 216, 255])),
+}));
 
 function renderSets(sets: VODMetadata[] = [vodMetadata()]) {
   return render(
@@ -79,6 +81,28 @@ const changeTime = (label: 'In time' | 'Out time', value: string) =>
 beforeEach(() => {
   downloadAPI();
   window.Twitch = undefined;
+});
+
+it('exports real set, round and event metadata with the shared default thumbnail settings', async () => {
+  const api = downloadAPI();
+  const set = {
+    ...vodMetadata(),
+    eventName: 'Ultimate Singles',
+    roundText: 'Winners Final',
+  };
+  renderSets([set]);
+  fireEvent.click(downloadButton());
+  await screen.findByText('1 of 1 selected clips ready.');
+  expect(exportThumbnail).toHaveBeenLastCalledWith(set, {
+    color: '#223d55',
+    logo: '',
+    background: '',
+  });
+  expect(api.saveThumbnail).toHaveBeenCalledWith({
+    folderName: 'Tournament',
+    videoName: 'clip.mp4',
+    buf: new Uint8Array([255, 216, 255]),
+  });
 });
 
 it('keeps invalid records visible and correcting a 25-hour range does not select it', async () => {

@@ -78,11 +78,14 @@ This tool clips VODs automatically by retrieving timestamps of when matches are 
 - Choose `Review clip & timestamps` for Twitch playback, seeking and playhead-to-In/Out controls. Previous/Next and Back to batch retain each set's draft. Apply changes before downloading selected clips.
 - Times are elapsed `HH:mm:ss` from the VOD's beginning, so `25:00:00` means 25 hours. Incomplete matches and ranges before the VOD stay visible under Exceptions. Enter valid boundaries and confirm the title, apply the correction, then explicitly select the clip. Correcting it does not select it.
 - Start.gg times are suggestions. Verify them against the VOD; the existing native download path does not guarantee frame-accurate cuts.
-- `Thumbnail & output options` retains the character-based thumbnails, custom logo and background color/image. These options apply to the whole batch.
+- Thumbnails default to Offset Duel: opposing portraits, slanted nameplates, the tournament/round header and event footer. Missing picks use an explicit question mark, not a guessed character. Previews and 1280x720 JPEG exports share the same renderer.
+- `Thumbnail & output options` applies to the whole batch. The color changes the left portrait field, custom background images sit behind both portraits, and custom logos appear in the header. Existing thumbnail files are never replaced automatically.
 - The displayed `Output folder` defaults to the existing `downloadedVODs` location. To use another writable folder, click `Choose Output Folder`; choose your old `downloadedVODs` folder to access earlier clips. Existing files are not moved or renamed.
 - Click `Download N clips` to save selected matches and requested thumbnails. Existing clips, partial downloads and thumbnails are not overwritten; choose another title if a name is already in use. Retry incomplete clips resumes confirmed video progress, and Continue to Upload becomes available only when all selected outputs are ready.
 
 The packaged renderer uses a read-only server bound to `127.0.0.1` with a `localhost` origin for Twitch's embed parent check. It serves only packaged renderer assets, not output files or VOD media. Context isolation, sandboxing and Twitch CSP remain enabled. The official Twitch player requires an internet connection and an available VOD; manual boundary edits still work when preview is unavailable.
+
+Thumbnail typography uses installed Impact when available, with bundled [Anton](https://github.com/google/fonts/tree/main/ofl/anton) as the offline condensed fallback under its [SIL Open Font License](assets/fonts/OFL-Anton.txt). No font service is contacted.
 
 ### Uploading VODs to YouTube
 

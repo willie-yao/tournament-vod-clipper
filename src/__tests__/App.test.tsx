@@ -17,6 +17,10 @@ jest.mock('@apollo/client', () => ({
   createHttpLink: jest.fn(),
 }));
 jest.mock('../renderer/components/ThumbnailGenerator', () => () => null);
+jest.mock('../renderer/common/thumbnailDrawing', () => ({
+  DEFAULT_THUMBNAIL_COLOR: '#223d55',
+  exportThumbnail: jest.fn(),
+}));
 
 const slug = 'tournament/test/event/singles';
 const request = {

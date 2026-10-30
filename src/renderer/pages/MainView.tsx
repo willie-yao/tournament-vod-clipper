@@ -171,7 +171,8 @@ const VideoSearch = ({
             result.tournamentName,
             timestamp,
             characterMap,
-            titleFormat
+            titleFormat,
+            result.eventName
           )
         );
       }
