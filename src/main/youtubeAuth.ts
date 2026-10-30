@@ -54,6 +54,58 @@ function responseStatus(error: unknown): unknown {
   );
 }
 
+function tokenExchangeMessage(error: unknown): string {
+  const status = responseStatus(error);
+  const http =
+    typeof status === 'number' &&
+    Number.isInteger(status) &&
+    status >= 400 &&
+    status <= 599
+      ? ` (HTTP ${status})`
+      : '';
+  const data = (error as { response?: { data?: unknown } } | null)?.response
+    ?.data;
+  const payload =
+    data && typeof data === 'object' && !Array.isArray(data)
+      ? (data as { error?: unknown; error_description?: unknown })
+      : undefined;
+  let category = 'unknown';
+  let hint =
+    'No recognized OAuth error data was available. Check your connection and ask the maintainer to verify the Desktop OAuth setup.';
+  switch (payload?.error) {
+    case 'invalid_request':
+      category = 'invalid_request';
+      hint =
+        payload.error_description === 'client_secret is missing.'
+          ? 'Google reported that a client secret is missing. The maintainer must verify the Desktop OAuth configuration; this build does not send a client secret.'
+          : 'Google rejected the token request. Ask the maintainer to verify the Desktop OAuth configuration.';
+      break;
+    case 'invalid_client':
+      category = 'invalid_client';
+      hint =
+        'Google rejected the application client. Ask the maintainer to verify the configured Desktop client ID.';
+      break;
+    case 'invalid_grant':
+      category = 'invalid_grant';
+      hint =
+        'The authorization code was rejected. Start a new sign-in attempt; the previous code must not be reused.';
+      break;
+    case 'unauthorized_client':
+      category = 'unauthorized_client';
+      hint =
+        'This client is not permitted to use the requested sign-in flow. Ask the maintainer to verify the Desktop OAuth configuration.';
+      break;
+    case 'access_denied':
+      category = 'access_denied';
+      hint =
+        'Google did not approve access. Check that the selected account is allowed to use the application.';
+      break;
+    default:
+      break;
+  }
+  return `Google sign-in token request failed${http}. OAuth category: ${category}. ${hint}`;
+}
+
 function revoked(error: unknown): boolean {
   return (
     responseStatus(error) === 401 ||
@@ -247,11 +299,15 @@ export default class YouTubeAuth {
         pending.signal
       );
       checkCurrent();
-      const { tokens } = await client.getToken({
-        code: authorization.code,
-        codeVerifier: authorization.verifier,
-        redirect_uri: authorization.redirectUri,
-      });
+      const { tokens } = await client
+        .getToken({
+          code: authorization.code,
+          codeVerifier: authorization.verifier,
+          redirect_uri: authorization.redirectUri,
+        })
+        .catch((error: unknown) => {
+          throw new GoogleAuthError(tokenExchangeMessage(error));
+        });
       checkCurrent();
       if (
         !tokens.access_token ||

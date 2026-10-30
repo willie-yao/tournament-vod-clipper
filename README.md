@@ -106,6 +106,8 @@ Thumbnail typography uses installed Impact when available, with bundled [Anton](
 
 The supplied client ID does not prove Cloud configuration or production readiness. An unconfigured build explicitly disables connection. Audience/scopes, verification, live sign-in/uploads and any rotation of legacy confidential credentials require separate maintainer validation and have not been completed by these source changes.
 
+Token-exchange failures show an allowlisted OAuth category and HTTP status when available, without raw provider descriptions or credentials. An unknown category does not establish a configuration cause. Share only the app's safe error message, never callback URLs, authorization codes or tokens.
+
 ## Terms and Conditions + Privacy Policy
 
 TournamentVODClipper uses YouTube API Services to upload VODs. By using this tool, you are agreeing to be bound by the YouTube Terms of service as well as the following terms and conditions:

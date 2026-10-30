@@ -1,5 +1,7 @@
 /** @jest-environment node */
 import { createServer, get, Server } from 'http';
+import { createHash } from 'crypto';
+import { gzipSync } from 'zlib';
 import { ClientAuthentication, OAuth2Client } from 'google-auth-library';
 import YouTubeAuth, {
   YOUTUBE_CREDENTIALS_KEY,
@@ -18,7 +20,11 @@ const tokens = {
 let tokenServer: Server;
 let tokenUrl: URL;
 let tokenStatus = 200;
-let tokenResponse: object = tokens;
+let tokenResponse: unknown = tokens;
+let rawTokenBody: string | undefined;
+let compressTokenBody = false;
+let closeTokenConnection = false;
+let tokenAuthorizationPresent = false;
 let tokenRequests: URLSearchParams[] = [];
 
 beforeAll(async () => {
@@ -29,8 +35,17 @@ beforeAll(async () => {
     });
     req.on('end', () => {
       tokenRequests.push(new URLSearchParams(body));
-      res.writeHead(tokenStatus, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(tokenResponse));
+      tokenAuthorizationPresent = Boolean(req.headers.authorization);
+      if (closeTokenConnection) {
+        res.destroy();
+        return;
+      }
+      res.writeHead(tokenStatus, {
+        'Content-Type': 'application/json',
+        ...(compressTokenBody ? { 'Content-Encoding': 'gzip' } : {}),
+      });
+      const responseBody = rawTokenBody ?? JSON.stringify(tokenResponse) ?? '';
+      res.end(compressTokenBody ? gzipSync(responseBody) : responseBody);
     });
   });
   await new Promise<void>((resolve) =>
@@ -50,6 +65,10 @@ afterAll(async () => {
 beforeEach(() => {
   tokenStatus = 200;
   tokenResponse = tokens;
+  rawTokenBody = undefined;
+  compressTokenBody = false;
+  closeTokenConnection = false;
+  tokenAuthorizationPresent = false;
   tokenRequests = [];
 });
 
@@ -138,10 +157,20 @@ it('builds a public-client authorization URL and exchanges the PKCE verifier wit
   expect(url.searchParams.get('code_challenge_method')).toBe('S256');
   expect(url.searchParams.get('state')).toHaveLength(43);
   expect(tokenRequests[0].get('code_verifier')).toHaveLength(43);
+  expect(
+    createHash('sha256')
+      .update(tokenRequests[0].get('code_verifier') || '')
+      .digest('base64url')
+  ).toBe(url.searchParams.get('code_challenge'));
+  expect(tokenRequests[0].get('client_id')).toBe(
+    url.searchParams.get('client_id')
+  );
+  expect(tokenRequests[0].get('code')).toBe('authorization-fixture');
   expect(tokenRequests[0].get('redirect_uri')).toBe(
     url.searchParams.get('redirect_uri')
   );
   expect(tokenRequests[0].has('client_secret')).toBe(false);
+  expect(tokenAuthorizationPresent).toBe(false);
   expect(status).toEqual(
     expect.objectContaining({ state: 'connected', channel })
   );
@@ -156,6 +185,147 @@ it('builds a public-client authorization URL and exchanges the PKCE verifier wit
   expect(options.encryption.encryptString.mock.calls[0][0]).not.toContain(
     'access-fixture'
   );
+});
+
+it('uses the SDK parsed error body for a compressed token-endpoint 400 response', async () => {
+  tokenStatus = 400;
+  tokenResponse = {
+    error: 'invalid_request',
+    error_description: 'client_secret is missing.',
+  };
+  compressTokenBody = true;
+  const { options } = fixture();
+  const client = options.createClient(new AbortController().signal);
+  await expect(
+    client.getToken({
+      code: 'authorization-fixture',
+      codeVerifier: 'verifier-fixture',
+      redirect_uri: 'http://127.0.0.1/oauth2/callback',
+    })
+  ).rejects.toMatchObject({
+    response: { status: 400, data: tokenResponse },
+  });
+});
+
+it.each([
+  ['invalid_request', 'verify the Desktop OAuth configuration'],
+  ['invalid_client', 'verify the configured Desktop client ID'],
+  ['invalid_grant', 'previous code must not be reused'],
+  ['unauthorized_client', 'not permitted to use the requested sign-in flow'],
+  ['access_denied', 'selected account is allowed'],
+])(
+  'reports safe token-exchange category %s without exposing SDK error details',
+  async (category, hint) => {
+    tokenStatus = 400;
+    tokenResponse = {
+      error: category,
+      error_description: 'private-error-fixture',
+      access_token: 'private-access-fixture',
+      refresh_token: 'private-refresh-fixture',
+      client_secret: 'private-secret-fixture',
+      code: 'private-code-fixture',
+    };
+    const { auth, options, settings } = fixture();
+    const log = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const pending = auth.connect();
+      await expect(pending).rejects.toThrow(`OAuth category: ${category}.`);
+      await expect(pending).rejects.toThrow(String(hint));
+      await expect(pending).rejects.toThrow('HTTP 400');
+      await expect(pending).rejects.not.toThrow('private-');
+      expect(auth.status().state).toBe('disconnected');
+      expect(JSON.stringify(options.onStatus.mock.calls)).not.toContain(
+        'private-'
+      );
+      expect(log).not.toHaveBeenCalled();
+      expect(warn).not.toHaveBeenCalled();
+      expect(error).not.toHaveBeenCalled();
+      expect(settings.size).toBe(0);
+      expect(options.identify).not.toHaveBeenCalled();
+      expect(tokenRequests).toHaveLength(1);
+    } finally {
+      log.mockRestore();
+      warn.mockRestore();
+      error.mockRestore();
+    }
+  }
+);
+
+it('identifies a missing client secret only from the exact known provider description', async () => {
+  tokenStatus = 400;
+  tokenResponse = {
+    error: 'invalid_request',
+    error_description: 'client_secret is missing.',
+    client_secret: 'private-secret-fixture',
+  };
+  compressTokenBody = true;
+  const { auth } = fixture();
+  const pending = auth.connect();
+  await expect(pending).rejects.toThrow(
+    'Google reported that a client secret is missing.'
+  );
+  await expect(pending).rejects.not.toThrow('private-');
+  expect(tokenRequests[0].has('client_secret')).toBe(false);
+});
+
+it('does not infer a specific cause from an arbitrary description mentioning a secret', async () => {
+  tokenStatus = 400;
+  tokenResponse = {
+    error: 'invalid_request',
+    error_description: 'client_secret is missing. private-secret-fixture',
+  };
+  const { auth } = fixture();
+  const pending = auth.connect();
+  await expect(pending).rejects.toThrow('OAuth category: invalid_request.');
+  await expect(pending).rejects.not.toThrow(
+    'Google reported that a client secret is missing.'
+  );
+  await expect(pending).rejects.not.toThrow('private-');
+});
+
+it.each([
+  undefined,
+  null,
+  {},
+  [],
+  { error: null },
+  { error: 400 },
+  { error: { message: 'private-error-fixture' } },
+  {
+    error: 'private-unknown-fixture',
+    error_description: 'client_secret is missing.',
+  },
+])(
+  'explicitly reports unknown for missing or malformed OAuth response data: %p',
+  async (data) => {
+    tokenStatus = 400;
+    tokenResponse = data;
+    const { auth } = fixture();
+    const pending = auth.connect();
+    await expect(pending).rejects.toThrow('HTTP 400');
+    await expect(pending).rejects.toThrow('OAuth category: unknown.');
+    await expect(pending).rejects.not.toThrow('client secret is missing');
+    await expect(pending).rejects.not.toThrow('private-');
+  }
+);
+
+it('does not parse or echo an unparseable token-endpoint response', async () => {
+  tokenStatus = 400;
+  rawTokenBody = 'private-error-fixture: not JSON';
+  const { auth } = fixture();
+  const pending = auth.connect();
+  await expect(pending).rejects.toThrow('OAuth category: unknown.');
+  await expect(pending).rejects.not.toThrow('private-');
+});
+
+it('reports unknown without inventing an HTTP status when the SDK has no response', async () => {
+  closeTokenConnection = true;
+  const { auth } = fixture();
+  const pending = auth.connect();
+  await expect(pending).rejects.toThrow('OAuth category: unknown.');
+  await expect(pending).rejects.not.toThrow('HTTP 400');
 });
 
 it('recovers encrypted refresh credentials after restart and refreshes without changing channels', async () => {
