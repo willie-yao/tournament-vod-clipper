@@ -26,7 +26,7 @@ npm run build
 
 Unit tests mock Electron and external APIs. They need no packaged bundles, credentials, or native downloader binaries. CI runs these offline tests, type checking and production bundles without native install hooks, secrets, signing or release jobs. Full-project lint is not a CI gate while inherited lint errors remain.
 
-For desktop development, run `npm run setup:desktop`, then `npm start`. Setup installs the pinned Electron runtime, verifies native downloads and prepares the renderer DLL. It does not configure credentials or start authentication.
+For desktop development, run `npm run setup:desktop`, then `npm start`. Setup installs the pinned Electron runtime and verifies native downloads. The dev server compiles the isolated preload before starting Electron and watches it for changes. It does not configure credentials or start authentication.
 
 ### Native tools and local packaging
 
@@ -74,13 +74,18 @@ This tool clips VODs automatically by retrieving timestamps of when matches are 
 
 ### Downloading sets
 
-- You should be able to see a list of sets that were played on stream! Select the ones that you want to download by clicking on each set.
-- To select all or deselect all, toggle the `Select All` button.
-- To edit timestamps, click on the edit icon next to the set. This will open a modal where you can edit the title, start time, and end time.
-- Times are elapsed `HH:mm:ss` from the VOD's beginning, so `25:00:00` means 25 hours. Incomplete matches and sets before the selected VOD are marked `Needs correction` and left unselected. Confirm their title and enter a nonnegative range with the end after the start before downloading.
-- If you want to customize the thumbnails, click on the `Thumbnail Options` button. This will open a modal where you can customize the logo and background color/image for the thumbnail.
+- Use the Cutroom batch desk to inspect matches without changing selection. Check individual clips or the header checkbox to select valid ranges. `List` and `Thumbnails` share titles, selection, drafts and download progress.
+- Choose `Review clip & timestamps` for Twitch playback, seeking and playhead-to-In/Out controls. Previous/Next and Back to batch retain each set's draft. Apply changes before downloading selected clips.
+- Times are elapsed `HH:mm:ss` from the VOD's beginning, so `25:00:00` means 25 hours. Incomplete matches and ranges before the VOD stay visible under Exceptions. Enter valid boundaries and confirm the title, apply the correction, then explicitly select the clip. Correcting it does not select it.
+- Start.gg times are suggestions. Verify them against the VOD; the existing native download path does not guarantee frame-accurate cuts.
+- Thumbnails default to Offset Duel: opposing portraits, slanted nameplates, the tournament/round header and event footer. Missing picks use an explicit question mark, not a guessed character. Previews and 1280x720 JPEG exports share the same renderer.
+- `Thumbnail & output options` applies to the whole batch. The color changes the left portrait field, custom background images sit behind both portraits, and custom logos appear in the header. Existing thumbnail files are never replaced automatically.
 - The displayed `Output folder` defaults to the existing `downloadedVODs` location. To use another writable folder, click `Choose Output Folder`; choose your old `downloadedVODs` folder to access earlier clips. Existing files are not moved or renamed.
-- Click `Download VODs` to save selected matches and requested thumbnails. Existing clips, partial downloads and thumbnails are not overwritten; choose another title if a name is already in use. Continue to Upload becomes available only when all selected outputs are ready.
+- Click `Download N clips` to save selected matches and requested thumbnails. Existing clips, partial downloads and thumbnails are not overwritten; choose another title if a name is already in use. Retry incomplete clips resumes confirmed video progress, and Continue to Upload becomes available only when all selected outputs are ready.
+
+The packaged renderer uses a read-only server bound to `127.0.0.1` with a `localhost` origin for Twitch's embed parent check. It serves only packaged renderer assets, not output files or VOD media. Context isolation, sandboxing and Twitch CSP remain enabled. The official Twitch player requires an internet connection and an available VOD; manual boundary edits still work when preview is unavailable.
+
+Thumbnail typography uses installed Impact when available, with bundled [Anton](https://github.com/google/fonts/tree/main/ofl/anton) as the offline condensed fallback under its [SIL Open Font License](assets/fonts/OFL-Anton.txt). No font service is contacted.
 
 ### Uploading VODs to YouTube
 

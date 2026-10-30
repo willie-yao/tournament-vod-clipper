@@ -13,18 +13,28 @@ jest.mock('electron', () => ({
     setAsDefaultProtocolClient: jest.fn(),
     isPackaged: false,
   },
-  BrowserWindow: jest.fn(() => ({
-    loadURL: jest.fn(),
-    on: jest.fn(),
-    isMinimized: jest.fn(() => false),
-    restore: jest.fn(),
-    focus: jest.fn(),
-    webContents: {
-      send: jest.fn(),
-      executeJavaScript: jest.fn(),
-      setWindowOpenHandler: jest.fn(),
-    },
-  })),
+  BrowserWindow: jest.fn(() => {
+    const listeners = new Map<string, () => void>();
+    return {
+      loadURL: jest.fn(async () => {
+        listeners.get('ready-to-show')?.();
+      }),
+      on: jest.fn((name: string, callback: () => void) => {
+        listeners.set(name, callback);
+      }),
+      show: jest.fn(),
+      minimize: jest.fn(),
+      isMinimized: jest.fn(() => false),
+      restore: jest.fn(),
+      focus: jest.fn(),
+      webContents: {
+        send: jest.fn(),
+        executeJavaScript: jest.fn(),
+        setWindowOpenHandler: jest.fn(),
+        on: jest.fn(),
+      },
+    };
+  }),
   ipcMain: { handle: jest.fn(), on: jest.fn() },
   shell: { openPath: jest.fn().mockResolvedValue('') },
   dialog: { showOpenDialog: jest.fn() },
@@ -48,6 +58,12 @@ jest.mock('electron-store', () =>
 );
 jest.mock('electron-is-dev', () => false);
 jest.mock('../main/nativeTools', () => ({ runYtDlp: jest.fn() }));
+jest.mock('../main/rendererHost', () => ({
+  startRendererHost: jest.fn().mockResolvedValue({
+    url: 'http://localhost:12345/index.html',
+    server: { close: jest.fn() },
+  }),
+}));
 jest.mock('@getstation/electron-google-oauth2', () => jest.fn());
 jest.mock('@googleapis/youtube', () => ({
   youtube: jest.fn(() => ({
@@ -134,6 +150,14 @@ describe('main process startup', () => {
     expect(dependencies).not.toHaveProperty('electron-updater');
     expect(build.publish).toBeNull();
     expect(app.setAsDefaultProtocolClient).not.toHaveBeenCalled();
+  });
+
+  it('shows the window when ready-to-show arrives before loadURL resolves', () => {
+    const window = BrowserWindow.mock.results[0].value;
+    expect(window.loadURL).toHaveBeenCalledWith(
+      'http://localhost:12345/index.html'
+    );
+    expect(window.show).toHaveBeenCalledTimes(1);
   });
 
   it.each([

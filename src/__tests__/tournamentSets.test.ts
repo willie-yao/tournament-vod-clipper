@@ -37,6 +37,7 @@ describe('retrieveTournamentSets', () => {
       Array.from({ length: pages }, (_, i) => String(i + 1))
     );
     expect(query).toHaveBeenCalledTimes(pages);
+    expect(result.eventName).toBe('Singles');
     expect(
       query.mock.calls.every(
         ([options]) => options.fetchPolicy === 'network-only'
@@ -126,6 +127,35 @@ describe('retrieveTournamentSets', () => {
 });
 
 describe('formatSetMetadata', () => {
+  it('carries real labels and preserves the first reported portrait while retaining all picks in the title', () => {
+    const result = formatSetMetadata(
+      tournamentSet({
+        games: [
+          {
+            selections: [1, 2].map((selectionValue) => ({
+              entrant: { id: 'a' },
+              selectionType: 'CHARACTER',
+              selectionValue,
+            })),
+          },
+        ],
+      }),
+      'Tournament',
+      1000,
+      { 1: 'Mario', 2: 'Luigi' },
+      PLAYERS_FIRST_TITLE,
+      'Ultimate Singles'
+    );
+    expect(result).toMatchObject({
+      tournamentName: 'Tournament',
+      eventName: 'Ultimate Singles',
+      roundText: 'Finals',
+      character1: 'Mario',
+      character2: 'Random Character',
+    });
+    expect(result.title).toContain('Mario, Luigi');
+  });
+
   it('retains sparse selections and missing entrants without losing neighboring sets', () => {
     const sets = [
       tournamentSet({ games: [{ selections: [] }] }),

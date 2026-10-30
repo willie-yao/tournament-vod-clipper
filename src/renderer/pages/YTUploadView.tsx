@@ -1,6 +1,5 @@
 import {
   Alert,
-  Container,
   Button,
   Box,
   MenuItem,
@@ -13,7 +12,7 @@ import {
 } from '@mui/material';
 import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import NavMenu from 'renderer/common/NavMenu';
+import AppShell from '../common/AppShell';
 import OutputFolder from '../common/OutputFolder';
 import { getVideoTitleError } from '../../common/files';
 import {
@@ -193,142 +192,143 @@ const YTUploadView = () => {
     session.items.every(uploadComplete);
   const metadataLocked = locked || Boolean(session?.playlistId);
   return (
-    <Container maxWidth="sm">
-      {NavMenu('/YTUploadView', locked)}
-      <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
-        Upload to YouTube
-      </Typography>
-      <OutputFolder
-        disabled={locked}
-        onChoosingChange={setChoosingOutput}
-        onChange={() => {
-          setLoading(true);
-          setFolders([]);
-          setSelectedFolder('');
-          setRequestedNames(undefined);
-          setSession(null);
-          setSummary('');
-          setRevision((value) => value + 1);
-        }}
-      />
-      {error && <Alert severity="error">{error}</Alert>}
-      {summary && (
-        <Alert severity={complete ? 'success' : 'warning'}>{summary}</Alert>
-      )}
-      <Typography variant="body2">
-        Review titles before uploading. Recovery IDs are kept only while this
-        app is open. After a reload, restart, or any unconfirmed request, check
-        both your YouTube channel and playlist before retrying. Playlist
-        creation or membership may already have succeeded.
-      </Typography>
-      <Box className="background-card" sx={{ minHeight: '50vh' }}>
-        <Button disabled={locked} variant="contained" onClick={login}>
-          {accessToken ? 'Sign in again' : 'Login'}
-        </Button>
-        <TextField
-          required
-          select
-          label="VOD Folder"
-          variant="filled"
-          value={folders.includes(selectedFolder) ? selectedFolder : ''}
+    <AppShell current="output" locked={locked}>
+      <main className="upload-page">
+        <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
+          Upload to YouTube
+        </Typography>
+        <OutputFolder
           disabled={locked}
-          onChange={(event) => {
-            setSelectedFolder(event.target.value);
+          onChoosingChange={setChoosingOutput}
+          onChange={() => {
+            setLoading(true);
+            setFolders([]);
+            setSelectedFolder('');
             setRequestedNames(undefined);
             setSession(null);
             setSummary('');
+            setRevision((value) => value + 1);
           }}
-        >
-          {folders.map((folder) => (
-            <MenuItem key={folder} value={folder}>
-              {folder}
-            </MenuItem>
-          ))}
-        </TextField>
-        <Button
-          disabled={locked || !selectedFolder}
-          onClick={async () => {
-            try {
-              await window.electron.ipcRenderer.openFolder(selectedFolder);
-            } catch (failure) {
-              setError(
-                failure instanceof Error ? failure.message : String(failure)
-              );
-            }
-          }}
-        >
-          Open VOD Folder
-        </Button>
-        <TextField
-          disabled={metadataLocked}
-          label="Video Description"
-          variant="filled"
-          rows={3}
-          multiline
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
         />
-        <FormControl disabled={metadataLocked}>
-          <RadioGroup
-            row
-            value={visibility}
-            onChange={(event) => setVisibility(event.target.value)}
-          >
-            {['unlisted', 'public', 'private'].map((value) => (
-              <FormControlLabel
-                key={value}
-                value={value}
-                control={<Radio />}
-                label={value}
-              />
-            ))}
-          </RadioGroup>
-        </FormControl>
-        {session?.items.map((item) => (
-          <Box
-            key={item.videoName}
-            sx={{ width: '100%', marginBottom: '15px' }}
-          >
-            <TextField
-              fullWidth
-              label={`Title: ${item.videoName}`}
-              value={item.title}
-              disabled={locked || Boolean(item.videoId)}
-              error={Boolean(getVideoTitleError(item.title))}
-              helperText={
-                getVideoTitleError(item.title) ||
-                `${[...item.title].length}/100`
-              }
-              onChange={(event) => {
-                item.title = event.target.value;
-                setSession({ ...session, items: [...session.items] });
-              }}
-            />
-            {item.videoId && (
-              <Typography variant="body2">
-                Video confirmed: {item.videoId}
-                {uploadComplete(item) ? ' (complete)' : ' (follow-up needed)'}
-              </Typography>
-            )}
-            {item.error && <Alert severity="warning">{item.error}</Alert>}
-          </Box>
-        ))}
-        {session?.items.length === 0 && (
-          <Typography>No videos found.</Typography>
+        {error && <Alert severity="error">{error}</Alert>}
+        {summary && (
+          <Alert severity={complete ? 'success' : 'warning'}>{summary}</Alert>
         )}
-        <Button
-          disabled={
-            locked || !accessToken || !session?.items.length || complete
-          }
-          variant="contained"
-          onClick={upload}
-        >
-          {session?.items.some((item) => item.videoId || item.error)
-            ? 'Retry Failed Steps'
-            : 'Upload'}
-        </Button>
-      </Box>
-    </Container>
+        <Typography variant="body2">
+          Review titles before uploading. Recovery IDs are kept only while this
+          app is open. After a reload, restart, or any unconfirmed request,
+          check both your YouTube channel and playlist before retrying. Playlist
+          creation or membership may already have succeeded.
+        </Typography>
+        <Box className="background-card">
+          <Button disabled={locked} variant="contained" onClick={login}>
+            {accessToken ? 'Sign in again' : 'Login'}
+          </Button>
+          <TextField
+            required
+            select
+            label="VOD Folder"
+            variant="filled"
+            value={folders.includes(selectedFolder) ? selectedFolder : ''}
+            disabled={locked}
+            onChange={(event) => {
+              setSelectedFolder(event.target.value);
+              setRequestedNames(undefined);
+              setSession(null);
+              setSummary('');
+            }}
+          >
+            {folders.map((folder) => (
+              <MenuItem key={folder} value={folder}>
+                {folder}
+              </MenuItem>
+            ))}
+          </TextField>
+          <Button
+            disabled={locked || !selectedFolder}
+            onClick={async () => {
+              try {
+                await window.electron.ipcRenderer.openFolder(selectedFolder);
+              } catch (failure) {
+                setError(
+                  failure instanceof Error ? failure.message : String(failure)
+                );
+              }
+            }}
+          >
+            Open VOD Folder
+          </Button>
+          <TextField
+            disabled={metadataLocked}
+            label="Video Description"
+            variant="filled"
+            rows={3}
+            multiline
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+          />
+          <FormControl disabled={metadataLocked}>
+            <RadioGroup
+              row
+              value={visibility}
+              onChange={(event) => setVisibility(event.target.value)}
+            >
+              {['unlisted', 'public', 'private'].map((value) => (
+                <FormControlLabel
+                  key={value}
+                  value={value}
+                  control={<Radio />}
+                  label={value}
+                />
+              ))}
+            </RadioGroup>
+          </FormControl>
+          {session?.items.map((item) => (
+            <Box
+              key={item.videoName}
+              sx={{ width: '100%', marginBottom: '15px' }}
+            >
+              <TextField
+                fullWidth
+                label={`Title: ${item.videoName}`}
+                value={item.title}
+                disabled={locked || Boolean(item.videoId)}
+                error={Boolean(getVideoTitleError(item.title))}
+                helperText={
+                  getVideoTitleError(item.title) ||
+                  `${[...item.title].length}/100`
+                }
+                onChange={(event) => {
+                  item.title = event.target.value;
+                  setSession({ ...session, items: [...session.items] });
+                }}
+              />
+              {item.videoId && (
+                <Typography variant="body2">
+                  Video confirmed: {item.videoId}
+                  {uploadComplete(item) ? ' (complete)' : ' (follow-up needed)'}
+                </Typography>
+              )}
+              {item.error && <Alert severity="warning">{item.error}</Alert>}
+            </Box>
+          ))}
+          {session?.items.length === 0 && (
+            <Typography>No videos found.</Typography>
+          )}
+          <Button
+            disabled={
+              locked || !accessToken || !session?.items.length || complete
+            }
+            variant="contained"
+            onClick={upload}
+          >
+            {session?.items.some((item) => item.videoId || item.error)
+              ? 'Retry Failed Steps'
+              : 'Upload'}
+          </Button>
+        </Box>
+      </main>
+    </AppShell>
   );
 };
 

@@ -17,6 +17,10 @@ jest.mock('@apollo/client', () => ({
   createHttpLink: jest.fn(),
 }));
 jest.mock('../renderer/components/ThumbnailGenerator', () => () => null);
+jest.mock('../renderer/common/thumbnailDrawing', () => ({
+  DEFAULT_THUMBNAIL_COLOR: '#223d55',
+  exportThumbnail: jest.fn(),
+}));
 
 const slug = 'tournament/test/event/singles';
 const request = {
@@ -78,7 +82,7 @@ describe('App settings and retrieval', () => {
     await waitFor(() => expect(retrieve).toBeEnabled());
     fireEvent.click(choose);
     expect(retrieve).toBeDisabled();
-    expect(screen.getByTestId('MenuIcon').closest('button')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Source' })).toBeDisabled();
     fireEvent.click(retrieve);
     expect(operations).toHaveLength(0);
     await act(async () => {
@@ -96,7 +100,7 @@ describe('App settings and retrieval', () => {
       ).toBeEnabled()
     );
     expect(
-      screen.getByRole('heading', { name: 'Tournament VOD Clipper' })
+      screen.getByRole('heading', { name: 'Build a tournament batch.' })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Retrieve Sets' })
@@ -195,7 +199,7 @@ describe('App settings and retrieval', () => {
     await screen.findByText('Error retrieving sets: test VOD failure');
     await waitFor(() => expect(retrieve).toBeEnabled());
     fireEvent.click(retrieve);
-    await screen.findByRole('heading', { name: 'Select Sets to Download' });
+    await screen.findByRole('heading', { name: 'Tournament' });
     expect(
       screen.getByText('Player A vs Player B - Finals - Tournament')
     ).toBeInTheDocument();

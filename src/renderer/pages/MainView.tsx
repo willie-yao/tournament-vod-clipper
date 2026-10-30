@@ -1,17 +1,6 @@
 import { useState, useEffect } from 'react';
-import {
-  Button,
-  Box,
-  Container,
-  TextField,
-  Dialog,
-  Link,
-  MenuItem,
-  Typography,
-} from '@mui/material';
+import { Button, TextField, MenuItem, LinearProgress } from '@mui/material';
 import { useApolloClient } from '@apollo/client';
-import { useTheme } from '@mui/material/styles';
-import { PropagateLoader } from 'react-spinners';
 import { useNavigate } from 'react-router-dom';
 import SnackbarPopup from 'renderer/common/SnackbarPopup';
 import { GET_ALL_CHARACTERS } from '../common/StartggQueries';
@@ -24,7 +13,7 @@ import {
   retrieveTournamentSets,
   formatSetMetadata,
 } from '../common/tournamentSets';
-import NavMenu from '../common/NavMenu';
+import AppShell from '../common/AppShell';
 import OutputFolder from '../common/OutputFolder';
 
 interface CharactersResponse {
@@ -43,12 +32,16 @@ function isValidURL(value: string): boolean {
 interface SearchProps {
   choosingOutput: boolean;
   onChoosingOutput: (choosing: boolean) => void;
+  onBusyChange: (busy: boolean) => void;
 }
 
-const VideoSearch = ({ choosingOutput, onChoosingOutput }: SearchProps) => {
+const VideoSearch = ({
+  choosingOutput,
+  onChoosingOutput,
+  onBusyChange,
+}: SearchProps) => {
   const client = useApolloClient();
   const navigate = useNavigate();
-  const theme = useTheme();
   const [vodUrl, setVodUrl] = useState(() =>
     String(window.electron.store.get('vodUrl') || '')
   );
@@ -63,7 +56,6 @@ const VideoSearch = ({ choosingOutput, onChoosingOutput }: SearchProps) => {
   const [settingsReady, setSettingsReady] = useState(false);
   const [savingKey, setSavingKey] = useState(false);
   const [waiting, setWaiting] = useState(false);
-  const [open, setOpen] = useState(false);
   const [titleFormat, setTitleFormat] =
     useState<TitleFormat>(PLAYERS_FIRST_TITLE);
   const [errorMessage, setErrorMessage] = useState('');
@@ -86,6 +78,11 @@ const VideoSearch = ({ choosingOutput, onChoosingOutput }: SearchProps) => {
     !station.trim() ||
     urlError ||
     slugError;
+
+  useEffect(
+    () => onBusyChange(waiting || savingKey),
+    [waiting, savingKey, onBusyChange]
+  );
 
   useEffect(() => {
     let active = true;
@@ -174,7 +171,8 @@ const VideoSearch = ({ choosingOutput, onChoosingOutput }: SearchProps) => {
             result.tournamentName,
             timestamp,
             characterMap,
-            titleFormat
+            titleFormat,
+            result.eventName
           )
         );
       }
@@ -184,6 +182,8 @@ const VideoSearch = ({ choosingOutput, onChoosingOutput }: SearchProps) => {
           vodUrl: vodUrl.trim(),
           tournamentName: result.tournamentName,
           skippedSets: result.skippedSets,
+          eventId: eventId.trim(),
+          station: station.trim(),
         },
       });
     } catch (error) {
@@ -199,147 +199,130 @@ const VideoSearch = ({ choosingOutput, onChoosingOutput }: SearchProps) => {
   };
 
   return (
-    <Box className="background-card" sx={{ minHeight: '58vh' }}>
+    <div className="source-form">
       {SnackbarPopup(errorMessage, 'error', errorOpen, setErrorOpen)}
       {SnackbarPopup(infoMessage, 'info', infoOpen, setInfoOpen)}
-      <OutputFolder
-        disabled={waiting || savingKey}
-        onChoosingChange={onChoosingOutput}
-      />
-      <TextField
-        required
-        type="password"
-        label="Start.gg API key"
-        variant="filled"
-        className="textfield"
-        value={keyDraft}
-        onChange={(event) => setKeyDraft(event.target.value)}
-        disabled={!settingsReady || savingKey || waiting || choosingOutput}
-        helperText="Stored securely on this device. Save changes before retrieving sets."
-      />
-      <Button
-        variant="contained"
-        color="secondary"
-        sx={{ width: '95%', marginBottom: '20px' }}
-        disabled={
-          !settingsReady ||
-          savingKey ||
-          waiting ||
-          choosingOutput ||
-          keyDraft.trim() === apiKey
-        }
-        onClick={saveKey}
-      >
-        Save API Key
-      </Button>
-      <TextField
-        error={slugError}
-        className="textfield"
-        label="Start.GG Event Slug"
-        variant="filled"
-        value={eventId}
-        onChange={(event) => setEventId(event.target.value)}
-        disabled={waiting || choosingOutput}
-        helperText="tournament/tournament-name/event/event-name"
-      />
-      <TextField
-        error={urlError}
-        className="textfield"
-        label="VOD Link"
-        variant="filled"
-        value={vodUrl}
-        onChange={(event) => setVodUrl(event.target.value)}
-        disabled={waiting || choosingOutput}
-        helperText="https://www.twitch.tv/videos/123456789"
-      />
-      <TextField
-        className="textfield"
-        label="Stream Station"
-        variant="filled"
-        value={station}
-        onChange={(event) => setStation(event.target.value)}
-        disabled={waiting || choosingOutput}
-        helperText="Name of a twitch channel or a station number."
-        sx={{ marginBottom: '25px' }}
-      />
-      <Button
-        variant="contained"
-        color="secondary"
-        sx={{ marginBottom: '25px', width: '95%', color: 'white' }}
-        disabled={waiting || choosingOutput}
-        onClick={() => setOpen(true)}
-      >
-        Additional Options
-      </Button>
-      <Dialog open={open} onClose={() => setOpen(false)}>
-        <Box sx={{ padding: '20px', minWidth: '50vw' }}>
-          <Typography
-            variant="h6"
-            component="h2"
-            textAlign="center"
-            gutterBottom
-          >
-            Additional Options
-          </Typography>
-          <TextField
-            value={titleFormat}
-            sx={{ width: '100%' }}
-            label="Video Title Format"
-            variant="filled"
-            select
-            onChange={(event) => {
-              const { value } = event.target;
-              if (
-                value === PLAYERS_FIRST_TITLE ||
-                value === TOURNAMENT_FIRST_TITLE
-              )
-                setTitleFormat(value);
-            }}
-          >
-            <MenuItem value={PLAYERS_FIRST_TITLE}>
-              {PLAYERS_FIRST_TITLE}
-            </MenuItem>
-            <MenuItem value={TOURNAMENT_FIRST_TITLE}>
-              {TOURNAMENT_FIRST_TITLE}
-            </MenuItem>
-          </TextField>
-        </Box>
-      </Dialog>
-      <Button
-        variant="contained"
-        disabled={disabled}
-        onClick={retrieveSets}
-        sx={{ marginBottom: '25px', width: '95%' }}
-      >
-        Retrieve Sets
-      </Button>
-      {waiting && <PropagateLoader color={theme.palette.secondary.dark} />}
-    </Box>
+      <section className="source-inputs" aria-label="Tournament source">
+        <TextField
+          error={slugError}
+          className="textfield"
+          label="Start.GG Event Slug"
+          variant="outlined"
+          value={eventId}
+          onChange={(event) => setEventId(event.target.value)}
+          disabled={waiting || choosingOutput}
+          helperText="tournament/tournament-name/event/event-name"
+        />
+        <TextField
+          error={urlError}
+          className="textfield"
+          label="VOD Link"
+          variant="outlined"
+          value={vodUrl}
+          onChange={(event) => setVodUrl(event.target.value)}
+          disabled={waiting || choosingOutput}
+          helperText="https://www.twitch.tv/videos/123456789"
+        />
+        <TextField
+          className="textfield"
+          label="Stream Station"
+          variant="outlined"
+          value={station}
+          onChange={(event) => setStation(event.target.value)}
+          disabled={waiting || choosingOutput}
+          helperText="Name of a twitch channel or a station number."
+        />
+        <TextField
+          value={titleFormat}
+          label="Video Title Format"
+          variant="outlined"
+          disabled={waiting || choosingOutput}
+          select
+          onChange={(event) => {
+            const { value } = event.target;
+            if (
+              value === PLAYERS_FIRST_TITLE ||
+              value === TOURNAMENT_FIRST_TITLE
+            )
+              setTitleFormat(value);
+          }}
+        >
+          <MenuItem value={PLAYERS_FIRST_TITLE}>{PLAYERS_FIRST_TITLE}</MenuItem>
+          <MenuItem value={TOURNAMENT_FIRST_TITLE}>
+            {TOURNAMENT_FIRST_TITLE}
+          </MenuItem>
+        </TextField>
+        <Button variant="contained" disabled={disabled} onClick={retrieveSets}>
+          {waiting ? 'Retrieving sets...' : 'Retrieve Sets'}
+        </Button>
+        {waiting && (
+          <div className="loading-sets" role="status">
+            <p className="help">
+              Retrieving every page of matches and checking the VOD start
+              time...
+            </p>
+            <LinearProgress />
+          </div>
+        )}
+      </section>
+      <aside className="source-settings">
+        <h2>Source access</h2>
+        <p className="help">
+          Connect start.gg to retrieve matches for one stream or station. No
+          videos are downloaded until you review the batch.
+        </p>
+        <TextField
+          required
+          type="password"
+          label="Start.gg API key"
+          variant="outlined"
+          value={keyDraft}
+          onChange={(event) => setKeyDraft(event.target.value)}
+          disabled={!settingsReady || savingKey || waiting || choosingOutput}
+          helperText="Stored securely on this device. Save changes before retrieving sets."
+        />
+        <Button
+          variant="outlined"
+          disabled={
+            !settingsReady ||
+            savingKey ||
+            waiting ||
+            choosingOutput ||
+            keyDraft.trim() === apiKey
+          }
+          onClick={saveKey}
+        >
+          Save API Key
+        </Button>
+        <OutputFolder
+          disabled={waiting || savingKey}
+          onChoosingChange={onChoosingOutput}
+        />
+      </aside>
+    </div>
   );
 };
 
 const MainView = () => {
   const [choosingOutput, setChoosingOutput] = useState(false);
+  const [busy, setBusy] = useState(false);
   return (
-    <Container maxWidth="sm">
-      <Box sx={{ my: 4, alignContent: 'center' }}>
-        {NavMenu('/', choosingOutput)}
-        <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
-          Tournament VOD Clipper
-        </Typography>
+    <AppShell current="source" locked={choosingOutput || busy}>
+      <main className="source-page">
+        <div className="source-intro">
+          <h1>Build a tournament batch.</h1>
+          <p>
+            Bring in your stream and start.gg matches. Check the boundaries,
+            choose your clips, then download the batch in one place.
+          </p>
+        </div>
         <VideoSearch
           choosingOutput={choosingOutput}
           onChoosingOutput={setChoosingOutput}
+          onBusyChange={setBusy}
         />
-        <Typography variant="body2" color="text.secondary" align="center">
-          {'Copyright © '}
-          <Link color="inherit" href="https://github.com/willie-yao">
-            quillie ^^
-          </Link>{' '}
-          {new Date().getFullYear()}.
-        </Typography>
-      </Box>
-    </Container>
+      </main>
+    </AppShell>
   );
 };
 

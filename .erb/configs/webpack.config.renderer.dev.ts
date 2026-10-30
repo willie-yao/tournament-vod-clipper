@@ -1,9 +1,7 @@
 import 'webpack-dev-server';
 import path from 'path';
-import fs from 'fs';
 import webpack from 'webpack';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
-import chalk from 'chalk';
 import { merge } from 'webpack-merge';
 import { execSync, spawn } from 'child_process';
 import ReactRefreshWebpackPlugin from '@pmmmwh/react-refresh-webpack-plugin';
@@ -18,32 +16,13 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const port = process.env.PORT || 1212;
-const manifest = path.resolve(webpackPaths.dllPath, 'renderer.json');
-const skipDLLs =
-  module.parent?.filename.includes('webpack.config.renderer.dev.dll') ||
-  module.parent?.filename.includes('webpack.config.eslint');
-
-/**
- * Warn if the DLL is not built
- */
-if (
-  !skipDLLs &&
-  !(fs.existsSync(webpackPaths.dllPath) && fs.existsSync(manifest))
-) {
-  console.log(
-    chalk.black.bgYellow.bold(
-      'The DLL files are missing. Building them with "npm run build:dll"'
-    )
-  );
-  execSync('npm run build:dll');
-}
 
 const configuration: webpack.Configuration = {
   devtool: 'inline-source-map',
 
   mode: 'development',
 
-  target: ['web', 'electron-renderer'],
+  target: 'web',
 
   entry: [
     `webpack-dev-server/client?http://localhost:${port}/dist`,
@@ -115,16 +94,6 @@ const configuration: webpack.Configuration = {
     ],
   },
   plugins: [
-    ...(skipDLLs
-      ? []
-      : [
-          new webpack.DllReferencePlugin({
-            context: webpackPaths.dllPath,
-            manifest: require(manifest),
-            sourceType: 'var',
-          }),
-        ]),
-
     new webpack.NoEmitOnErrorsPlugin(),
 
     /**
@@ -170,10 +139,10 @@ const configuration: webpack.Configuration = {
   },
 
   devServer: {
+    host: '127.0.0.1',
     port,
     compress: true,
     hot: true,
-    headers: { 'Access-Control-Allow-Origin': '*' },
     static: {
       publicPath: '/',
     },
@@ -182,12 +151,11 @@ const configuration: webpack.Configuration = {
     },
     setupMiddlewares(middlewares) {
       console.log('Starting preload.js builder...');
+      execSync('npm run start:preload -- --no-watch', { stdio: 'inherit' });
       const preloadProcess = spawn('npm', ['run', 'start:preload'], {
         shell: true,
         stdio: 'inherit',
-      })
-        .on('close', (code: number) => process.exit(code!))
-        .on('error', (spawnError) => console.error(spawnError));
+      });
 
       console.log('Starting Main Process...');
       let args = ['run', 'start:main'];
@@ -202,7 +170,7 @@ const configuration: webpack.Configuration = {
       })
         .on('close', (code: number) => {
           preloadProcess.kill();
-          process.exit(code!);
+          process.exit(code ?? 0);
         })
         .on('error', (spawnError) => console.error(spawnError));
       return middlewares;

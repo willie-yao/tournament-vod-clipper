@@ -150,7 +150,7 @@ it('locks upload and navigation during output-root validation and warns about un
   fireEvent.click(screen.getByRole('button', { name: 'Choose Output Folder' }));
   const upload = screen.getByRole('button', { name: 'Upload' });
   expect(upload).toBeDisabled();
-  expect(screen.getByTestId('MenuIcon').closest('button')).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Source' })).toBeDisabled();
   fireEvent.click(upload);
   expect(api.createPlaylist).not.toHaveBeenCalled();
   expect(api.uploadSingleVideo).not.toHaveBeenCalled();

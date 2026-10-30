@@ -40,6 +40,7 @@ export interface TournamentSet {
 
 interface SetsResponse {
   event: {
+    name?: string | null;
     tournament: { name: string } | null;
     sets: {
       pageInfo: { totalPages: number };
@@ -60,6 +61,8 @@ export interface VODMetadata {
   character1: string;
   character2: string;
   tournamentName: string;
+  roundText?: string;
+  eventName?: string;
 }
 
 /** Retrieve every page, then filter stream matches and discard duplicate IDs. */
@@ -84,6 +87,7 @@ export async function retrieveTournamentSets(
   const sets: TournamentSet[] = [];
   const seen = new Set<string>();
   let tournamentName = '';
+  let eventName = '';
   let skippedSets = 0;
   let page = 1;
   let totalPages = 1;
@@ -106,6 +110,7 @@ export async function retrieveTournamentSets(
       throw new Error('Tournament event not found or set data is unavailable.');
     }
     tournamentName = event.tournament.name;
+    eventName = event.name || '';
     totalPages = event.sets.pageInfo?.totalPages;
     if (
       !Number.isInteger(totalPages) ||
@@ -132,7 +137,7 @@ export async function retrieveTournamentSets(
     page += 1;
   } while (page <= totalPages);
 
-  return { tournamentName, sets, skippedSets };
+  return { tournamentName, eventName, sets, skippedSets };
 }
 
 /** Keep incomplete matches visible, but require correction before downloading. */
@@ -141,7 +146,8 @@ export function formatSetMetadata(
   tournamentName: string,
   vodTimestamp: number,
   characterMap: CharacterMap,
-  titleFormat: TitleFormat
+  titleFormat: TitleFormat,
+  eventName?: string
 ): VODMetadata {
   const entrants = [set.slots?.[0]?.entrant, set.slots?.[1]?.entrant];
   const playerNames = entrants.map((entrant) =>
@@ -204,5 +210,7 @@ export function formatSetMetadata(
     character1: characterNames[0][0] || 'Random Character',
     character2: characterNames[1][0] || 'Random Character',
     tournamentName,
+    roundText: set.fullRoundText || 'Match',
+    eventName,
   };
 }
