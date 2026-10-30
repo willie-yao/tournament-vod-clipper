@@ -42,6 +42,16 @@ function dimensions(source: string) {
   };
 }
 
+it('keeps the actual Ness mouth and chin above the nameplate', () => {
+  const portrait = getThumbnailPortrait('Ness');
+  if (!portrait) throw new Error('The bundled Ness portrait is missing.');
+  const image = dimensions(portrait.source);
+  const placement = thumbnailPortraitPlacement(portrait, image, 290, false);
+  const scale = placement.width / image.naturalWidth;
+  expect(placement.y + 470 * scale).toBeLessThan(506);
+  expect(placement.y + 550 * scale).toBeLessThan(526);
+});
+
 it.each([
   { side: 'left', center: 290, mirrored: false },
   { side: 'right', center: 990, mirrored: false },
