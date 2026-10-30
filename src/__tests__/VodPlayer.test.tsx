@@ -53,6 +53,9 @@ function playerFixture() {
 
 afterEach(() => {
   window.Twitch = undefined;
+  document.head
+    .querySelectorAll('script[src="https://player.twitch.tv/js/embed/v1.js"]')
+    .forEach((script) => script.remove());
   jest.useRealTimers();
 });
 
@@ -207,6 +210,112 @@ it('does not enable playback controls merely because the iframe is ready', async
     expect.objectContaining({ ready: false })
   );
   expect(screen.getByRole('status')).toHaveTextContent('Connecting to Twitch');
+});
+
+it('retries a timed-out SDK request with a fresh script and ignores its retired callback', async () => {
+  jest.useFakeTimers();
+  const onState = jest.fn();
+  render(
+    <VodPlayer
+      url="https://www.twitch.tv/videos/123"
+      initialTime={10}
+      onState={onState}
+    />
+  );
+  const script = document.head.querySelector<HTMLScriptElement>(
+    'script[src="https://player.twitch.tv/js/embed/v1.js"]'
+  )!;
+  const staleLoad = script.onload!;
+  await act(async () => {
+    jest.advanceTimersByTime(20000);
+  });
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Twitch has not responded.'
+  );
+  expect(script).not.toBeInTheDocument();
+  expect(script.onload).toBeNull();
+  expect(script.onerror).toBeNull();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Retry preview' }));
+  const replacement = document.head.querySelector<HTMLScriptElement>(
+    'script[src="https://player.twitch.tv/js/embed/v1.js"]'
+  )!;
+  expect(replacement).not.toBe(script);
+  expect(replacement).toBeInTheDocument();
+  const fixture = playerFixture();
+  await act(async () => {
+    staleLoad.call(script, new Event('load'));
+  });
+  expect(fixture.constructor).not.toHaveBeenCalled();
+  await act(async () => {
+    fireEvent.load(replacement);
+  });
+  expect(fixture.constructor).toHaveBeenCalledTimes(1);
+  act(() => fixture.listeners.get('ready')!());
+  expect(onState).toHaveBeenLastCalledWith(
+    expect.objectContaining({ ready: true, time: 10 })
+  );
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: 'Retry preview' })
+  ).not.toBeInTheDocument();
+});
+
+it('clears the timeout warning when the player becomes usable after late READY', async () => {
+  jest.useFakeTimers();
+  const fixture = playerFixture();
+  const onState = jest.fn();
+  render(
+    <VodPlayer
+      url="https://www.twitch.tv/videos/123"
+      initialTime={10}
+      onState={onState}
+    />
+  );
+  await act(async () => {});
+  expect(fixture.constructor).toHaveBeenCalledTimes(1);
+  act(() => {
+    jest.advanceTimersByTime(20000);
+  });
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Twitch has not responded.'
+  );
+  act(() => fixture.listeners.get('ready')!());
+  expect(onState).toHaveBeenLastCalledWith(
+    expect.objectContaining({ ready: true })
+  );
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: 'Retry preview' })
+  ).not.toBeInTheDocument();
+});
+
+it('preserves an unrelated playback-blocked warning when late playback becomes usable', async () => {
+  jest.useFakeTimers();
+  const fixture = playerFixture();
+  render(
+    <VodPlayer
+      url="https://www.twitch.tv/videos/123"
+      initialTime={10}
+      onState={jest.fn()}
+    />
+  );
+  await act(async () => {});
+  act(() => {
+    jest.advanceTimersByTime(20000);
+  });
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Twitch has not responded.'
+  );
+  act(() => fixture.listeners.get('blocked')!());
+  act(() => fixture.listeners.get('ready')!());
+  act(() => {
+    jest.advanceTimersByTime(250);
+  });
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Playback was blocked. Press Play in the Twitch player to continue.'
+  );
+  expect(screen.getByRole('button', { name: 'Retry preview' })).toBeEnabled();
 });
 
 it('reports invalid preview sources and offers recovery without throwing', async () => {

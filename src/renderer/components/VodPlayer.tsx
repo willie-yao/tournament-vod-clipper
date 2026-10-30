@@ -54,26 +54,49 @@ declare global {
 }
 
 let sdkPromise: Promise<TwitchSDK> | undefined;
+const PREVIEW_TIMEOUT_MESSAGE =
+  'Twitch has not responded. Check the player for an unavailable VOD or a connection error, then retry.';
 
 function loadSDK(): Promise<TwitchSDK> {
   if (window.Twitch) return Promise.resolve(window.Twitch);
   if (!sdkPromise) {
-    sdkPromise = new Promise<TwitchSDK>((resolve, reject) => {
+    const pending = new Promise<TwitchSDK>((resolve, reject) => {
       const script = document.createElement('script');
+      let settled = false;
+      let timeout: ReturnType<typeof setTimeout>;
+      const cleanup = () => {
+        clearTimeout(timeout);
+        script.onload = null;
+        script.onerror = null;
+      };
+      const fail = (message: string) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        script.remove();
+        reject(new Error(message));
+      };
       script.src = 'https://player.twitch.tv/js/embed/v1.js';
       script.onload = () => {
-        if (window.Twitch) resolve(window.Twitch);
-        else reject(new Error('Twitch did not initialize its player.'));
+        if (settled) return;
+        if (!window.Twitch) {
+          fail('Twitch did not initialize its player.');
+          return;
+        }
+        settled = true;
+        cleanup();
+        resolve(window.Twitch);
       };
       script.onerror = () =>
-        reject(
-          new Error('Could not load Twitch. Check your connection and retry.')
-        );
+        fail('Could not load Twitch. Check your connection and retry.');
+      timeout = setTimeout(() => fail(PREVIEW_TIMEOUT_MESSAGE), 20000);
       document.head.appendChild(script);
-    }).catch((error) => {
-      sdkPromise = undefined;
-      throw error;
     });
+    sdkPromise = pending;
+    const clearPending = () => {
+      if (sdkPromise === pending) sdkPromise = undefined;
+    };
+    pending.then(clearPending).catch(clearPending);
   }
   return sdkPromise;
 }
@@ -154,6 +177,9 @@ const VodPlayer = forwardRef<PlayerHandle, Props>(
             mediaReady = true;
             clearTimeout(timeout);
             setLoading(false);
+            setError((current) =>
+              current === PREVIEW_TIMEOUT_MESSAGE ? '' : current
+            );
           }
           onStateRef.current({
             ready: duration > 0,
@@ -230,9 +256,7 @@ const VodPlayer = forwardRef<PlayerHandle, Props>(
       timeout = setTimeout(() => {
         if (active && !mediaReady) {
           setLoading(false);
-          setError(
-            'Twitch has not responded. Check the player for an unavailable VOD or a connection error, then retry.'
-          );
+          setError(PREVIEW_TIMEOUT_MESSAGE);
         }
       }, 20000);
       connect();
