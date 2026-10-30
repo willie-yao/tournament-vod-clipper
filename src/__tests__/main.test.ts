@@ -64,7 +64,19 @@ jest.mock('../main/rendererHost', () => ({
     server: { close: jest.fn() },
   }),
 }));
-jest.mock('@getstation/electron-google-oauth2', () => jest.fn());
+jest.mock('../main/youtubeAuth', () => ({
+  __esModule: true,
+  default: jest.fn(() => ({
+    status: jest.fn(() => ({
+      state: 'disconnected',
+      message: 'Connect YouTube.',
+    })),
+    connect: jest.fn(),
+    disconnect: jest.fn(),
+    stop: jest.fn(),
+    request: jest.fn(),
+  })),
+}));
 jest.mock('@googleapis/youtube', () => ({
   youtube: jest.fn(() => ({
     videos: { insert: jest.fn() },
@@ -103,6 +115,7 @@ const Store = jest.requireMock('electron-store');
 const youtubeDl = jest.requireMock('../main/nativeTools').runYtDlp;
 const OutputFiles = jest.requireMock('../main/outputFiles').default;
 const google = jest.requireMock('@googleapis/youtube');
+const YouTubeAuth = jest.requireMock('../main/youtubeAuth').default;
 const settings = new Map<string, unknown>();
 
 function handler(channel: string) {
@@ -143,6 +156,15 @@ describe('main process startup', () => {
     const outputs = OutputFiles.mock.results[0].value;
     outputs.thumbnail.mockReset().mockResolvedValue(null);
     outputs.saveThumbnail.mockReset().mockResolvedValue(undefined);
+    YouTubeAuth.mock.results[0].value.request
+      .mockReset()
+      .mockImplementation(
+        async (
+          _args: unknown,
+          _action: string,
+          request: (headers: object) => Promise<{ data: unknown }>
+        ) => (await request({ Authorization: 'Bearer main-only-fixture' })).data
+      );
   });
 
   it('does not check for updates and disables publish metadata', () => {
@@ -160,43 +182,7 @@ describe('main process startup', () => {
     expect(window.show).toHaveBeenCalledTimes(1);
   });
 
-  it.each([
-    'tournamentvodclipper://?value=");globalThis.injected=true;//',
-    'tournamentvodclipper://?value=\\backslash',
-    'tournamentvodclipper://?value=line\nbreak',
-  ])('forwards callback text only as IPC data: %s', (url) => {
-    const window = BrowserWindow.mock.results[0].value;
-    const onOpenUrl = app.on.mock.calls.find(
-      ([name]: [string]) => name === 'open-url'
-    )[1];
-    const event = { preventDefault: jest.fn() };
-
-    onOpenUrl(event, url);
-
-    expect(event.preventDefault).toHaveBeenCalled();
-    expect(window.webContents.send).toHaveBeenCalledWith('login-success', {
-      deeplinkingUrl: url,
-    });
-    expect(window.webContents.executeJavaScript).not.toHaveBeenCalled();
-  });
-
-  it('rejects callbacks outside the expected root', () => {
-    const window = BrowserWindow.mock.results[0].value;
-    const onOpenUrl = app.on.mock.calls.find(
-      ([name]: [string]) => name === 'open-url'
-    )[1];
-    const warning = jest.spyOn(console, 'warn').mockImplementation(() => {});
-
-    onOpenUrl({ preventDefault: jest.fn() }, 'https://example.com/');
-
-    expect(window.webContents.send).not.toHaveBeenCalled();
-    expect(warning).toHaveBeenCalledWith(
-      'Ignoring unexpected login callback URL'
-    );
-    warning.mockRestore();
-  });
-
-  it('accepts only expected callbacks in second-instance arguments', () => {
+  it('ignores legacy deep links and only focuses a second instance', () => {
     const window = BrowserWindow.mock.results[0].value;
     const onSecondInstance = app.on.mock.calls.find(
       ([name]: [string]) => name === 'second-instance'
@@ -205,11 +191,12 @@ describe('main process startup', () => {
 
     onSecondInstance({}, ['clipper.exe', 'https://example.com/', url]);
 
-    expect(window.webContents.send).toHaveBeenCalledWith('login-success', {
-      deeplinkingUrl: url,
-    });
+    expect(window.webContents.send).not.toHaveBeenCalled();
     expect(window.webContents.executeJavaScript).not.toHaveBeenCalled();
     expect(window.focus).toHaveBeenCalled();
+    expect(
+      app.on.mock.calls.some(([name]: [string]) => name === 'open-url')
+    ).toBe(false);
   });
 
   it('does not register the sample startup reset', () => {
@@ -385,7 +372,7 @@ describe('main process startup', () => {
     'upload-thumbnail',
     'add-video-to-playlist',
   ])(
-    'rejects sanitized errors from %s without exposing credentials',
+    'routes %s through main-owned auth without renderer token parameters or automatic retries',
     async (channel) => {
       const youtube = google.youtube.mock.results[0].value;
       const outputs = OutputFiles.mock.results[0].value;
@@ -396,24 +383,34 @@ describe('main process startup', () => {
         youtube.thumbnails.set,
         youtube.playlistItems.insert,
       ].forEach((request) =>
-        request.mockRejectedValue({
-          code: 401,
-          message: 'do-not-echo-test-token',
-          config: { access_token: 'do-not-echo-test-token' },
-        })
+        request.mockResolvedValue({ data: { id: 'confirmed' } })
       );
-      const request = handler(channel)(
-        {},
-        {
-          folderName: 'Tournament',
-          videoName: 'clip.mp4',
-          title: 'Valid title',
-          accessToken: 'do-not-echo-test-token',
-          visibility: 'private',
-        }
+      const args = {
+        folderName: 'Tournament',
+        videoName: 'clip.mp4',
+        title: 'Valid title',
+        sessionId: 'session-fixture',
+        channelId: 'channel-fixture',
+        accessToken: 'renderer-token-must-be-ignored',
+        visibility: 'private',
+      };
+      await handler(channel)({}, args);
+      expect(YouTubeAuth.mock.results[0].value.request).toHaveBeenCalledWith(
+        args,
+        expect.any(String),
+        expect.any(Function)
       );
-      await expect(request).rejects.toThrow('Sign in again');
-      await expect(request).rejects.not.toThrow('do-not-echo-test-token');
+      const request = [
+        youtube.playlists.insert,
+        youtube.videos.insert,
+        youtube.thumbnails.set,
+        youtube.playlistItems.insert,
+      ].find((mock) => mock.mock.calls.length)!;
+      expect(request.mock.calls[0][0]).not.toHaveProperty('access_token');
+      expect(request.mock.calls[0][1]).toEqual({
+        headers: { Authorization: 'Bearer main-only-fixture' },
+        retry: false,
+      });
     }
   );
 
@@ -438,17 +435,57 @@ describe('main process startup', () => {
     ).toEqual({ status: 'skipped' });
   });
 
-  it.each([
-    [403, 'permissions and YouTube quota'],
-    [500, 'connection, account, and the local file'],
-  ])(
-    'reports sanitized guidance for YouTube status %s',
-    async (code, message) => {
-      const youtube = google.youtube.mock.results[0].value;
-      youtube.playlists.insert.mockRejectedValueOnce({ code });
-      await expect(handler('create-playlist')({}, {})).rejects.toThrow(
-        String(message)
-      );
+  it('does not expose main-only settings through any generic store API', async () => {
+    settings.set('youtubeCredentials', 'encrypted-fixture');
+    const warning = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    for (const key of [
+      'youtubeCredentials',
+      undefined,
+      'youtubeCredentials.refreshToken',
+    ]) {
+      for (const channel of [
+        'electron-store-get',
+        'electron-store-set',
+        'electron-store-delete',
+      ]) {
+        const listener = ipcMain.on.mock.calls.find(
+          ([name]: [string]) => name === channel
+        )[1];
+        const event = { returnValue: undefined };
+        await listener(event, key, 'replacement');
+        expect(event.returnValue).toBeUndefined();
+      }
     }
-  );
+    expect(settings.get('youtubeCredentials')).toBe('encrypted-fixture');
+    await expect(
+      handler('electron-store-get-secret')({}, 'youtubeCredentials')
+    ).rejects.toThrow('Invalid secret');
+    await expect(
+      handler('electron-store-set-secret')(
+        {},
+        'youtubeCredentials',
+        'replacement'
+      )
+    ).rejects.toThrow('Invalid secret');
+    warning.mockRestore();
+  });
+
+  it('wires safe status, connect, disconnect and quit cleanup', async () => {
+    const auth = YouTubeAuth.mock.results[0].value;
+    expect(await handler('get-youtube-status')()).toEqual({
+      state: 'disconnected',
+      message: 'Connect YouTube.',
+    });
+    await handler('connect-youtube')();
+    await handler('disconnect-youtube')();
+    expect(auth.connect).toHaveBeenCalledTimes(1);
+    expect(auth.disconnect).toHaveBeenCalledTimes(1);
+    app.on.mock.calls.find(([name]: [string]) => name === 'before-quit')[1]();
+    expect(auth.stop).toHaveBeenCalledTimes(1);
+    expect(
+      ipcMain.handle.mock.calls.some(
+        ([name]: [string]) => name === 'open-google-login'
+      )
+    ).toBe(false);
+  });
 });

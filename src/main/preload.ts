@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 import { VideoFile, VideoUpload } from '../common/files';
+import type { YouTubeSession, YouTubeStatus } from '../common/youtube';
 
 export type Channels = 'ipc-example';
 export type electronAPI = 'electronAPI';
@@ -51,24 +52,44 @@ const electronHandler = {
     getVideosInFolder(arg: string): Promise<string[]> {
       return ipcRenderer.invoke('get-videos-in-folder', arg);
     },
-    openGoogleLogin(): Promise<{ access_token?: string }> {
-      return ipcRenderer.invoke('open-google-login');
+    getYouTubeStatus(): Promise<YouTubeStatus> {
+      return ipcRenderer.invoke('get-youtube-status');
+    },
+    connectYouTube(): Promise<YouTubeStatus> {
+      return ipcRenderer.invoke('connect-youtube');
+    },
+    disconnectYouTube(): Promise<YouTubeStatus> {
+      return ipcRenderer.invoke('disconnect-youtube');
+    },
+    onYouTubeStatus(listener: (status: YouTubeStatus) => void) {
+      const subscription = (_event: IpcRendererEvent, status: YouTubeStatus) =>
+        listener(status);
+      ipcRenderer.on('youtube-status', subscription);
+      return () => ipcRenderer.removeListener('youtube-status', subscription);
     },
     saveThumbnail(args: VideoFile & { buf: Uint8Array }): Promise<void> {
       return ipcRenderer.invoke('save-thumbnail', args);
     },
     uploadThumbnail(
-      args: VideoFile & { videoId: string; accessToken: string }
+      args: VideoFile & YouTubeSession & { videoId: string }
     ): Promise<{ status: 'uploaded' | 'skipped' }> {
       return ipcRenderer.invoke('upload-thumbnail', args);
     },
-    createPlaylist(args: object): Promise<{ id: string }> {
+    createPlaylist(
+      args: YouTubeSession & {
+        playlistName: string;
+        description: string;
+        visibility: string;
+      }
+    ): Promise<{ id: string }> {
       return ipcRenderer.invoke('create-playlist', args);
     },
     uploadSingleVideo(args: VideoUpload): Promise<{ id: string }> {
       return ipcRenderer.invoke('upload-single-video', args);
     },
-    addVideoToPlaylist(args: object): Promise<{ id: string }> {
+    addVideoToPlaylist(
+      args: YouTubeSession & { playlistId: string; videoId: string }
+    ): Promise<{ id: string }> {
       return ipcRenderer.invoke('add-video-to-playlist', args);
     },
     getApiKey() {

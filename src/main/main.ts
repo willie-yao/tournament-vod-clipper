@@ -18,19 +18,16 @@ import {
   dialog,
 } from 'electron';
 import MenuBuilder from './menu';
-import {
-  isAuthCallbackUrl,
-  legacyProfilePath,
-  resolveHtmlPath,
-  resolvePreloadPath,
-} from './util';
+import { legacyProfilePath, resolveHtmlPath, resolvePreloadPath } from './util';
 import { getClipRangeError } from '../common/clipTime';
 import { getVideoTitleError, VideoUpload } from '../common/files';
 import OutputFiles from './outputFiles';
 import { runYtDlp } from './nativeTools';
 import { startRendererHost } from './rendererHost';
 import Store from 'electron-store';
-import ElectronGoogleOAuth2 from '@getstation/electron-google-oauth2';
+import { youtube as createYoutube } from '@googleapis/youtube';
+import YouTubeAuth from './youtubeAuth';
+import { PUBLIC_YOUTUBE_CLIENT_ID } from './youtubeClient';
 require('dotenv').config();
 const fs = require('fs');
 const explicitProfile = app.commandLine.getSwitchValue('user-data-dir');
@@ -55,7 +52,6 @@ const outputFiles = new OutputFiles(outputDirectory);
 const isDev = require('electron-is-dev');
 
 // initialize the Youtube API library
-const { youtube: createYoutube } = require('@googleapis/youtube');
 const youtube = createYoutube('v3');
 const nativeContext = () => ({
   packaged: app.isPackaged,
@@ -68,21 +64,34 @@ const nativeContext = () => ({
 
 let mainWindow: BrowserWindow | null = null;
 let rendererHost: Awaited<ReturnType<typeof startRendererHost>> | undefined;
+const youtubeAuth = new YouTubeAuth({
+  clientId: process.env.GOOGLE_DESKTOP_CLIENT_ID ?? PUBLIC_YOUTUBE_CLIENT_ID,
+  store,
+  encryption: safeStorage,
+  openBrowser: (url) => shell.openExternal(url),
+  identify: async (accessToken, signal) => {
+    const response = await youtube.channels.list(
+      { part: ['id', 'snippet'], mine: true },
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        retry: false,
+        timeout: 30_000,
+        signal,
+      }
+    );
+    const channel = response.data.items?.[0];
+    return { id: channel?.id || '', title: channel?.snippet?.title || '' };
+  },
+  onStatus: (status) => mainWindow?.webContents.send('youtube-status', status),
+});
 
 // Force Single Instance Application
 const gotTheLock = app.requestSingleInstanceLock();
 if (gotTheLock) {
   console.log('Got the lock');
-  app.on('second-instance', (e, argv) => {
+  app.on('second-instance', () => {
     // Someone tried to run a second instance, we should focus our window.
     console.log('second instance');
-    const callbackUrl = argv.find(isAuthCallbackUrl);
-    if (callbackUrl) {
-      mainWindow?.webContents.send('login-success', {
-        deeplinkingUrl: callbackUrl,
-      });
-    }
-
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
@@ -163,51 +172,13 @@ ipcMain.handle('get-videos-in-folder', (event, folderName: string) =>
   outputFiles.videos(folderName)
 );
 
-ipcMain.handle('open-google-login', async (event, arg) => {
-  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-    throw new Error(
-      'Google OAuth is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET before logging in.'
-    );
-  }
-  registerLoginProtocol();
-  const myApiOauth = new ElectronGoogleOAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    ['https://www.googleapis.com/auth/youtube.force-ssl'],
-    { successRedirectURL: 'tournamentvodclipper://' }
-  );
-
-  return myApiOauth.openAuthWindowAndGetTokens();
-});
+ipcMain.handle('get-youtube-status', () => youtubeAuth.status());
+ipcMain.handle('connect-youtube', () => youtubeAuth.connect());
+ipcMain.handle('disconnect-youtube', () => youtubeAuth.disconnect());
 
 ipcMain.handle('save-thumbnail', async (event, args) => {
   await outputFiles.saveThumbnail(args, args.buf);
 });
-
-async function youtubeRequest<T>(
-  action: string,
-  request: () => Promise<{ data: T }>
-): Promise<T> {
-  try {
-    const response = await request();
-    if (response?.data == null)
-      throw new Error('Missing YouTube confirmation.');
-    return response.data;
-  } catch (error) {
-    const details = error as {
-      code?: unknown;
-      response?: { status?: unknown };
-    } | null;
-    const status = details?.response?.status ?? details?.code;
-    let hint = 'Check your connection, account, and the local file.';
-    if (status === 401) {
-      hint = 'Sign in again and retry the failed step.';
-    } else if (status === 403) {
-      hint = 'Check account permissions and YouTube quota.';
-    }
-    throw new Error(`Could not ${action}. ${hint}`);
-  }
-}
 
 function resourceId(data: unknown, action: string) {
   const id: unknown =
@@ -225,50 +196,62 @@ function resourceId(data: unknown, action: string) {
 ipcMain.handle('upload-thumbnail', async (event, args) => {
   const file = await outputFiles.thumbnail(args);
   if (!file) return { status: 'skipped' };
-  await youtubeRequest('upload the thumbnail', () =>
-    youtube.thumbnails.set({
-      videoId: args.videoId,
-      media: { body: fs.createReadStream(file) },
-      access_token: args.accessToken,
-    })
+  await youtubeAuth.request(args, 'upload the thumbnail', (headers) =>
+    youtube.thumbnails.set(
+      {
+        videoId: args.videoId,
+        media: { body: fs.createReadStream(file) },
+      },
+      { headers, retry: false }
+    )
   );
   return { status: 'uploaded' };
 });
 
 ipcMain.handle('create-playlist', async (event, args) => {
-  const data = await youtubeRequest('create the playlist', () =>
-    youtube.playlists.insert({
-      part: 'id,snippet,status',
-      requestBody: {
-        snippet: {
-          title: args.playlistName,
-          description: args.description,
+  const data = await youtubeAuth.request(
+    args,
+    'create the playlist',
+    (headers) =>
+      youtube.playlists.insert(
+        {
+          part: ['id', 'snippet', 'status'],
+          requestBody: {
+            snippet: {
+              title: args.playlistName,
+              description: args.description,
+            },
+            status: {
+              privacyStatus: args.visibility,
+            },
+          },
         },
-        status: {
-          privacyStatus: args.visibility,
-        },
-      },
-      access_token: args.accessToken,
-    })
+        { headers, retry: false }
+      )
   );
   return resourceId(data, 'playlist creation');
 });
 
 ipcMain.handle('add-video-to-playlist', async (event, args) => {
-  const data = await youtubeRequest('add the video to the playlist', () =>
-    youtube.playlistItems.insert({
-      part: 'id,snippet,status',
-      requestBody: {
-        snippet: {
-          playlistId: args.playlistId,
-          resourceId: {
-            kind: 'youtube#video',
-            videoId: args.videoId,
+  const data = await youtubeAuth.request(
+    args,
+    'add the video to the playlist',
+    (headers) =>
+      youtube.playlistItems.insert(
+        {
+          part: ['id', 'snippet', 'status'],
+          requestBody: {
+            snippet: {
+              playlistId: args.playlistId,
+              resourceId: {
+                kind: 'youtube#video',
+                videoId: args.videoId,
+              },
+            },
           },
         },
-      },
-      access_token: args.accessToken,
-    })
+        { headers, retry: false }
+      )
   );
   return resourceId(data, 'playlist membership');
 });
@@ -277,25 +260,27 @@ ipcMain.handle('upload-single-video', async (event, args: VideoUpload) => {
   const error = getVideoTitleError(args.title);
   if (error) throw new Error(error);
   const file = await outputFiles.video(args.folderName, args.videoName);
-  const data = await youtubeRequest('upload the video', () =>
-    youtube.videos.insert({
-      part: 'id,snippet,status',
-      notifySubscribers: true,
-      requestBody: {
-        snippet: {
-          title: args.title,
-          description: args.description,
+  const data = await youtubeAuth.request(args, 'upload the video', (headers) =>
+    youtube.videos.insert(
+      {
+        part: ['id', 'snippet', 'status'],
+        notifySubscribers: true,
+        requestBody: {
+          snippet: {
+            title: args.title,
+            description: args.description,
+          },
+          status: {
+            privacyStatus: args.visibility,
+            selfDeclaredMadeForKids: false,
+          },
         },
-        status: {
-          privacyStatus: args.visibility,
-          selfDeclaredMadeForKids: false,
+        media: {
+          body: fs.createReadStream(file),
         },
       },
-      media: {
-        body: fs.createReadStream(file),
-      },
-      access_token: args.accessToken,
-    })
+      { headers, retry: false }
+    )
   );
   return resourceId(data, 'video creation');
 });
@@ -307,20 +292,33 @@ ipcMain.handle('get-api-key', async (event, arg) => {
   return '';
 });
 
-// IPC listener
+const rendererSettings = new Set([
+  'apikey',
+  'eventId',
+  'station',
+  'vodUrl',
+  'characterMap',
+]);
+function exposedSetting(key: unknown): key is string {
+  if (typeof key === 'string' && rendererSettings.has(key)) return true;
+  console.warn('Blocked access to a main-process-only setting.');
+  return false;
+}
+
+// YouTube credentials are never accessible through renderer settings APIs.
 ipcMain.on('electron-store-get', async (event, val) => {
-  event.returnValue = store.get(val);
+  event.returnValue = exposedSetting(val) ? store.get(val) : undefined;
 });
 ipcMain.on('electron-store-set', async (event, key, val) => {
-  store.set(key, val);
+  if (exposedSetting(key)) store.set(key, val);
 });
 ipcMain.on('electron-store-delete', async (event, val) => {
-  store.delete(val);
+  if (exposedSetting(val)) store.delete(val);
 });
 ipcMain.handle(
   'electron-store-set-secret',
   async (event, key: string, value: string) => {
-    if (typeof key !== 'string' || typeof value !== 'string') {
+    if (key !== 'apikey' || typeof value !== 'string') {
       throw new Error('Invalid secret setting.');
     }
     if (value === '') {
@@ -336,6 +334,7 @@ ipcMain.handle(
   }
 );
 ipcMain.handle('electron-store-get-secret', async (event, key: string) => {
+  if (key !== 'apikey') throw new Error('Invalid secret setting.');
   const value = store.get(key);
   if (value == null || value === '') return '';
   if (!safeStorage.isEncryptionAvailable()) {
@@ -449,28 +448,6 @@ const createWindow = async () => {
  * Add event listeners...
  */
 
-function registerLoginProtocol() {
-  if (isDev && process.platform === 'win32') {
-    // Set the path of electron.exe and your app.
-    // These two additional parameters are only available on windows.
-    // Setting this is required to get this working in dev mode.
-    app.setAsDefaultProtocolClient('tournamentvodclipper', process.execPath, [
-      process.argv[1],
-    ]);
-  } else {
-    app.setAsDefaultProtocolClient('tournamentvodclipper');
-  }
-}
-
-app.on('open-url', function (event, url) {
-  event.preventDefault();
-  if (!isAuthCallbackUrl(url)) {
-    console.warn('Ignoring unexpected login callback URL');
-    return;
-  }
-  mainWindow?.webContents.send('login-success', { deeplinkingUrl: url });
-});
-
 app.on('window-all-closed', () => {
   // Respect the OSX convention of having the application in memory even
   // after all windows have been closed
@@ -500,4 +477,5 @@ app
     app.quit();
   });
 
+app.on('before-quit', () => youtubeAuth.stop());
 app.on('will-quit', () => rendererHost?.server.close());

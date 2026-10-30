@@ -1,13 +1,14 @@
+import type { YouTubeSession } from './youtube';
+
 export interface VideoFile {
   folderName: string;
   videoName: string;
 }
 
-export interface VideoUpload extends VideoFile {
+export interface VideoUpload extends VideoFile, YouTubeSession {
   title: string;
   description: string;
   visibility: string;
-  accessToken: string;
 }
 
 export function getVideoTitleError(title: unknown): string | null {

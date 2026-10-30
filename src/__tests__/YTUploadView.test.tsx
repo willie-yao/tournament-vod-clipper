@@ -8,6 +8,14 @@ import {
 } from '@testing-library/react';
 import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom';
 import YTUploadView from '../renderer/pages/YTUploadView';
+import type { YouTubeStatus } from '../common/youtube';
+
+const connected: Extract<YouTubeStatus, { state: 'connected' }> = {
+  state: 'connected',
+  channel: { id: 'channel-fixture', title: 'Fixture tournament channel' },
+  sessionId: 'session-fixture',
+  message: 'Connected to Fixture tournament channel',
+};
 
 let fixtureNumber = 0;
 async function setup() {
@@ -19,9 +27,22 @@ async function setup() {
     createFolder: jest.fn().mockResolvedValue('/mock/output'),
     getTournamentFolders: jest.fn().mockResolvedValue([folderName]),
     getVideosInFolder: jest.fn().mockResolvedValue(['one.mp4', 'two.mp4']),
-    openGoogleLogin: jest
+    getYouTubeStatus: jest
       .fn()
-      .mockResolvedValue({ access_token: 'test-token' }),
+      .mockResolvedValue({
+        state: 'disconnected',
+        message: 'Connect in your browser.',
+      }),
+    connectYouTube: jest.fn().mockResolvedValue(connected),
+    disconnectYouTube: jest
+      .fn()
+      .mockResolvedValue({
+        state: 'disconnected',
+        message: 'Local connection removed.',
+      }),
+    onYouTubeStatus: jest.fn((_listener: (status: YouTubeStatus) => void) =>
+      jest.fn()
+    ),
     createPlaylist: jest.fn().mockResolvedValue({ id: 'playlist' }),
     uploadSingleVideo: jest
       .fn()
@@ -48,14 +69,16 @@ async function setup() {
   );
   await screen.findByLabelText('Title: one.mp4');
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Login' })).toBeEnabled()
+    expect(
+      screen.getByRole('button', { name: 'Connect YouTube' })
+    ).toBeEnabled()
   );
   return api;
 }
 
 async function login() {
-  fireEvent.click(screen.getByRole('button', { name: 'Login' }));
-  await screen.findByRole('button', { name: 'Sign in again' });
+  fireEvent.click(screen.getByRole('button', { name: 'Connect YouTube' }));
+  await screen.findByRole('button', { name: 'Reconnect YouTube' });
 }
 
 it('serializes the whole upload flow and ignores repeated clicks while busy', async () => {
@@ -75,7 +98,9 @@ it('serializes the whole upload flow and ignores repeated clicks while busy', as
   await waitFor(() => expect(api.uploadSingleVideo).toHaveBeenCalledTimes(1));
   expect(api.createPlaylist).toHaveBeenCalledTimes(1);
   expect(upload).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'Sign in again' })).toBeDisabled();
+  expect(
+    screen.getByRole('button', { name: 'Reconnect YouTube' })
+  ).toBeDisabled();
   expect(
     screen.getByRole('button', { name: 'Choose Output Folder' })
   ).toBeDisabled();
@@ -97,9 +122,12 @@ it('reports partial video success and recovers after re-login without resubmitti
   expect(
     screen.getByText('Thumbnail: test thumbnail rejected')
   ).toBeInTheDocument();
-  api.openGoogleLogin.mockResolvedValueOnce({ access_token: 'new-test-token' });
-  fireEvent.click(screen.getByRole('button', { name: 'Sign in again' }));
-  await waitFor(() => expect(api.openGoogleLogin).toHaveBeenCalledTimes(2));
+  api.connectYouTube.mockResolvedValueOnce({
+    ...connected,
+    sessionId: 'reconnected-session',
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Reconnect YouTube' }));
+  await waitFor(() => expect(api.connectYouTube).toHaveBeenCalledTimes(2));
   await waitFor(() =>
     expect(
       screen.getByRole('button', { name: 'Retry Failed Steps' })
@@ -110,8 +138,11 @@ it('reports partial video success and recovers after re-login without resubmitti
   expect(api.uploadSingleVideo).toHaveBeenCalledTimes(2);
   expect(api.createPlaylist).toHaveBeenCalledTimes(1);
   expect(api.uploadThumbnail).toHaveBeenCalledTimes(3);
-  expect(api.uploadThumbnail.mock.calls[2][0].accessToken).toBe(
-    'new-test-token'
+  expect(api.uploadThumbnail.mock.calls[2][0].sessionId).toBe(
+    'reconnected-session'
+  );
+  expect(api.uploadThumbnail.mock.calls[2][0]).not.toHaveProperty(
+    'accessToken'
   );
 });
 
@@ -129,14 +160,22 @@ it('rejects invalid titles before creating a playlist or video', async () => {
   expect(api.uploadSingleVideo).not.toHaveBeenCalled();
 });
 
-it('does not treat an absent OAuth token as a successful login', async () => {
+it('shows missing configuration honestly without enabling uploads', async () => {
   const api = await setup();
-  api.openGoogleLogin.mockResolvedValueOnce({});
-  fireEvent.click(screen.getByRole('button', { name: 'Login' }));
-  await screen.findByText(
-    'Login failed: Google did not return an access token.'
+  act(() =>
+    api.onYouTubeStatus.mock.calls[0][0]({
+      state: 'not-configured',
+      message: 'The maintainer must supply a Desktop app client ID.',
+    })
   );
+  expect(
+    screen.getByText('The maintainer must supply a Desktop app client ID.')
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Connect YouTube' })
+  ).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Upload' })).toBeDisabled();
+  expect(api.connectYouTube).not.toHaveBeenCalled();
 });
 
 it('locks upload and navigation during output-root validation and warns about unconfirmed playlist mutations', async () => {
@@ -159,7 +198,9 @@ it('locks upload and navigation during output-root validation and warns about un
     release('/chosen/output');
   });
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Sign in again' })).toBeEnabled()
+    expect(
+      screen.getByRole('button', { name: 'Reconnect YouTube' })
+    ).toBeEnabled()
   );
   expect(upload).toBeDisabled();
   expect(
@@ -170,4 +211,54 @@ it('locks upload and navigation during output-root validation and warns about un
       /Playlist creation or membership may already have succeeded/i
     )
   ).toBeInTheDocument();
+});
+
+it('displays restart status and supports local disconnect without exposing credentials', async () => {
+  const api = await setup();
+  act(() => api.onYouTubeStatus.mock.calls[0][0](connected));
+  expect(
+    screen.getByRole('heading', { name: connected.channel.title })
+  ).toBeInTheDocument();
+  expect(screen.getByText(/Channel channel-fixture/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
+  await screen.findByText('Local connection removed.');
+  expect(api.disconnectYouTube).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole('button', { name: 'Upload' })).toBeDisabled();
+});
+
+it('blocks retrying a partial batch on another channel', async () => {
+  const api = await setup();
+  await login();
+  api.uploadThumbnail.mockRejectedValueOnce(new Error('thumbnail rejected'));
+  fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
+  await screen.findByText('2 of 2 videos confirmed; 1 fully processed.');
+  api.connectYouTube.mockResolvedValueOnce({
+    ...connected,
+    channel: { id: 'different-channel', title: 'Different channel' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Reconnect YouTube' }));
+  await screen.findByText(/This batch belongs to another YouTube channel/);
+  expect(
+    screen.getByRole('button', { name: 'Retry Failed Steps' })
+  ).toBeDisabled();
+  expect(api.uploadSingleVideo).toHaveBeenCalledTimes(2);
+});
+
+it('lets the user cancel pending browser sign-in', async () => {
+  const api = await setup();
+  let release!: () => void;
+  api.connectYouTube.mockReturnValueOnce(
+    new Promise((resolve) => {
+      release = () =>
+        resolve({ state: 'disconnected', message: 'Sign-in canceled.' });
+    })
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Connect YouTube' }));
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'Cancel sign-in' })
+  );
+  await waitFor(() => expect(api.disconnectYouTube).toHaveBeenCalledTimes(1));
+  await act(async () => release());
+  await screen.findByText('Sign-in canceled.');
+  expect(screen.getByRole('button', { name: 'Upload' })).toBeDisabled();
 });

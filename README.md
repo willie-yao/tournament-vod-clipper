@@ -89,13 +89,22 @@ Thumbnail typography uses installed Impact when available, with bundled [Anton](
 
 ### Uploading VODs to YouTube
 
-- Source builds require a Google OAuth client configured for a desktop application with the YouTube Data API enabled. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in the launch environment or a local, untracked `.env` file in the launch directory before opening the app. Never commit credentials or tokens.
 - Once the VODs are downloaded, you can navigate to the upload page by clicking the `Upload` button.
-- You will need to login to your YouTube account. Click the `Login` button and follow the instructions.
+- Click `Connect YouTube` and approve access in your system browser. Confirm the displayed channel before uploading. End users need no environment variables, secrets, or Google Cloud project.
 - Next, select the tournament you want to upload VODs from using the `VOD Folder` box.
 - You can also select the visibility of the video and the description for all of the videos below.
 - Review each video's title (1 to 100 characters), then click `Upload`. Videos upload sequentially, and the screen distinguishes confirmed videos from thumbnail or playlist failures.
-- Re-login if needed and use `Retry Failed Steps` to recover a partial batch without re-uploading its confirmed video IDs. Recovery state is in memory only. After an app restart, reload, or unconfirmed request, check your YouTube channel and playlist before retrying.
+- Use `Reconnect YouTube` if access expires or is revoked, then `Retry Failed Steps`. A pending batch can only resume on its original channel. Confirmed video IDs are not uploaded again. Recovery state is in memory only. After an app restart, reload, or unconfirmed request, check your YouTube channel and playlist before retrying.
+- `Disconnect` removes the local encrypted refresh credential and cancels pending sign-in. It does not revoke Google's permission or undo requests already sent. To revoke access, use your [Google account permissions](https://myaccount.google.com/permissions). Browser cookies remain managed by your browser.
+
+### Maintainer Google setup
+
+1. Enable YouTube Data API v3 in one maintainer-owned Google Cloud project. Configure its OAuth branding, audience and consent screen, then create an OAuth client of type **Desktop app**, not Web application.
+2. The maintainer-supplied public Desktop client ID is in [the main-process client configuration](src/main/youtubeClient.ts) and ships by default. To override it, set `GOOGLE_DESKTOP_CLIENT_ID` when building/packaging, or in the development launch environment or untracked `.env`. An empty override builds the explicit not-configured state. No client secret is used. Desktop apps are [public clients](https://developers.google.com/identity/protocols/oauth2/native-app); an embedded web-client secret cannot be kept confidential.
+3. Configure the `https://www.googleapis.com/auth/youtube.force-ssl` scope. Existing playlist creation/membership and thumbnail/video operations need it; `youtube.upload` alone is insufficient. No profile/email scopes are requested. The connected identity is the YouTube channel returned by `channels.list(mine=true)`.
+4. Before public distribution, complete applicable [OAuth consent verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification) and separately meet [YouTube quota/compliance audit requirements](https://developers.google.com/youtube/v3/guides/quota_and_compliance_audits). Users share this project's quota. Testing-mode audience restrictions and refresh-token expiration still apply until production configuration is complete.
+
+The supplied client ID does not prove Cloud configuration or production readiness. An unconfigured build explicitly disables connection. Audience/scopes, verification, live sign-in/uploads and any rotation of legacy confidential credentials require separate maintainer validation and have not been completed by these source changes.
 
 ## Terms and Conditions + Privacy Policy
 
@@ -106,7 +115,9 @@ TournamentVODClipper uses YouTube API Services to upload VODs. By using this too
 
 The start.gg key is stored locally with Electron's operating-system encryption; preferences and the chosen output root are local too. An existing `electron-react-boilerplate` profile is reused in place to preserve earlier settings. No user files are moved. Native keychain compatibility across runtime upgrades still needs an OS check; re-enter the API key if the system cannot decrypt it.
 
-Google sign-in opens your system browser and returns through a loopback callback at `127.0.0.1:42813`. The callback protocol is registered when you start login, not at app startup. The app requests the YouTube `youtube.force-ssl` scope needed by playlist/video operations; the OAuth library also requests profile/email. Google tokens are held in memory, not persisted by this app in localStorage or token cookies. Browser cookies are managed by your browser, not cleared by the app.
+Google sign-in uses authorization code + PKCE S256 and fresh validated state, returning through a temporary `127.0.0.1` listener on an available port. It is separate from the renderer asset host and closes on completion, denial, cancellation, timeout or quit. OAuth and authenticated YouTube requests run in Electron main. Only channel/connection status and resource IDs reach the renderer, never Google tokens.
+
+The refresh credential and channel identity are encrypted with Electron's OS-backed `safeStorage` and saved in the local app profile; access tokens stay in main-process memory and refresh automatically. There is no plaintext fallback. Unlock your system keychain and reconnect if secure storage is unavailable or the saved connection cannot be decrypted. Disconnect removes this local credential, not Google-side authorization.
 
 Chosen media, titles and descriptions are sent to YouTube; tournament queries go to start.gg and VOD requests to Twitch. The app implements no usage analytics. Upload recovery IDs and titles are in memory only, so check your channel and playlist before retrying after reload or an unconfirmed request.
 

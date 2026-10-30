@@ -1,5 +1,6 @@
 import { getVideoTitleError } from '../../common/files';
 import type { ElectronHandler } from '../../main/preload';
+import type { YouTubeSession } from '../../common/youtube';
 
 export interface UploadItem {
   videoName: string;
@@ -12,6 +13,7 @@ export interface UploadItem {
 }
 
 export interface UploadSession {
+  channelId?: string;
   playlistId?: string;
   metadata?: { description: string; visibility: string };
   items: UploadItem[];
@@ -25,11 +27,10 @@ type UploadAPI = Pick<
   | 'addVideoToPlaylist'
 >;
 
-interface Options {
+interface Options extends YouTubeSession {
   folderName: string;
   description: string;
   visibility: string;
-  accessToken: string;
 }
 
 function confirmedId(response: { id: string }): string {
@@ -52,10 +53,17 @@ export async function uploadSession(
   api: UploadAPI,
   report: () => void
 ): Promise<void> {
+  if (session.channelId && session.channelId !== options.channelId) {
+    throw new Error(
+      'This batch belongs to another YouTube channel. Reconnect its original channel before retrying.'
+    );
+  }
   session.items.forEach((item) => {
     const error = !item.videoId && getVideoTitleError(item.title);
     if (error) throw new Error(`${item.videoName}: ${error}`);
   });
+  session.channelId = options.channelId;
+  report();
   if (!session.playlistId) {
     session.playlistId = confirmedId(
       await api.createPlaylist({
@@ -123,7 +131,8 @@ export async function uploadSession(
             await api.addVideoToPlaylist({
               playlistId: session.playlistId,
               videoId: item.videoId,
-              accessToken: options.accessToken,
+              sessionId: options.sessionId,
+              channelId: options.channelId,
             })
           );
           item.playlistDone = true;

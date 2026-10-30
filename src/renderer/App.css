@@ -853,6 +853,51 @@ input[type='checkbox'] {
   border-radius: 4px;
   height: auto;
 }
+.youtube-connection {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 22px 24px;
+  margin-bottom: 22px;
+  background: #191c20;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--amber);
+  border-radius: 4px;
+}
+.youtube-account {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.connection-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+}
+.youtube-account h2 {
+  font-size: 18px;
+  margin: 8px 0;
+}
+.youtube-account .MuiTypography-body2 {
+  margin: 8px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.connection-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+@media (max-width: 900px) {
+  .youtube-connection {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .connection-actions {
+    flex-direction: row;
+  }
+}
 @media (max-width: 1200px) {
   .desk {
     grid-template-columns: minmax(0, 1fr) 280px;
