@@ -2,7 +2,11 @@
 import { createServer, get, Server } from 'http';
 import { createHash } from 'crypto';
 import { gzipSync } from 'zlib';
-import { ClientAuthentication, OAuth2Client } from 'google-auth-library';
+import {
+  ClientAuthentication,
+  OAuth2Client,
+  OAuth2ClientOptions,
+} from 'google-auth-library';
 import YouTubeAuth, {
   YOUTUBE_CREDENTIALS_KEY,
   YOUTUBE_SCOPE,
@@ -10,6 +14,7 @@ import YouTubeAuth, {
 import type { YouTubeStatus } from '../common/youtube';
 
 const clientId = 'desktop-fixture.apps.googleusercontent.com';
+const clientSecret = 'native-secret-fixture';
 const channel = { id: 'channel-fixture', title: 'Fixture tournament channel' };
 const tokens = {
   access_token: 'access-fixture',
@@ -87,6 +92,7 @@ function fixture() {
   const clients: OAuth2Client[] = [];
   const options = {
     clientId,
+    clientSecret,
     store: {
       get: jest.fn((key: string) => settings.get(key)),
       set: jest.fn((key: string, value: string) => {
@@ -120,15 +126,13 @@ function fixture() {
     }),
     identify: jest.fn(async () => channel),
     onStatus: jest.fn<void, [YouTubeStatus]>(),
-    createClient: (signal: AbortSignal) => {
+    createClient: (configuration: OAuth2ClientOptions) => {
       const client = new OAuth2Client({
-        clientId,
-        clientAuthentication: ClientAuthentication.None,
+        ...configuration,
         endpoints: { oauth2TokenUrl: tokenUrl },
         transporterOptions: {
+          ...configuration.transporterOptions,
           timeout: 1000,
-          signal,
-          retryConfig: { retry: 0 },
         },
       });
       clients.push(client);
@@ -145,7 +149,7 @@ function session(status: YouTubeStatus) {
   return { sessionId: status.sessionId, channelId: status.channel.id };
 }
 
-it('builds a public-client authorization URL and exchanges the PKCE verifier without a secret', async () => {
+it('keeps PKCE and pairs the native client ID and secret in token exchange, not the browser URL', async () => {
   const { auth, options, settings } = fixture();
   const status = await auth.connect();
   const url = new URL(options.openBrowser.mock.calls[0][0]);
@@ -169,21 +173,26 @@ it('builds a public-client authorization URL and exchanges the PKCE verifier wit
   expect(tokenRequests[0].get('redirect_uri')).toBe(
     url.searchParams.get('redirect_uri')
   );
-  expect(tokenRequests[0].has('client_secret')).toBe(false);
+  expect(tokenRequests[0].get('client_secret')).toBe(clientSecret);
+  expect(url.searchParams.has('client_secret')).toBe(false);
+  expect(url.toString()).not.toContain(clientSecret);
   expect(tokenAuthorizationPresent).toBe(false);
   expect(status).toEqual(
     expect.objectContaining({ state: 'connected', channel })
   );
   expect(JSON.stringify(status)).not.toMatch(
-    /access-fixture|refresh-fixture|access_token|refresh_token/
+    /access-fixture|refresh-fixture|native-secret-fixture|access_token|refresh_token|clientSecret/
   );
   expect(JSON.stringify(options.onStatus.mock.calls)).not.toMatch(
-    /access-fixture|refresh-fixture/
+    /access-fixture|refresh-fixture|native-secret-fixture/
   );
   expect(options.encryption.encryptString).toHaveBeenCalledTimes(1);
   expect(JSON.stringify([...settings])).not.toContain('refresh-fixture');
   expect(options.encryption.encryptString.mock.calls[0][0]).not.toContain(
     'access-fixture'
+  );
+  expect(options.encryption.encryptString.mock.calls[0][0]).not.toContain(
+    clientSecret
   );
 });
 
@@ -195,7 +204,11 @@ it('uses the SDK parsed error body for a compressed token-endpoint 400 response'
   };
   compressTokenBody = true;
   const { options } = fixture();
-  const client = options.createClient(new AbortController().signal);
+  const client = options.createClient({
+    clientId,
+    clientSecret,
+    clientAuthentication: ClientAuthentication.ClientSecretPost,
+  });
   await expect(
     client.getToken({
       code: 'authorization-fixture',
@@ -209,7 +222,7 @@ it('uses the SDK parsed error body for a compressed token-endpoint 400 response'
 
 it.each([
   ['invalid_request', 'verify the Desktop OAuth configuration'],
-  ['invalid_client', 'verify the configured Desktop client ID'],
+  ['invalid_client', 'verify the matching Desktop client configuration'],
   ['invalid_grant', 'previous code must not be reused'],
   ['unauthorized_client', 'not permitted to use the requested sign-in flow'],
   ['access_denied', 'selected account is allowed'],
@@ -235,9 +248,13 @@ it.each([
       await expect(pending).rejects.toThrow(String(hint));
       await expect(pending).rejects.toThrow('HTTP 400');
       await expect(pending).rejects.not.toThrow('private-');
+      await expect(pending).rejects.not.toThrow(clientSecret);
       expect(auth.status().state).toBe('disconnected');
       expect(JSON.stringify(options.onStatus.mock.calls)).not.toContain(
         'private-'
+      );
+      expect(JSON.stringify(options.onStatus.mock.calls)).not.toContain(
+        clientSecret
       );
       expect(log).not.toHaveBeenCalled();
       expect(warn).not.toHaveBeenCalled();
@@ -267,7 +284,7 @@ it('identifies a missing client secret only from the exact known provider descri
     'Google reported that a client secret is missing.'
   );
   await expect(pending).rejects.not.toThrow('private-');
-  expect(tokenRequests[0].has('client_secret')).toBe(false);
+  expect(tokenRequests[0].get('client_secret')).toBe(clientSecret);
 });
 
 it('does not infer a specific cause from an arbitrary description mentioning a secret', async () => {
@@ -349,7 +366,8 @@ it('recovers encrypted refresh credentials after restart and refreshes without c
   });
   expect(tokenRequests[1].get('grant_type')).toBe('refresh_token');
   expect(tokenRequests[1].get('refresh_token')).toBe('refresh-fixture');
-  expect(tokenRequests[1].get('client_secret') || '').toBe('');
+  expect(tokenRequests[1].get('client_id')).toBe(clientId);
+  expect(tokenRequests[1].get('client_secret')).toBe(clientSecret);
   expect(options.encryption.encryptString).toHaveBeenCalledTimes(1);
   expect(settings.has(YOUTUBE_CREDENTIALS_KEY)).toBe(true);
   expect(
@@ -525,10 +543,34 @@ it('reports locked, unreadable and mismatched saved connections instead of silen
   expect(new YouTubeAuth(options).status().state).toBe('storage-error');
 });
 
-it('requires a maintainer client ID without opening a browser or writing credentials', async () => {
+it('does not refresh or reuse saved user credentials with a different native client pair', async () => {
+  const { auth, options, settings, clients } = fixture();
+  const original = session(await auth.connect());
+  const replacement = new YouTubeAuth({
+    ...options,
+    clientId: 'replacement-desktop.apps.googleusercontent.com',
+    clientSecret: 'replacement-native-secret-fixture',
+  });
+  expect(replacement.status().state).toBe('reconnect-required');
+  const request = jest.fn();
+  await expect(
+    replacement.request(original, 'upload', request)
+  ).rejects.toThrow('connection changed');
+  expect(request).not.toHaveBeenCalled();
+  expect(clients).toHaveLength(1);
+  expect(tokenRequests).toHaveLength(1);
+  expect(settings.has(YOUTUBE_CREDENTIALS_KEY)).toBe(true);
+});
+
+it.each([
+  { clientId: '' },
+  { clientSecret: '' },
+  { clientId: '', clientSecret: '' },
+])('requires complete maintainer native configuration: %p', async (missing) => {
   const { options } = fixture();
-  const auth = new YouTubeAuth({ ...options, clientId: '' });
+  const auth = new YouTubeAuth({ ...options, ...missing });
   expect(auth.status().state).toBe('not-configured');
+  expect(auth.status().message).toContain('configuration at build time');
   expect((await auth.connect()).state).toBe('not-configured');
   expect(options.openBrowser).not.toHaveBeenCalled();
   expect(options.store.set).not.toHaveBeenCalled();

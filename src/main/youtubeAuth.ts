@@ -4,6 +4,7 @@ import {
   CodeChallengeMethod,
   Credentials,
   OAuth2Client,
+  OAuth2ClientOptions,
 } from 'google-auth-library';
 import type {
   YouTubeChannel,
@@ -22,6 +23,7 @@ const reconnectMessage =
 
 interface Dependencies {
   clientId: string;
+  clientSecret: string;
   store: {
     get(key: string): unknown;
     set(key: string, value: string): void;
@@ -36,7 +38,7 @@ interface Dependencies {
   openBrowser(url: string): Promise<void>;
   identify(accessToken: string, signal: AbortSignal): Promise<YouTubeChannel>;
   onStatus(status: YouTubeStatus): void;
-  createClient?: (signal: AbortSignal) => OAuth2Client;
+  createClient?: (options: OAuth2ClientOptions) => OAuth2Client;
 }
 
 interface ActiveSession {
@@ -77,13 +79,13 @@ function tokenExchangeMessage(error: unknown): string {
       category = 'invalid_request';
       hint =
         payload.error_description === 'client_secret is missing.'
-          ? 'Google reported that a client secret is missing. The maintainer must verify the Desktop OAuth configuration; this build does not send a client secret.'
+          ? 'Google reported that a client secret is missing. The maintainer must verify the matching Desktop client configuration.'
           : 'Google rejected the token request. Ask the maintainer to verify the Desktop OAuth configuration.';
       break;
     case 'invalid_client':
       category = 'invalid_client';
       hint =
-        'Google rejected the application client. Ask the maintainer to verify the configured Desktop client ID.';
+        'Google rejected the application client. Ask the maintainer to verify the matching Desktop client configuration.';
       break;
     case 'invalid_grant':
       category = 'invalid_grant';
@@ -149,17 +151,18 @@ export default class YouTubeAuth {
   }
 
   private createClient(signal: AbortSignal) {
+    const options: OAuth2ClientOptions = {
+      clientId: this.dependencies.clientId,
+      clientSecret: this.dependencies.clientSecret,
+      clientAuthentication: ClientAuthentication.ClientSecretPost,
+      transporterOptions: {
+        timeout: 30_000,
+        signal,
+        retryConfig: { retry: 0 },
+      },
+    };
     return (
-      this.dependencies.createClient?.(signal) ??
-      new OAuth2Client({
-        clientId: this.dependencies.clientId,
-        clientAuthentication: ClientAuthentication.None,
-        transporterOptions: {
-          timeout: 30_000,
-          signal,
-          retryConfig: { retry: 0 },
-        },
-      })
+      this.dependencies.createClient?.(options) ?? new OAuth2Client(options)
     );
   }
 
@@ -208,11 +211,14 @@ export default class YouTubeAuth {
   status(): YouTubeStatus {
     if (this.initialized) return this.current;
     this.initialized = true;
-    if (!this.dependencies.clientId.trim()) {
+    if (
+      !this.dependencies.clientId.trim() ||
+      !this.dependencies.clientSecret.trim()
+    ) {
       return this.publish({
         state: 'not-configured',
         message:
-          'YouTube sign-in is not configured in this build. The maintainer must supply a Google Desktop app client ID. You do not need your own Google Cloud project.',
+          'YouTube sign-in is not configured in this build. The maintainer must supply the Google Desktop client configuration at build time. You do not need your own Google Cloud project.',
       });
     }
     try {
@@ -380,9 +386,11 @@ export default class YouTubeAuth {
       throw new GoogleAuthError(this.current.message);
     }
     return this.publish({
-      state: this.dependencies.clientId.trim()
-        ? 'disconnected'
-        : 'not-configured',
+      state:
+        this.dependencies.clientId.trim() &&
+        this.dependencies.clientSecret.trim()
+          ? 'disconnected'
+          : 'not-configured',
       message:
         'The local YouTube connection was removed. Google access was not revoked; manage it in your Google account permissions.',
     });

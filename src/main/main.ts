@@ -27,7 +27,6 @@ import { startRendererHost } from './rendererHost';
 import Store from 'electron-store';
 import { youtube as createYoutube } from '@googleapis/youtube';
 import YouTubeAuth from './youtubeAuth';
-import { PUBLIC_YOUTUBE_CLIENT_ID } from './youtubeClient';
 require('dotenv').config();
 const fs = require('fs');
 const explicitProfile = app.commandLine.getSwitchValue('user-data-dir');
@@ -65,7 +64,8 @@ const nativeContext = () => ({
 let mainWindow: BrowserWindow | null = null;
 let rendererHost: Awaited<ReturnType<typeof startRendererHost>> | undefined;
 const youtubeAuth = new YouTubeAuth({
-  clientId: process.env.GOOGLE_DESKTOP_CLIENT_ID ?? PUBLIC_YOUTUBE_CLIENT_ID,
+  clientId: process.env.GOOGLE_DESKTOP_CLIENT_ID || '',
+  clientSecret: process.env.GOOGLE_DESKTOP_CLIENT_SECRET || '',
   store,
   encryption: safeStorage,
   openBrowser: (url) => shell.openExternal(url),

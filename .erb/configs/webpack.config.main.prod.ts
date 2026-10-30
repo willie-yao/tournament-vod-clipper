@@ -11,10 +11,16 @@ import baseConfig from './webpack.config.base';
 import webpackPaths from './webpack.paths';
 import checkNodeEnv from '../scripts/check-node-env';
 import deleteSourceMaps from '../scripts/delete-source-maps';
-import { PUBLIC_YOUTUBE_CLIENT_ID } from '../../src/main/youtubeClient';
+import loadGoogleDesktopClient from './googleDesktopClient';
 
 checkNodeEnv('production');
 deleteSourceMaps();
+const googleDesktopClient = loadGoogleDesktopClient();
+if (!googleDesktopClient.clientId) {
+  console.warn(
+    'YouTube sign-in is disabled in this build: no Google Desktop client configuration was supplied.'
+  );
+}
 
 const configuration: webpack.Configuration = {
   devtool: 'source-map',
@@ -63,11 +69,16 @@ const configuration: webpack.Configuration = {
       NODE_ENV: 'production',
       DEBUG_PROD: false,
       START_MINIMIZED: false,
-      GOOGLE_DESKTOP_CLIENT_ID: PUBLIC_YOUTUBE_CLIENT_ID,
     }),
 
     new webpack.DefinePlugin({
       'process.type': '"browser"',
+      'process.env.GOOGLE_DESKTOP_CLIENT_ID': JSON.stringify(
+        googleDesktopClient.clientId
+      ),
+      'process.env.GOOGLE_DESKTOP_CLIENT_SECRET': JSON.stringify(
+        googleDesktopClient.clientSecret
+      ),
     }),
   ],
 

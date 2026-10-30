@@ -165,11 +165,11 @@ it('shows missing configuration honestly without enabling uploads', async () => 
   act(() =>
     api.onYouTubeStatus.mock.calls[0][0]({
       state: 'not-configured',
-      message: 'The maintainer must supply a Desktop app client ID.',
+      message: 'The maintainer must supply Desktop client configuration.',
     })
   );
   expect(
-    screen.getByText('The maintainer must supply a Desktop app client ID.')
+    screen.getByText('The maintainer must supply Desktop client configuration.')
   ).toBeInTheDocument();
   expect(
     screen.getByRole('button', { name: 'Connect YouTube' })
