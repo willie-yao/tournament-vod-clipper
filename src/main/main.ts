@@ -15,7 +15,6 @@ import {
   shell,
   ipcMain,
   safeStorage,
-  session,
   dialog,
 } from 'electron';
 import MenuBuilder from './menu';
@@ -29,6 +28,7 @@ import { getClipRangeError } from '../common/clipTime';
 import { getVideoTitleError, VideoUpload } from '../common/files';
 import OutputFiles from './outputFiles';
 import { runYtDlp } from './nativeTools';
+import { startRendererHost } from './rendererHost';
 import Store from 'electron-store';
 import ElectronGoogleOAuth2 from '@getstation/electron-google-oauth2';
 require('dotenv').config();
@@ -67,6 +67,7 @@ const nativeContext = () => ({
 });
 
 let mainWindow: BrowserWindow | null = null;
+let rendererHost: Awaited<ReturnType<typeof startRendererHost>> | undefined;
 
 // Force Single Instance Application
 const gotTheLock = app.requestSingleInstanceLock();
@@ -390,18 +391,34 @@ const createWindow = async () => {
 
   mainWindow = new BrowserWindow({
     show: false,
-    width: 1024,
-    height: 728,
+    width: 1440,
+    height: 960,
+    minWidth: 900,
+    minHeight: 680,
+    backgroundColor: '#202327',
     icon: getAssetPath('icon.png'),
     webPreferences: {
-      // contextIsolation: false,
-      // nodeIntegration: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
       preload: resolvePreloadPath(__dirname, app.isPackaged),
     },
   });
 
-  mainWindow.loadURL(resolveHtmlPath('index.html'));
-
+  const development = process.env.NODE_ENV === 'development';
+  if (!development && !rendererHost) {
+    rendererHost = await startRendererHost(
+      path.resolve(__dirname, '../renderer')
+    );
+  }
+  const rendererUrl = development
+    ? resolveHtmlPath('index.html')
+    : rendererHost!.url;
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (new URL(url).origin !== new URL(rendererUrl).origin) {
+      event.preventDefault();
+    }
+  });
   mainWindow.on('ready-to-show', () => {
     if (!mainWindow) {
       throw new Error('"mainWindow" is not defined');
@@ -425,6 +442,7 @@ const createWindow = async () => {
     shell.openExternal(edata.url);
     return { action: 'deny' };
   });
+  await mainWindow.loadURL(rendererUrl);
 };
 
 /**
@@ -464,36 +482,22 @@ app.on('window-all-closed', () => {
 app
   .whenReady()
   .then(() => {
-    createWindow();
+    return createWindow();
+  })
+  .then(() => {
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.
       if (mainWindow === null) createWindow();
     });
-
-    // works for dumb iFrames
-    session.defaultSession.webRequest.onHeadersReceived(
-      {
-        urls: [
-          'https://www.twitch.tv/*',
-          'https://player.twitch.tv/*',
-          'https://embed.twitch.tv/*',
-        ],
-      },
-      (details, cb) => {
-        var responseHeaders = details.responseHeaders;
-
-        console.log('headers', details.url, responseHeaders);
-
-        if (responseHeaders) {
-          delete responseHeaders['Content-Security-Policy'];
-        }
-
-        cb({
-          cancel: false,
-          responseHeaders,
-        });
-      }
-    );
   })
-  .catch(console.log);
+  .catch((error) => {
+    console.error('Application startup failed', error);
+    dialog.showErrorBox(
+      'Could not start Tournament VOD Clipper',
+      String(error)
+    );
+    app.quit();
+  });
+
+app.on('will-quit', () => rendererHost?.server.close());

@@ -78,7 +78,7 @@ describe('App settings and retrieval', () => {
     await waitFor(() => expect(retrieve).toBeEnabled());
     fireEvent.click(choose);
     expect(retrieve).toBeDisabled();
-    expect(screen.getByTestId('MenuIcon').closest('button')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Source' })).toBeDisabled();
     fireEvent.click(retrieve);
     expect(operations).toHaveLength(0);
     await act(async () => {
@@ -96,7 +96,7 @@ describe('App settings and retrieval', () => {
       ).toBeEnabled()
     );
     expect(
-      screen.getByRole('heading', { name: 'Tournament VOD Clipper' })
+      screen.getByRole('heading', { name: 'Build a tournament batch.' })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Retrieve Sets' })
@@ -195,7 +195,7 @@ describe('App settings and retrieval', () => {
     await screen.findByText('Error retrieving sets: test VOD failure');
     await waitFor(() => expect(retrieve).toBeEnabled());
     fireEvent.click(retrieve);
-    await screen.findByRole('heading', { name: 'Select Sets to Download' });
+    await screen.findByRole('heading', { name: 'Tournament' });
     expect(
       screen.getByText('Player A vs Player B - Finals - Tournament')
     ).toBeInTheDocument();

@@ -30,7 +30,23 @@ interface Props {
 }
 export type Ref = ReactInstance;
 
-const characterFolder = './characters/';
+declare const require: NodeRequire & {
+  context: (
+    directory: string,
+    recursive: boolean,
+    pattern: RegExp
+  ) => {
+    (key: string): string;
+    keys: () => string[];
+  };
+};
+const characterImages = require.context('./characters', false, /\.png$/);
+const characterAsset = (name?: string) => {
+  const key = `./${name || 'Random Character'}.png`;
+  return characterImages(
+    characterImages.keys().includes(key) ? key : './Random Character.png'
+  );
+};
 
 // Create Document Component
 const ThumbnailGenerator = React.forwardRef<Ref, Props>((props, ref) => {
@@ -68,7 +84,7 @@ const ThumbnailGenerator = React.forwardRef<Ref, Props>((props, ref) => {
         </Grid>
         <Grid item xs={12}>
           {props.bgImage !== '' ? (
-            <img className="bg-image" src={props.bgImage} />
+            <img className="bg-image" src={props.bgImage} alt="" />
           ) : null}
           <Grid
             container
@@ -89,16 +105,14 @@ const ThumbnailGenerator = React.forwardRef<Ref, Props>((props, ref) => {
               xs={5}
               className="centered-flex"
             >
-              <img
-                height="450"
-                src={require(`${characterFolder + props.character1 + '.png'}`)}
-              />
+              <img height="450" src={characterAsset(props.character1)} alt="" />
             </Grid>
             <Grid item xs={2} sx={{ zIndex: 5 }} className="centered-flex">
               <img
                 src={props.logo === '' ? DefaultIcon : props.logo}
                 width="250px"
                 height="250px"
+                alt=""
               />
             </Grid>
             <Grid
@@ -112,10 +126,7 @@ const ThumbnailGenerator = React.forwardRef<Ref, Props>((props, ref) => {
               xs={5}
               className="centered-flex"
             >
-              <img
-                height="450"
-                src={require(`${characterFolder + props.character2 + '.png'}`)}
-              />
+              <img height="450" src={characterAsset(props.character2)} alt="" />
             </Grid>
           </Grid>
         </Grid>

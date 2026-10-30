@@ -49,7 +49,7 @@ const OutputFolder = ({ disabled, onChange, onChoosingChange }: Props) => {
   };
 
   return (
-    <Box sx={{ width: '100%', marginBottom: '20px' }}>
+    <Box className="output-folder">
       <Typography variant="body2">
         Output folder: {directory || 'Loading...'}
       </Typography>

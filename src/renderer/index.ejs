@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="script-src 'self' 'unsafe-inline'"
+      content="default-src 'self'; script-src 'self' https://player.twitch.tv; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.start.gg <%= htmlWebpackPlugin.options.isDevelopment ? 'ws://localhost:*' : '' %>; frame-src https://player.twitch.tv; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
     <title>Tournament VOD Clipper</title>
   </head>

@@ -90,17 +90,19 @@ const electronHandler = {
   },
 };
 
-contextBridge.exposeInMainWorld('electron', electronHandler);
+if (process.isMainFrame) {
+  contextBridge.exposeInMainWorld('electron', electronHandler);
 
-contextBridge.exposeInMainWorld('electronAPI', {
-  invoke: (channel: Channels, data: any) => {
-    let validChannels = ['create-folder']; // list of ipcMain.handle channels you want access in frontend to
-    if (validChannels.includes(channel)) {
-      // ipcRenderer.invoke accesses ipcMain.handle channels like 'myfunc'
-      // make sure to include this return statement or you won't get your Promise back
-      return ipcRenderer.invoke(channel, data);
-    }
-  },
-});
+  contextBridge.exposeInMainWorld('electronAPI', {
+    invoke: (channel: Channels, data: any) => {
+      let validChannels = ['create-folder']; // list of ipcMain.handle channels you want access in frontend to
+      if (validChannels.includes(channel)) {
+        // ipcRenderer.invoke accesses ipcMain.handle channels like 'myfunc'
+        // make sure to include this return statement or you won't get your Promise back
+        return ipcRenderer.invoke(channel, data);
+      }
+    },
+  });
+}
 
 export type ElectronHandler = typeof electronHandler;

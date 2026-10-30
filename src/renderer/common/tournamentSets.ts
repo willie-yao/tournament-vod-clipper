@@ -60,6 +60,7 @@ export interface VODMetadata {
   character1: string;
   character2: string;
   tournamentName: string;
+  roundText?: string;
 }
 
 /** Retrieve every page, then filter stream matches and discard duplicate IDs. */
@@ -204,5 +205,6 @@ export function formatSetMetadata(
     character1: characterNames[0][0] || 'Random Character',
     character2: characterNames[1][0] || 'Random Character',
     tournamentName,
+    roundText: set.fullRoundText || 'Match',
   };
 }
