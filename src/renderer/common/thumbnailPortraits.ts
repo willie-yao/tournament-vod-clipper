@@ -27,6 +27,7 @@ const aliases: Record<string, string> = {
 // Normalized eye position and rendered width for differing asset silhouettes.
 const focalPoints: Record<string, [number, number, number]> = {
   lucina: [1710 / 3232, 300 / 1584, 2250],
+  link: [1115 / 1980, 665 / 1744, 1550],
   fox: [665 / 1496, 440 / 1728, 850],
   mario: [0.285, 0.41, 880],
   peach: [0.58, 0.31, 1500],
