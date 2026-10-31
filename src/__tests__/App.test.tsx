@@ -100,13 +100,31 @@ describe('App settings and retrieval', () => {
       ).toBeEnabled()
     );
     expect(
-      screen.getByRole('heading', { name: 'Build a tournament batch.' })
+      screen.getByRole('heading', { name: 'Tournament source' })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Retrieve Sets' })
     ).toBeDisabled();
     expect(ipcRenderer.createFolder).toHaveBeenCalledWith();
     expect(operations).toHaveLength(0);
+    expect(
+      screen.getByText('Save a start.gg API key to retrieve sets.')
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Source' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    expect(screen.getByRole('button', { name: 'Match review' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Output & YouTube' })
+    ).toBeEnabled();
+    expect(screen.getByText('start.gg developer settings')).not.toBeVisible();
+    fireEvent.click(screen.getByText('API key help'));
+    expect(
+      screen.getByRole('link', { name: 'start.gg developer settings' })
+    ).toHaveAttribute('href', 'https://start.gg/admin/profile/developer');
+    fireEvent.click(screen.getByText('Source format examples'));
+    expect(screen.getByText('tournament/name/event/name')).toBeVisible();
   });
 
   it('saves a key through secure storage and preserves it and search values after remount', async () => {
@@ -128,13 +146,78 @@ describe('App settings and retrieval', () => {
         screen.getByLabelText('Start.gg API key', { exact: false })
       ).toHaveValue('test-key')
     );
-    expect(screen.getByLabelText('Start.GG Event Slug')).toHaveValue(slug);
-    expect(screen.getByLabelText('VOD Link')).toHaveValue(
+    expect(
+      screen.getByLabelText('Start.GG Event Slug', { exact: false })
+    ).toHaveValue(slug);
+    expect(screen.getByLabelText('VOD Link', { exact: false })).toHaveValue(
       'https://www.twitch.tv/videos/123'
     );
-    expect(screen.getByLabelText('Stream Station')).toHaveValue('streamer');
+    expect(
+      screen.getByLabelText('Stream Station', { exact: false })
+    ).toHaveValue('streamer');
     expect(screen.getByRole('button', { name: 'Retrieve Sets' })).toBeEnabled();
     expect(store.set).not.toHaveBeenCalledWith('apikey', expect.anything());
+  });
+
+  it('explains unsaved key changes and preserves navigation locks while saving', async () => {
+    const { store, operations } = setup('saved-key');
+    render(<App />);
+    const retrieve = screen.getByRole('button', { name: 'Retrieve Sets' });
+    await waitFor(() => expect(retrieve).toBeEnabled());
+    fireEvent.change(
+      screen.getByLabelText('Start.gg API key', { exact: false }),
+      {
+        target: { value: 'changed-key' },
+      }
+    );
+    expect(retrieve).toBeDisabled();
+    expect(
+      screen.getByText('Save API key changes before retrieving sets.')
+    ).toBeVisible();
+    let release!: () => void;
+    store.setSecret.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        release = resolve;
+      })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save API Key' }));
+    expect(
+      screen.getByRole('button', { name: 'Saving API key...' })
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Source' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Choose Output Folder' })
+    ).toBeDisabled();
+    expect(operations).toHaveLength(0);
+    await act(async () => release());
+    await waitFor(() => expect(retrieve).toBeEnabled());
+  });
+
+  it('keeps source validation visible outside help disclosures', async () => {
+    setup('saved-key');
+    render(<App />);
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Retrieve Sets' })
+      ).toBeEnabled()
+    );
+    fireEvent.change(
+      screen.getByLabelText('Start.GG Event Slug', { exact: false }),
+      {
+        target: { value: 'invalid-slug' },
+      }
+    );
+    fireEvent.change(screen.getByLabelText('VOD Link', { exact: false }), {
+      target: { value: 'not-a-url' },
+    });
+    expect(screen.getByText('Use tournament/name/event/name.')).toBeVisible();
+    expect(screen.getByText('Enter a valid HTTP or HTTPS URL.')).toBeVisible();
+    expect(
+      screen.getByText('Correct the highlighted source fields.')
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Retrieve Sets' })
+    ).toBeDisabled();
   });
 
   it('surfaces secure-store read and write failures without enabling retrieval', async () => {

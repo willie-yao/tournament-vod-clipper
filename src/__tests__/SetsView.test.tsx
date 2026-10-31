@@ -315,7 +315,8 @@ it('locks downloads and navigation while a new output root is being validated, t
   fireEvent.click(choose);
   expect(screen.getByRole('button', { name: 'Done' })).toBeDisabled();
   await act(async () => release('/chosen/output'));
-  expect(screen.getByText('Output folder: /chosen/output')).toBeInTheDocument();
+  fireEvent.click(screen.getByText('Output folder'));
+  expect(screen.getByText('/chosen/output')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Done' }));
   await waitFor(() => expect(nextButton()).toBeDisabled());
   expect(downloadButton()).toBeEnabled();

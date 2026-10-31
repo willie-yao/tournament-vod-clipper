@@ -418,7 +418,7 @@ export default function SetsView() {
                 <h1>{state.tournamentName}</h1>
                 <p>
                   {state.eventId?.split('/event/')[1] || 'Tournament sets'} /{' '}
-                  {state.station || 'Stream station'} / Single VOD
+                  {state.station || 'Stream station'}
                 </p>
               </div>
               <div className="heading-stats">
@@ -547,12 +547,14 @@ export default function SetsView() {
                         : 'Range needs correction'}
                     </span>
                   </div>
-                  <p className="help">
-                    Watch the VOD, seek to a boundary, then copy the playhead to
-                    In or Out. Start.gg times are suggestions. Downloads use the
-                    existing native cutter and are not guaranteed
-                    frame-accurate.
-                  </p>
+                  <details className="help-disclosure">
+                    <summary>Timing help</summary>
+                    <p>
+                      Start.gg times are suggestions. Use the playhead controls
+                      to set In and Out. Downloads use the native cutter and are
+                      not guaranteed frame-accurate.
+                    </p>
+                  </details>
                 </section>
               </main>
               <aside
@@ -560,10 +562,6 @@ export default function SetsView() {
                 aria-label="Clip review"
               >
                 <h2>Clip boundaries</h2>
-                <p className="help">
-                  Verify where the match actually begins and ends before
-                  applying.
-                </p>
                 <ClipFields
                   draft={draft}
                   onChange={updateDraft}
@@ -597,13 +595,7 @@ export default function SetsView() {
                     }
                     onChange={() => toggle(inspected.id)}
                   />
-                  <span>
-                    Include this clip in the batch
-                    <br />
-                    <span className="help">
-                      Selection is separate from inspection.
-                    </span>
-                  </span>
+                  <span>Include this clip in the batch</span>
                 </label>
                 {thumbnailControls}
               </aside>
@@ -627,19 +619,12 @@ export default function SetsView() {
                 <section>
                   <h2>{duration ? 'VOD duration' : 'Reported range'}</h2>
                   <p className="mono">{formatClipTime(rangeExtent)}</p>
-                  <p>
-                    Inspect a set, then review the VOD to verify its boundaries.
-                  </p>
                 </section>
                 <section className="bin-output">
                   <h2>
                     <FolderOutlinedIcon fontSize="small" />
                     Local output
                   </h2>
-                  <p>
-                    Only checked, valid clips enter this batch. List and
-                    thumbnails share the same selection.
-                  </p>
                   <Button
                     disabled={locked}
                     onClick={() => setOptionsOpen(true)}
@@ -692,9 +677,7 @@ export default function SetsView() {
                       ))}
                   </div>
                   <div className="range-caption">
-                    <span>
-                      Saved ranges · click to inspect, then review the clip
-                    </span>
+                    <span>Saved ranges</span>
                     <span>{sets.length - eligible.length} need correction</span>
                   </div>
                 </section>
@@ -905,8 +888,8 @@ export default function SetsView() {
                   </div>
                 )}
                 <p className="table-note">
-                  Inspecting does not change selection. Only checked, valid
-                  clips enter the batch; unapplied edits stay with each set.
+                  Inspecting keeps selection unchanged. Apply drafts before
+                  downloading.
                 </p>
               </main>
               <aside className="inspector" aria-label="Inspected match">
@@ -923,7 +906,7 @@ export default function SetsView() {
                     {status(inspected)}
                     <Button
                       className="review-action"
-                      variant="contained"
+                      variant="outlined"
                       fullWidth
                       disabled={locked}
                       onClick={() => setReview(true)}
@@ -1136,8 +1119,8 @@ export default function SetsView() {
                 </Button>
               </div>
               <p className="help">
-                Offset Duel keeps a warm opposing field. Custom backgrounds sit
-                behind both portraits; your logo appears in the header.
+                Custom backgrounds sit behind both portraits; your logo appears
+                in the header.
               </p>
               <input
                 ref={inputLogo}

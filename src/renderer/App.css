@@ -65,41 +65,37 @@ p {
 }
 .appbar {
   flex-shrink: 0;
-  min-height: 58px;
+  min-height: 44px;
   background: #191c20;
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
-  gap: 30px;
-  padding: 0 24px;
+  gap: 20px;
+  padding: 0 20px;
 }
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
+  gap: 8px;
+  font-size: 12px;
   font-weight: 650;
   white-space: nowrap;
 }
 .brand > svg {
   color: var(--amber);
-  border: 1px solid #7c6541;
-  border-radius: 4px;
-  padding: 3px;
-  width: 26px;
-  height: 26px;
+  width: 20px;
+  height: 20px;
 }
 .brand-edition {
   color: var(--muted);
   font-weight: 400;
   font-size: 11px;
-  border-left: 1px solid var(--line);
-  padding-left: 10px;
+  padding-left: 4px;
 }
 .appbar nav {
   display: flex;
   align-self: stretch;
-  gap: 8px;
+  gap: 4px;
 }
 .appbar nav .MuiButton-root {
   color: var(--muted);
@@ -116,7 +112,7 @@ p {
 }
 .app-heading {
   flex-shrink: 0;
-  padding: 24px;
+  padding: 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -124,14 +120,14 @@ p {
   border-bottom: 1px solid var(--line);
 }
 .app-heading h1 {
-  font-size: 27px;
+  font-size: 24px;
   letter-spacing: -0.03em;
   font-weight: 600;
 }
 .app-heading p {
   color: var(--muted);
   font-size: 12px;
-  margin-top: 7px;
+  margin-top: 6px;
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
@@ -537,6 +533,11 @@ p {
 .field input:disabled {
   opacity: 0.6;
 }
+.field input::placeholder,
+.search-field input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
 .field .MuiButton-root {
   font-size: 10px;
   padding: 5px 3px;
@@ -752,70 +753,103 @@ input[type='checkbox'] {
   flex-wrap: wrap;
 }
 .output-folder {
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: #202327;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 16px;
 }
-.output-folder .MuiTypography-body2 {
+.output-location {
+  min-width: 0;
+  flex: 1 1 160px;
+}
+.output-location summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.output-location summary strong {
+  display: block;
+  margin: 6px 0 0 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.output-path {
+  margin-top: 12px;
   overflow-wrap: anywhere;
   font-size: 12px;
 }
-.output-folder .MuiTypography-caption {
-  display: block;
+.output-path .help {
+  margin-top: 8px;
+}
+.output-folder > .MuiAlert-root {
+  width: 100%;
+}
+.help-disclosure {
+  font-size: 12px;
   color: var(--muted);
+}
+.help-disclosure summary {
+  cursor: pointer;
   line-height: 1.6;
+}
+.help-disclosure p {
+  max-width: 70ch;
+  margin-top: 8px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+summary:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 3px;
 }
 .source-page {
   max-width: 1060px;
   width: 100%;
-  padding: 36px 32px;
+  padding: 28px 32px;
   margin: 0 auto;
   overflow-y: auto;
 }
 .source-intro {
-  margin-bottom: 30px;
+  margin-bottom: 24px;
   max-width: 65ch;
 }
 .source-intro h1 {
-  font-size: 30px;
+  font-size: 24px;
   letter-spacing: -0.03em;
-  margin-bottom: 12px;
-}
-.source-intro p {
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.8;
 }
 .source-form {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-  gap: 32px;
+  gap: 24px;
+}
+.source-form .MuiSnackbar-root {
+  top: 60px;
 }
 .source-inputs,
 .source-settings {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 16px;
   min-width: 0;
 }
 .source-settings {
   border-left: 1px solid var(--line);
-  padding-left: 32px;
-}
-.source-settings h2 {
-  font-size: 14px;
+  padding-left: 24px;
 }
 .source-inputs > .MuiButton-root {
   align-self: flex-start;
-  padding: 10px 24px;
+  padding: 8px 20px;
+}
+.source-settings > .MuiButton-root {
+  align-self: flex-start;
 }
 .loading-sets {
-  min-height: 90px;
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  padding: 18px;
-  background: #262a2f;
+  padding: 8px 0;
+}
+.loading-sets .MuiLinearProgress-root {
+  margin-top: 12px;
 }
 .loading-sets progress {
   width: 100%;
@@ -830,53 +864,54 @@ input[type='checkbox'] {
 }
 .upload-page h1 {
   margin-bottom: 20px;
-  font-size: 27px;
+  font-size: 24px;
   letter-spacing: -0.03em;
 }
 .upload-page > .MuiAlert-root {
   margin: 16px 0;
 }
-.upload-page > .MuiTypography-body2 {
-  margin: 18px 0;
-  max-width: 85ch;
-  font-size: 12px;
-  line-height: 1.8;
-  color: var(--muted);
-}
-.background-card {
+.upload-fields {
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  padding: 24px;
-  background: #262a2f;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  height: auto;
+  gap: 18px;
+}
+.upload-folder-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.upload-folder-row > .MuiTextField-root {
+  flex: 1;
+  min-width: 0;
+}
+.upload-folder-row > .MuiButton-root {
+  flex-shrink: 0;
+}
+.upload-recovery {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.upload-recovery > .help {
+  font-size: 12px;
+  line-height: 1.65;
+  margin-bottom: 8px;
 }
 .youtube-connection {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 24px;
-  padding: 22px 24px;
-  margin-bottom: 22px;
-  background: #191c20;
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--amber);
-  border-radius: 4px;
+  gap: 20px;
+  padding: 18px 0;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--line);
 }
 .youtube-account {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.connection-label {
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  color: var(--amber);
-}
 .youtube-account h2 {
-  font-size: 18px;
-  margin: 8px 0;
+  font-size: 15px;
+  margin-bottom: 8px;
 }
 .youtube-account .MuiTypography-body2 {
   margin: 8px 0;
@@ -885,7 +920,8 @@ input[type='checkbox'] {
 }
 .connection-actions {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   flex-shrink: 0;
 }
@@ -936,7 +972,7 @@ input[type='checkbox'] {
     flex-wrap: wrap;
   }
   .appbar .brand {
-    padding-top: 14px;
+    padding-top: 8px;
   }
   .appbar nav {
     min-height: 44px;
