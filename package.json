@@ -37,6 +37,7 @@
   "main": "./.erb/scripts/start-main.cjs",
   "scripts": {
     "build": "concurrently \"npm run build:main\" \"npm run build:renderer\"",
+    "build:release": "cross-env REQUIRE_GOOGLE_DESKTOP_CLIENT=true npm run build",
     "build:main": "cross-env NODE_ENV=production TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.main.prod.ts",
     "build:renderer": "cross-env NODE_ENV=production TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.renderer.prod.ts",
     "build:dll": "cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.renderer.dev.dll.ts",
@@ -44,8 +45,8 @@
     "setup:desktop": "node node_modules/electron/install.js && npm run setup:native",
     "smoke:media": "node .erb/scripts/smoke-media.js",
     "lint": "cross-env NODE_ENV=development eslint . --ext .js,.jsx,.ts,.tsx",
-    "package": "ts-node ./.erb/scripts/clean.js dist && npm run build && electron-builder build --publish never",
-    "package:mac:local": "npm run build && cross-env CI=false CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --arm64 --dir --publish never --config.mac.identity=- --config.mac.hardenedRuntime=false --config.mac.notarize=false",
+    "package": "ts-node ./.erb/scripts/clean.js dist && npm run build:release && electron-builder build --publish never",
+    "package:mac:local": "npm run build:release && cross-env CI=false CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --arm64 --dir --publish never --config.mac.identity=- --config.mac.hardenedRuntime=false --config.mac.notarize=false",
     "prepare": "husky install",
     "rebuild": "electron-rebuild --parallel --types prod,dev,optional --module-dir release/app",
     "start": "ts-node ./.erb/scripts/check-port-in-use.js && npm run start:renderer",
@@ -117,7 +118,6 @@
     "@emotion/react": "^11.10.5",
     "@emotion/styled": "^11.10.5",
     "@fontsource/roboto": "^4.5.8",
-    "@getstation/electron-google-oauth2": "14.0.0",
     "@googleapis/youtube": "40.0.1",
     "@mui/icons-material": "^5.11.0",
     "@mui/material": "^5.11.6",
@@ -126,6 +126,7 @@
     "electron-debug": "^3.2.0",
     "electron-is-dev": "^2.0.0",
     "electron-store": "^8.1.0",
+    "google-auth-library": "9.15.1",
     "graphql": "16.14.2",
     "html2canvas": "^1.4.1",
     "mui-color-input": "^1.0.4",
@@ -217,14 +218,6 @@
     ],
     "afterSign": ".erb/scripts/notarize.js",
     "beforePack": ".erb/scripts/native-tools.js",
-    "protocols": [
-      {
-        "name": "Tournament VOD Clipper login",
-        "schemes": [
-          "tournamentvodclipper"
-        ]
-      }
-    ],
     "mac": {
       "target": {
         "target": "default",

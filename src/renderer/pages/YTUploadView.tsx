@@ -15,6 +15,7 @@ import { useLocation } from 'react-router-dom';
 import AppShell from '../common/AppShell';
 import OutputFolder from '../common/OutputFolder';
 import { getVideoTitleError } from '../../common/files';
+import type { YouTubeStatus } from '../../common/youtube';
 import {
   UploadSession,
   uploadSession,
@@ -35,7 +36,7 @@ const YTUploadView = () => {
   const [folders, setFolders] = useState<string[]>([]);
   const [selectedFolder, setSelectedFolder] = useState(state?.folderName || '');
   const [visibility, setVisibility] = useState('unlisted');
-  const [accessToken, setAccessToken] = useState('');
+  const [connection, setConnection] = useState<YouTubeStatus | null>(null);
   const [loggingIn, setLoggingIn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [choosingOutput, setChoosingOutput] = useState(false);
@@ -47,7 +48,32 @@ const YTUploadView = () => {
   const [requestedNames, setRequestedNames] = useState(state?.videoNames);
   const [error, setError] = useState('');
   const [summary, setSummary] = useState('');
-  const locked = busy || loggingIn || loading || choosingOutput;
+  const connecting = loggingIn || connection?.state === 'connecting';
+  const locked = busy || connecting || loading || choosingOutput;
+
+  useEffect(() => {
+    let active = true;
+    const unsubscribe = window.electron.ipcRenderer.onYouTubeStatus(
+      (status) => {
+        if (active) setConnection(status);
+      }
+    );
+    window.electron.ipcRenderer.getYouTubeStatus().then(
+      (status) => {
+        if (active) setConnection(status);
+      },
+      () => {
+        if (active)
+          setError(
+            'Could not read the YouTube connection. Reopen this screen and try again.'
+          );
+      }
+    );
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -117,14 +143,11 @@ const YTUploadView = () => {
     setLoggingIn(true);
     setError('');
     try {
-      const token = await window.electron.ipcRenderer.openGoogleLogin();
-      if (typeof token?.access_token !== 'string' || !token.access_token) {
-        throw new Error('Google did not return an access token.');
-      }
-      setAccessToken(token.access_token);
+      const status = await window.electron.ipcRenderer.connectYouTube();
+      setConnection(status);
     } catch (failure) {
       setError(
-        `Login failed: ${
+        `Connection failed: ${
           failure instanceof Error ? failure.message : String(failure)
         }`
       );
@@ -133,8 +156,23 @@ const YTUploadView = () => {
     }
   };
 
+  const disconnect = async () => {
+    setError('');
+    try {
+      setConnection(await window.electron.ipcRenderer.disconnectYouTube());
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+    }
+  };
+
   const upload = async () => {
-    if (busyRef.current || choosingOutput || !session) return;
+    if (
+      busyRef.current ||
+      choosingOutput ||
+      !session ||
+      connection?.state !== 'connected'
+    )
+      return;
     busyRef.current = true;
     setBusy(true);
     setError('');
@@ -144,6 +182,7 @@ const YTUploadView = () => {
     const working = { ...session, items: [...session.items] };
     const report = () => {
       if (saved) {
+        saved.channelId = working.channelId;
         saved.playlistId = working.playlistId;
         saved.metadata = working.metadata;
       }
@@ -156,7 +195,8 @@ const YTUploadView = () => {
           folderName: selectedFolder,
           description,
           visibility,
-          accessToken,
+          sessionId: connection.sessionId,
+          channelId: connection.channel.id,
         },
         window.electron.ipcRenderer,
         report
@@ -175,7 +215,7 @@ const YTUploadView = () => {
       );
       if (complete !== working.items.length)
         setError(
-          'Some steps need attention. Re-login if needed, then retry failed steps. Confirmed videos will not be uploaded again.'
+          'Some steps need attention. Reconnect if needed, then retry failed steps. Confirmed videos will not be uploaded again.'
         );
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
@@ -220,10 +260,69 @@ const YTUploadView = () => {
           check both your YouTube channel and playlist before retrying. Playlist
           creation or membership may already have succeeded.
         </Typography>
+        <section className="youtube-connection" aria-label="YouTube connection">
+          <div className="youtube-account">
+            <span className="connection-label">YOUTUBE CONNECTION</span>
+            <Typography component="h2">
+              {connection?.state === 'connected'
+                ? connection.channel.title
+                : 'Your channel, connected securely'}
+            </Typography>
+            {connection?.state === 'connected' && (
+              <span className="mono help">Channel {connection.channel.id}</span>
+            )}
+            <Typography variant="body2" role="status">
+              {connection?.message ||
+                'Checking the saved YouTube connection...'}
+            </Typography>
+            <p className="help">
+              Sign-in opens your browser. Credentials stay encrypted on this
+              device. Disconnect removes the local connection, not access in
+              your Google account.
+            </p>
+          </div>
+          <div className="connection-actions">
+            {connecting ? (
+              <Button disabled={busy} variant="outlined" onClick={disconnect}>
+                Cancel sign-in
+              </Button>
+            ) : (
+              <>
+                <Button
+                  disabled={
+                    locked ||
+                    !connection ||
+                    connection.state === 'not-configured'
+                  }
+                  variant="contained"
+                  onClick={login}
+                >
+                  {connection?.state === 'connected' ||
+                  connection?.state === 'reconnect-required'
+                    ? 'Reconnect YouTube'
+                    : 'Connect YouTube'}
+                </Button>
+                {connection &&
+                  ['connected', 'reconnect-required', 'storage-error'].includes(
+                    connection.state
+                  ) && (
+                    <Button disabled={locked} onClick={disconnect}>
+                      Disconnect
+                    </Button>
+                  )}
+              </>
+            )}
+          </div>
+        </section>
+        {session?.channelId &&
+          connection?.state === 'connected' &&
+          session.channelId !== connection.channel.id && (
+            <Alert severity="warning">
+              This batch belongs to another YouTube channel. Reconnect its
+              original channel before retrying.
+            </Alert>
+          )}
         <Box className="background-card">
-          <Button disabled={locked} variant="contained" onClick={login}>
-            {accessToken ? 'Sign in again' : 'Login'}
-          </Button>
           <TextField
             required
             select
@@ -317,7 +416,14 @@ const YTUploadView = () => {
           )}
           <Button
             disabled={
-              locked || !accessToken || !session?.items.length || complete
+              locked ||
+              connection?.state !== 'connected' ||
+              !session?.items.length ||
+              complete ||
+              Boolean(
+                session?.channelId &&
+                  session.channelId !== connection?.channel.id
+              )
             }
             variant="contained"
             onClick={upload}

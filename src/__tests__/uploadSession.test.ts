@@ -9,7 +9,8 @@ const options = {
   folderName: 'Tournament',
   description: 'description',
   visibility: 'private',
-  accessToken: 'test-token',
+  sessionId: 'session-fixture',
+  channelId: 'channel-fixture',
 };
 const createSession = (): UploadSession => ({
   items: ['one.mp4', 'two.mp4'].map((videoName) => ({
@@ -105,7 +106,7 @@ it.each([
     const ids = session.items.map((item) => item.videoId);
     await uploadSession(
       session,
-      { ...options, accessToken: 'new-test-token' },
+      { ...options, sessionId: 'new-session-fixture' },
       api,
       jest.fn()
     );
@@ -117,6 +118,40 @@ it.each([
     expect(api.createPlaylist).toHaveBeenCalledTimes(1);
   }
 );
+
+it('binds failed batches to their original channel and permits same-channel reconnect', async () => {
+  const session = createSession();
+  const api = createAPI();
+  api.createPlaylist.mockRejectedValueOnce(new Error('not confirmed'));
+  await expect(
+    uploadSession(session, options, api, jest.fn())
+  ).rejects.toThrow();
+  expect(session.channelId).toBe(options.channelId);
+  await expect(
+    uploadSession(
+      session,
+      { ...options, channelId: 'another-channel' },
+      api,
+      jest.fn()
+    )
+  ).rejects.toThrow('original channel');
+  expect(api.createPlaylist).toHaveBeenCalledTimes(1);
+  await uploadSession(
+    session,
+    { ...options, sessionId: 'reconnected-session' },
+    api,
+    jest.fn()
+  );
+  expect(api.uploadSingleVideo).toHaveBeenCalledWith(
+    expect.objectContaining({
+      sessionId: 'reconnected-session',
+      channelId: options.channelId,
+    })
+  );
+  expect(JSON.stringify(api.uploadSingleVideo.mock.calls)).not.toContain(
+    'accessToken'
+  );
+});
 
 it('does not treat absent IDs as success and marks missing optional thumbnails as skipped', async () => {
   const session = createSession();

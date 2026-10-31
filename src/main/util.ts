@@ -14,19 +14,6 @@ export function resolveHtmlPath(htmlFileName: string) {
     .href;
 }
 
-export function isAuthCallbackUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return (
-      url.protocol === 'tournamentvodclipper:' &&
-      url.host === '' &&
-      (url.pathname === '' || url.pathname === '/')
-    );
-  } catch {
-    return false;
-  }
-}
-
 export function legacyProfilePath(appData: string): string | null {
   const legacy = path.join(appData, 'electron-react-boilerplate');
   return existsSync(path.join(legacy, 'config.json')) ? legacy : null;
