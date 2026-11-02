@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Box, Button, Typography } from '@mui/material';
+import { Alert, Box, Button } from '@mui/material';
 
 interface Props {
   disabled?: boolean;
@@ -50,16 +50,26 @@ const OutputFolder = ({ disabled, onChange, onChoosingChange }: Props) => {
 
   return (
     <Box className="output-folder">
-      <Typography variant="body2">
-        Output folder: {directory || 'Loading...'}
-      </Typography>
+      <details className="output-location">
+        <summary>
+          <span className="help">Output folder</span>
+          <strong title={directory}>
+            {directory.split(/[\\/]/).filter(Boolean).pop() ||
+              directory ||
+              'Loading...'}
+          </strong>
+        </summary>
+        <div className="output-path">
+          <code>{directory || 'Loading...'}</code>
+          <p className="help">
+            Choose an existing downloadedVODs folder to use earlier clips. Files
+            are not moved.
+          </p>
+        </div>
+      </details>
       <Button disabled={disabled || choosing || loading} onClick={choose}>
         Choose Output Folder
       </Button>
-      <Typography variant="caption">
-        Choose your existing downloadedVODs folder to keep using earlier clips.
-        Files are never moved.
-      </Typography>
       {error && <Alert severity="error">{error}</Alert>}
     </Box>
   );

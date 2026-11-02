@@ -79,8 +79,7 @@ export default function ClipFields({
         })}
       </div>
       <p className="help" id={`${id}-help`}>
-        Elapsed HH:mm:ss from the VOD start. Hours can exceed 23; Out must be
-        after In.
+        Elapsed HH:mm:ss; hours may exceed 23. Out must follow In.
       </p>
       <label className="field" htmlFor={`${id}-title`}>
         Video title

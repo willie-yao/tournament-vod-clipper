@@ -78,6 +78,15 @@ const VideoSearch = ({
     !station.trim() ||
     urlError ||
     slugError;
+  let blockedReason = '';
+  if (!settingsReady) blockedReason = 'Loading saved settings...';
+  else if (!apiKey) blockedReason = 'Save a start.gg API key to retrieve sets.';
+  else if (keyDraft.trim() !== apiKey)
+    blockedReason = 'Save API key changes before retrieving sets.';
+  else if (urlError || slugError)
+    blockedReason = 'Correct the highlighted source fields.';
+  else if (!eventId.trim() || !vodUrl.trim() || !station.trim())
+    blockedReason = 'Enter the event slug, VOD link and stream station.';
 
   useEffect(
     () => onBusyChange(waiting || savingKey),
@@ -207,30 +216,35 @@ const VideoSearch = ({
           error={slugError}
           className="textfield"
           label="Start.GG Event Slug"
+          required
           variant="outlined"
           value={eventId}
           onChange={(event) => setEventId(event.target.value)}
           disabled={waiting || choosingOutput}
-          helperText="tournament/tournament-name/event/event-name"
+          placeholder="tournament/name/event/name"
+          helperText={slugError ? 'Use tournament/name/event/name.' : undefined}
         />
         <TextField
           error={urlError}
           className="textfield"
           label="VOD Link"
+          required
           variant="outlined"
           value={vodUrl}
           onChange={(event) => setVodUrl(event.target.value)}
           disabled={waiting || choosingOutput}
-          helperText="https://www.twitch.tv/videos/123456789"
+          placeholder="https://www.twitch.tv/videos/123456789"
+          helperText={urlError ? 'Enter a valid HTTP or HTTPS URL.' : undefined}
         />
         <TextField
           className="textfield"
           label="Stream Station"
+          required
           variant="outlined"
           value={station}
           onChange={(event) => setStation(event.target.value)}
           disabled={waiting || choosingOutput}
-          helperText="Name of a twitch channel or a station number."
+          placeholder="Twitch channel name or station number"
         />
         <TextField
           value={titleFormat}
@@ -252,25 +266,38 @@ const VideoSearch = ({
             {TOURNAMENT_FIRST_TITLE}
           </MenuItem>
         </TextField>
-        <Button variant="contained" disabled={disabled} onClick={retrieveSets}>
+        <details className="help-disclosure">
+          <summary>Source format examples</summary>
+          <p>
+            Use the start.gg event slug, such as{' '}
+            <code>tournament/name/event/name</code>, and the Twitch VOD URL,
+            such as <code>https://www.twitch.tv/videos/123456789</code>. Stream
+            Station accepts a Twitch channel name or station number.
+          </p>
+        </details>
+        <Button
+          variant="contained"
+          disabled={disabled}
+          aria-describedby={
+            blockedReason && !waiting ? 'source-requirements' : undefined
+          }
+          onClick={retrieveSets}
+        >
           {waiting ? 'Retrieving sets...' : 'Retrieve Sets'}
         </Button>
+        {blockedReason && !waiting && (
+          <p className="help" id="source-requirements" role="status">
+            {blockedReason}
+          </p>
+        )}
         {waiting && (
           <div className="loading-sets" role="status">
-            <p className="help">
-              Retrieving every page of matches and checking the VOD start
-              time...
-            </p>
+            <p className="help">Retrieving sets and VOD start time...</p>
             <LinearProgress />
           </div>
         )}
       </section>
-      <aside className="source-settings">
-        <h2>Source access</h2>
-        <p className="help">
-          Connect start.gg to retrieve matches for one stream or station. No
-          videos are downloaded until you review the batch.
-        </p>
+      <aside className="source-settings" aria-label="Source settings">
         <TextField
           required
           type="password"
@@ -279,7 +306,6 @@ const VideoSearch = ({
           value={keyDraft}
           onChange={(event) => setKeyDraft(event.target.value)}
           disabled={!settingsReady || savingKey || waiting || choosingOutput}
-          helperText="Stored securely on this device. Save changes before retrieving sets."
         />
         <Button
           variant="outlined"
@@ -292,8 +318,23 @@ const VideoSearch = ({
           }
           onClick={saveKey}
         >
-          Save API Key
+          {savingKey ? 'Saving API key...' : 'Save API Key'}
         </Button>
+        <details className="help-disclosure">
+          <summary>API key help</summary>
+          <p>
+            Create a personal token in your{' '}
+            <a
+              href="https://start.gg/admin/profile/developer"
+              target="_blank"
+              rel="noreferrer"
+            >
+              start.gg developer settings
+            </a>
+            . Save it here before retrieving sets. The key is encrypted on this
+            device.
+          </p>
+        </details>
         <OutputFolder
           disabled={waiting || savingKey}
           onChoosingChange={onChoosingOutput}
@@ -310,11 +351,7 @@ const MainView = () => {
     <AppShell current="source" locked={choosingOutput || busy}>
       <main className="source-page">
         <div className="source-intro">
-          <h1>Build a tournament batch.</h1>
-          <p>
-            Bring in your stream and start.gg matches. Check the boundaries,
-            choose your clips, then download the batch in one place.
-          </p>
+          <h1>Tournament source</h1>
         </div>
         <VideoSearch
           choosingOutput={choosingOutput}

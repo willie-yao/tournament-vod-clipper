@@ -27,19 +27,15 @@ async function setup() {
     createFolder: jest.fn().mockResolvedValue('/mock/output'),
     getTournamentFolders: jest.fn().mockResolvedValue([folderName]),
     getVideosInFolder: jest.fn().mockResolvedValue(['one.mp4', 'two.mp4']),
-    getYouTubeStatus: jest
-      .fn()
-      .mockResolvedValue({
-        state: 'disconnected',
-        message: 'Connect in your browser.',
-      }),
+    getYouTubeStatus: jest.fn().mockResolvedValue({
+      state: 'disconnected',
+      message: 'Connect in your browser.',
+    }),
     connectYouTube: jest.fn().mockResolvedValue(connected),
-    disconnectYouTube: jest
-      .fn()
-      .mockResolvedValue({
-        state: 'disconnected',
-        message: 'Local connection removed.',
-      }),
+    disconnectYouTube: jest.fn().mockResolvedValue({
+      state: 'disconnected',
+      message: 'Local connection removed.',
+    }),
     onYouTubeStatus: jest.fn((_listener: (status: YouTubeStatus) => void) =>
       jest.fn()
     ),
@@ -119,6 +115,7 @@ it('reports partial video success and recovers after re-login without resubmitti
   await login();
   fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
   await screen.findByText('2 of 2 videos confirmed; 1 fully processed.');
+  expect(screen.getByText(/Recovery IDs are kept only/)).toBeVisible();
   expect(
     screen.getByText('Thumbnail: test thumbnail rejected')
   ).toBeInTheDocument();
@@ -204,26 +201,49 @@ it('locks upload and navigation during output-root validation and warns about un
   );
   expect(upload).toBeDisabled();
   expect(
-    screen.getByText(/check both your YouTube channel and playlist/i)
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText(
-      /Playlist creation or membership may already have succeeded/i
-    )
-  ).toBeInTheDocument();
+    screen.queryByText(/Recovery IDs are kept only/)
+  ).not.toBeInTheDocument();
 });
 
 it('displays restart status and supports local disconnect without exposing credentials', async () => {
   const api = await setup();
   act(() => api.onYouTubeStatus.mock.calls[0][0](connected));
   expect(
-    screen.getByRole('heading', { name: connected.channel.title })
+    screen.getByRole('heading', {
+      name: `Connected to ${connected.channel.title}`,
+    })
   ).toBeInTheDocument();
-  expect(screen.getByText(/Channel channel-fixture/)).toBeInTheDocument();
+  expect(screen.getByText(/Channel channel-fixture/)).not.toBeVisible();
+  fireEvent.click(screen.getByText('Connection details'));
+  expect(screen.getByText(/Channel channel-fixture/)).toBeVisible();
+  expect(
+    screen.getByText(/Disconnect removes the local connection, not access/)
+  ).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
   await screen.findByText('Local connection removed.');
   expect(api.disconnectYouTube).toHaveBeenCalledTimes(1);
   expect(screen.getByRole('button', { name: 'Upload' })).toBeDisabled();
+});
+
+it('keeps retry safety visible and opens full guidance after an unconfirmed playlist request', async () => {
+  const api = await setup();
+  expect(
+    screen.getByText(/Check your channel and playlist before retrying/)
+  ).toBeVisible();
+  expect(screen.getByText(/Recovery IDs are kept only/)).not.toBeVisible();
+  await login();
+  api.createPlaylist.mockRejectedValueOnce(
+    new Error('Fixture playlist request was unconfirmed.')
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
+  await screen.findByText('Fixture playlist request was unconfirmed.');
+  expect(screen.getByText(/Recovery IDs are kept only/)).toBeVisible();
+  expect(
+    screen.getByText(
+      /Playlist creation or membership may already have succeeded/
+    )
+  ).toBeVisible();
+  expect(api.uploadSingleVideo).not.toHaveBeenCalled();
 });
 
 it('blocks retrying a partial batch on another channel', async () => {

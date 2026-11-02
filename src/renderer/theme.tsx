@@ -35,6 +35,13 @@ const theme = createTheme({
       styleOverrides: { root: { minHeight: 32 } },
     },
     MuiTextField: { defaultProps: { size: 'small' } },
+    MuiInputBase: {
+      styleOverrides: {
+        input: {
+          '&::placeholder': { color: '#a9b0ba', opacity: 1 },
+        },
+      },
+    },
     MuiDialog: { styleOverrides: { paper: { backgroundImage: 'none' } } },
     MuiAlert: { styleOverrides: { root: { fontSize: 12 } } },
   },

@@ -213,10 +213,6 @@ const YTUploadView = () => {
           skipped ? ` ${skipped} without an optional thumbnail.` : ''
         }`
       );
-      if (complete !== working.items.length)
-        setError(
-          'Some steps need attention. Reconnect if needed, then retry failed steps. Confirmed videos will not be uploaded again.'
-        );
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
     } finally {
@@ -234,7 +230,7 @@ const YTUploadView = () => {
   return (
     <AppShell current="output" locked={locked}>
       <main className="upload-page">
-        <Typography variant="h4" component="h1" textAlign="center" gutterBottom>
+        <Typography variant="h4" component="h1" gutterBottom>
           Upload to YouTube
         </Typography>
         <OutputFolder
@@ -254,32 +250,31 @@ const YTUploadView = () => {
         {summary && (
           <Alert severity={complete ? 'success' : 'warning'}>{summary}</Alert>
         )}
-        <Typography variant="body2">
-          Review titles before uploading. Recovery IDs are kept only while this
-          app is open. After a reload, restart, or any unconfirmed request,
-          check both your YouTube channel and playlist before retrying. Playlist
-          creation or membership may already have succeeded.
-        </Typography>
         <section className="youtube-connection" aria-label="YouTube connection">
           <div className="youtube-account">
-            <span className="connection-label">YOUTUBE CONNECTION</span>
-            <Typography component="h2">
+            <Typography component="h2" aria-live="polite">
               {connection?.state === 'connected'
-                ? connection.channel.title
-                : 'Your channel, connected securely'}
+                ? `Connected to ${connection.channel.title}`
+                : connecting
+                ? 'Connecting to YouTube'
+                : 'YouTube not connected'}
             </Typography>
-            {connection?.state === 'connected' && (
-              <span className="mono help">Channel {connection.channel.id}</span>
+            {connection?.state !== 'connected' && (
+              <Typography variant="body2" role="status">
+                {connection?.message ||
+                  'Checking the saved YouTube connection...'}
+              </Typography>
             )}
-            <Typography variant="body2" role="status">
-              {connection?.message ||
-                'Checking the saved YouTube connection...'}
-            </Typography>
-            <p className="help">
-              Sign-in opens your browser. Credentials stay encrypted on this
-              device. Disconnect removes the local connection, not access in
-              your Google account.
-            </p>
+            <details className="help-disclosure">
+              <summary>Connection details</summary>
+              {connection?.state === 'connected' && (
+                <p className="mono">Channel {connection.channel.id}</p>
+              )}
+              <p>
+                Credentials are encrypted on this device. Disconnect removes the
+                local connection, not access in your Google account.
+              </p>
+            </details>
           </div>
           <div className="connection-actions">
             {connecting ? (
@@ -294,7 +289,9 @@ const YTUploadView = () => {
                     !connection ||
                     connection.state === 'not-configured'
                   }
-                  variant="contained"
+                  variant={
+                    connection?.state === 'connected' ? 'outlined' : 'contained'
+                  }
                   onClick={login}
                 >
                   {connection?.state === 'connected' ||
@@ -322,45 +319,47 @@ const YTUploadView = () => {
               original channel before retrying.
             </Alert>
           )}
-        <Box className="background-card">
-          <TextField
-            required
-            select
-            label="VOD Folder"
-            variant="filled"
-            value={folders.includes(selectedFolder) ? selectedFolder : ''}
-            disabled={locked}
-            onChange={(event) => {
-              setSelectedFolder(event.target.value);
-              setRequestedNames(undefined);
-              setSession(null);
-              setSummary('');
-            }}
-          >
-            {folders.map((folder) => (
-              <MenuItem key={folder} value={folder}>
-                {folder}
-              </MenuItem>
-            ))}
-          </TextField>
-          <Button
-            disabled={locked || !selectedFolder}
-            onClick={async () => {
-              try {
-                await window.electron.ipcRenderer.openFolder(selectedFolder);
-              } catch (failure) {
-                setError(
-                  failure instanceof Error ? failure.message : String(failure)
-                );
-              }
-            }}
-          >
-            Open VOD Folder
-          </Button>
+        <Box className="upload-fields">
+          <div className="upload-folder-row">
+            <TextField
+              required
+              select
+              label="VOD Folder"
+              variant="outlined"
+              value={folders.includes(selectedFolder) ? selectedFolder : ''}
+              disabled={locked}
+              onChange={(event) => {
+                setSelectedFolder(event.target.value);
+                setRequestedNames(undefined);
+                setSession(null);
+                setSummary('');
+              }}
+            >
+              {folders.map((folder) => (
+                <MenuItem key={folder} value={folder}>
+                  {folder}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Button
+              disabled={locked || !selectedFolder}
+              onClick={async () => {
+                try {
+                  await window.electron.ipcRenderer.openFolder(selectedFolder);
+                } catch (failure) {
+                  setError(
+                    failure instanceof Error ? failure.message : String(failure)
+                  );
+                }
+              }}
+            >
+              Open VOD Folder
+            </Button>
+          </div>
           <TextField
             disabled={metadataLocked}
             label="Video Description"
-            variant="filled"
+            variant="outlined"
             rows={3}
             multiline
             value={description}
@@ -413,6 +412,27 @@ const YTUploadView = () => {
           ))}
           {session?.items.length === 0 && (
             <Typography>No videos found.</Typography>
+          )}
+          {Boolean(session?.items.length) && !complete && (
+            <div className="upload-recovery">
+              <p className="help">
+                Check your channel and playlist before retrying an unconfirmed
+                request or uploading again after a reload.
+              </p>
+              <details
+                className="help-disclosure"
+                open={Boolean(session?.channelId && !busy)}
+              >
+                <summary>Retry &amp; recovery</summary>
+                <p>
+                  Recovery IDs are kept only while this app is open. After a
+                  reload, restart, or any unconfirmed request, check both your
+                  YouTube channel and playlist before retrying. Playlist
+                  creation or membership may already have succeeded. Confirmed
+                  videos will not be uploaded again.
+                </p>
+              </details>
+            </div>
           )}
           <Button
             disabled={

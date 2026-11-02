@@ -38,7 +38,7 @@ export default function AppShell({ current, locked = false, children }: Props) {
             disabled={locked}
             onClick={() => navigate('/YTUploadView')}
           >
-            Local output & YouTube
+            Output & YouTube
           </Button>
         </nav>
       </header>
