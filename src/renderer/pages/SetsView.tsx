@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { Alert, Button, Dialog, LinearProgress } from '@mui/material';
+import { flushSync } from 'react-dom';
+import { Alert, Button, Dialog } from '@mui/material';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import ViewListIcon from '@mui/icons-material/ViewList';
@@ -29,6 +30,7 @@ import {
 } from '../common/thumbnailDrawing';
 import ThumbnailPreview from '../components/ThumbnailPreview';
 import ClipFields from '../components/ClipFields';
+import ClipRange from '../components/ClipRange';
 import VodPlayer, { PlayerHandle, PlayerState } from '../components/VodPlayer';
 
 export interface SetsState {
@@ -45,6 +47,17 @@ interface DownloadResult {
   thumbnailReady: boolean;
   thumbnailKey?: string;
   error?: string;
+}
+
+interface Workspace {
+  inspectedId: string;
+  layout: 'list' | 'grid';
+  review: boolean;
+}
+
+interface ReviewTransition {
+  finished: Promise<void>;
+  skipTransition: () => void;
 }
 
 function correctionFor(set: VODMetadata) {
@@ -69,16 +82,28 @@ export default function SetsView() {
       download: set.download && !correctionFor(set),
     }))
   );
-  const [inspectedId, setInspectedId] = useState(state?.sets[0]?.id || '');
-  const [layout, setLayout] = useState<'list' | 'grid'>('list');
+  const [workspace, setWorkspace] = useState<Workspace>({
+    inspectedId: state?.sets[0]?.id || '',
+    layout: 'list',
+    review: false,
+  });
+  const { inspectedId, layout, review } = workspace;
+  const desiredWorkspace = useRef(workspace);
+  const transition = useRef<ReviewTransition>();
+  const mounted = useRef(true);
+  const previousReview = useRef(false);
+  const [linkedId, setLinkedId] = useState('');
   const [filter, setFilter] = useState<'all' | 'ready' | 'exceptions'>('all');
   const [search, setSearch] = useState('');
-  const [review, setReview] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, ClipDraft>>({});
   const [savedMessage, setSavedMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [activeTitle, setActiveTitle] = useState('');
+  const [activeDownload, setActiveDownload] = useState<{
+    key: string;
+    title: string;
+    stage: 'video' | 'thumbnail';
+  }>();
   const [choosingOutput, setChoosingOutput] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [thumbnailColor, setThumbnailColor] = useState(DEFAULT_THUMBNAIL_COLOR);
@@ -147,6 +172,37 @@ export default function SetsView() {
     !selectedDirty &&
     !selectedInvalid &&
     selected.every(ready);
+  const pendingDraft = (set: VODMetadata) =>
+    Boolean(drafts[set.id] && draftChanged(set, drafts[set.id]));
+  const runPhase = (set: VODMetadata) => {
+    if (activeDownload?.key === resultKey(set)) return activeDownload.stage;
+    if (results[resultKey(set)]?.error) return 'error';
+    if (pendingDraft(set)) return 'draft';
+    if (ready(set)) return 'ready';
+    if (busy && set.download) return 'queued';
+    return undefined;
+  };
+  const runLabel = (set: VODMetadata) => {
+    const phase = runPhase(set);
+    return phase
+      ? {
+          video: 'Downloading clip',
+          thumbnail: 'Saving thumbnail',
+          error: 'Output failed',
+          draft: 'Unapplied changes',
+          ready: 'Downloaded',
+          queued: 'Queued',
+        }[phase]
+      : undefined;
+  };
+  const readyCount = selected.filter(
+    (set) => ready(set) && !pendingDraft(set) && !issue(set)
+  ).length;
+  const savedCount = selected.filter(
+    (set) => results[resultKey(set)]?.file
+  ).length;
+  const hasProgress =
+    busy || selected.some((set) => Boolean(results[resultKey(set)]));
   const enableDownload =
     !locked &&
     selected.length > 0 &&
@@ -191,6 +247,13 @@ export default function SetsView() {
     },
     [thumbnailLogo]
   );
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      transition.current?.skipTransition();
+    };
+  }, []);
   useEffect(
     () => () => {
       if (thumbnailBg) URL.revokeObjectURL(thumbnailBg);
@@ -200,22 +263,78 @@ export default function SetsView() {
   useEffect(() => {
     if (review) {
       reviewHeading.current?.focus({ preventScroll: true });
-      player.current?.seek(Math.max(0, inspected?.startTime || 0));
+    } else if (previousReview.current) {
+      inspectorHeading.current?.focus({ preventScroll: true });
     }
+    previousReview.current = review;
+  }, [review, inspectedId]);
+  useEffect(() => {
+    if (review) player.current?.seek(Math.max(0, inspected?.startTime || 0));
   }, [review, inspectedId, inspected?.startTime]);
 
+  const changeWorkspace = (changes: Partial<Workspace>) => {
+    if (busyRef.current || choosingOutput) return;
+    desiredWorkspace.current = { ...desiredWorkspace.current, ...changes };
+    setSavedMessage('');
+    setLinkedId('');
+    // Late transition callbacks must commit the newest navigation intent.
+    const commit = () => {
+      if (mounted.current)
+        flushSync(() => setWorkspace(desiredWorkspace.current));
+    };
+    const previous = transition.current;
+    transition.current = undefined;
+    previous?.skipTransition();
+    const host: Document & {
+      startViewTransition?: (update: () => void) => ReviewTransition;
+    } = document;
+    if (
+      previous ||
+      !host.startViewTransition ||
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    ) {
+      commit();
+      return;
+    }
+    try {
+      const current = host.startViewTransition(commit);
+      transition.current = current;
+      current.finished
+        .finally(() => {
+          if (transition.current === current) transition.current = undefined;
+        })
+        .catch((failure: unknown) => {
+          if (!(failure instanceof Error && failure.name === 'AbortError'))
+            console.warn(
+              'Review transition failed; using the current view.',
+              failure
+            );
+        });
+    } catch (failure) {
+      console.warn(
+        'Review transition unavailable; using the current view.',
+        failure
+      );
+      commit();
+    }
+  };
   const updateDraft = (value: ClipDraft) => {
-    if (!inspected || locked) return;
+    if (!inspected || busyRef.current || locked) return;
     setDrafts((current) => ({ ...current, [inspected.id]: value }));
     setSavedMessage('');
     setSummary('');
   };
   const inspect = (id: string) => {
-    setInspectedId(id);
-    setSavedMessage('');
+    changeWorkspace({ inspectedId: id });
+  };
+  const stepReview = (step: number) => {
+    const index = sets.findIndex(
+      (set) => set.id === desiredWorkspace.current.inspectedId
+    );
+    if (sets[index + step]) inspect(sets[index + step].id);
   };
   const toggle = (id: string) => {
-    if (locked) return;
+    if (busyRef.current || locked) return;
     setSets((current) =>
       current.map((set) =>
         set.id === id && (set.download || !issue(set))
@@ -252,29 +371,47 @@ export default function SetsView() {
     setSummary('');
   };
   const backToBatch = () => {
-    setReview(false);
-    setSavedMessage('');
-    requestAnimationFrame(() =>
-      inspectorHeading.current?.focus({ preventScroll: true })
-    );
+    changeWorkspace({ review: false });
   };
   const status = (set: VODMetadata) => {
-    const failure = results[resultKey(set)]?.error;
+    const result = results[resultKey(set)];
+    const failure = result?.error;
     const pending = drafts[set.id] && draftChanged(set, drafts[set.id]);
     const warning = issue(set);
-    const text =
-      failure ||
-      (pending ? 'Unapplied changes' : warning) ||
-      (ready(set) ? 'Downloaded' : 'Ready');
+    const phase = runPhase(set);
+    const active =
+      phase === 'video' || phase === 'thumbnail' || phase === 'queued';
+    let text = ready(set) ? 'Downloaded' : 'Ready';
     let severity = '';
-    if (warning || pending) severity = 'warn';
-    if (failure) severity = 'error';
+    let indicator = <CheckIcon />;
+    if (phase === 'queued') text = 'Queued';
+    if (warning || pending) {
+      text = pending ? 'Unapplied changes' : warning || text;
+      severity = 'warn';
+      indicator = <WarningAmberIcon />;
+    }
+    if (failure) {
+      text = result.file ? `Clip saved; thumbnail failed: ${failure}` : failure;
+      severity = 'error';
+      indicator = <WarningAmberIcon />;
+    }
+    if (active) {
+      if (phase !== 'queued')
+        text =
+          phase === 'video' ? 'Downloading clip...' : 'Saving thumbnail...';
+      severity = 'warn';
+      indicator = <span className="run-marker" aria-hidden="true" />;
+    }
     return (
       <span className={`clip-status ${severity}`}>
-        {failure || warning || pending ? <WarningAmberIcon /> : <CheckIcon />}
+        {indicator}
         {text}
       </span>
     );
+  };
+  const recordResult = (key: string, result: DownloadResult) => {
+    progress.current.set(key, result);
+    setResults((current) => ({ ...current, [key]: { ...result } }));
   };
   const generateThumbnail = async (set: VODMetadata, file: VideoFile) => {
     const buf = await exportThumbnail(set, thumbnailStyle);
@@ -300,11 +437,13 @@ export default function SetsView() {
     try {
       for (let index = 0; index < selected.length; index += 1) {
         const set = selected[index];
-        setActiveTitle(set.title);
         const key = resultKey(set);
         const result = progress.current.get(key) || { thumbnailReady: false };
+        result.error = undefined;
+        recordResult(key, result);
         try {
           if (!result.file) {
+            setActiveDownload({ key, title: set.title, stage: 'video' });
             // eslint-disable-next-line no-await-in-loop
             result.file = await window.electron.ipcRenderer.downloadVideo({
               vodUrl: state.vodUrl,
@@ -313,11 +452,13 @@ export default function SetsView() {
               endTime: set.endTime,
               tournamentName: state.tournamentName,
             });
+            recordResult(key, result);
           }
           if (
             downloadThumbnails &&
             (!result.thumbnailReady || result.thumbnailKey !== thumbnailKey)
           ) {
+            setActiveDownload({ key, title: set.title, stage: 'thumbnail' });
             // eslint-disable-next-line no-await-in-loop
             await generateThumbnail(set, result.file);
             result.thumbnailReady = true;
@@ -329,8 +470,7 @@ export default function SetsView() {
           result.error =
             failure instanceof Error ? failure.message : String(failure);
         }
-        progress.current.set(key, result);
-        setResults((current) => ({ ...current, [key]: { ...result } }));
+        recordResult(key, result);
       }
       setSummary(
         `${completed} of ${selected.length} selected clips ready.${
@@ -341,7 +481,7 @@ export default function SetsView() {
     } finally {
       busyRef.current = false;
       setBusy(false);
-      setActiveTitle('');
+      setActiveDownload(undefined);
     }
   };
 
@@ -380,7 +520,11 @@ export default function SetsView() {
         <>
           {review && inspected ? (
             <header className="review-heading">
-              <Button variant="outlined" onClick={backToBatch}>
+              <Button
+                variant="outlined"
+                disabled={locked}
+                onClick={backToBatch}
+              >
                 Back to {layout === 'list' ? 'list' : 'thumbnails'}
               </Button>
               <div>
@@ -395,8 +539,8 @@ export default function SetsView() {
               <div className="review-navigation">
                 <Button
                   variant="outlined"
-                  disabled={inspectedIndex <= 0}
-                  onClick={() => inspect(sets[inspectedIndex - 1].id)}
+                  disabled={locked || inspectedIndex <= 0}
+                  onClick={() => stepReview(-1)}
                 >
                   Previous
                 </Button>
@@ -405,8 +549,8 @@ export default function SetsView() {
                 </span>
                 <Button
                   variant="outlined"
-                  disabled={inspectedIndex >= sets.length - 1}
-                  onClick={() => inspect(sets[inspectedIndex + 1].id)}
+                  disabled={locked || inspectedIndex >= sets.length - 1}
+                  onClick={() => stepReview(1)}
                 >
                   Next
                 </Button>
@@ -430,7 +574,7 @@ export default function SetsView() {
               </div>
             </header>
           )}
-          <div className="batch-notices" aria-live="polite">
+          <div className="batch-notices">
             {state.skippedSets > 0 && (
               <Alert severity="warning">
                 {state.skippedSets} empty set records could not be retrieved.
@@ -442,17 +586,20 @@ export default function SetsView() {
               </Alert>
             )}
             {summary && (
-              <Alert severity={summarySuccess ? 'success' : 'warning'}>
+              <Alert
+                role="status"
+                severity={summarySuccess ? 'success' : 'warning'}
+              >
                 {summary}
               </Alert>
             )}
             {busy && (
-              <>
-                <Alert severity="info">
-                  Downloading selected clips one at a time: {activeTitle}
-                </Alert>
-                <LinearProgress />
-              </>
+              <Alert role="status" severity="info">
+                {activeDownload?.stage === 'thumbnail'
+                  ? 'Saving thumbnail'
+                  : 'Downloading selected clips one at a time'}
+                : {activeDownload?.title}
+              </Alert>
             )}
           </div>
           {review && inspected && draft ? (
@@ -533,6 +680,14 @@ export default function SetsView() {
                       player.current?.seek(Number(event.target.value))
                     }
                   />
+                  <ClipRange
+                    key={inspected.id}
+                    saved={inspected}
+                    draft={draft}
+                    onChange={updateDraft}
+                    disabled={locked}
+                    duration={duration}
+                  />
                   <div className="range-summary mono">
                     <span>
                       {draft.start || 'Missing In'} →{' '}
@@ -564,6 +719,7 @@ export default function SetsView() {
                 <h2>Clip boundaries</h2>
                 <ClipFields
                   draft={draft}
+                  saved={draftFor(inspected)}
                   onChange={updateDraft}
                   disabled={locked}
                   duration={duration}
@@ -649,8 +805,18 @@ export default function SetsView() {
                         <button
                           key={set.id}
                           type="button"
-                          aria-label={`Inspect range for ${set.title}`}
+                          aria-label={`Inspect range for ${set.title}${
+                            runLabel(set) ? `, ${runLabel(set)}` : ''
+                          }`}
                           aria-pressed={inspectedId === set.id}
+                          disabled={locked}
+                          data-run-state={runPhase(set)}
+                          data-linked={linkedId === set.id || undefined}
+                          title={runLabel(set)}
+                          onPointerEnter={() => setLinkedId(set.id)}
+                          onPointerLeave={() => setLinkedId('')}
+                          onFocus={() => setLinkedId(set.id)}
+                          onBlur={() => setLinkedId('')}
                           style={{
                             left: `${Math.min(
                               99,
@@ -686,6 +852,7 @@ export default function SetsView() {
                     {(['all', 'ready', 'exceptions'] as const).map((value) => (
                       <Button
                         key={value}
+                        disabled={locked}
                         aria-pressed={filter === value}
                         onClick={() => setFilter(value)}
                       >
@@ -696,15 +863,17 @@ export default function SetsView() {
                   <div className="view-switch" aria-label="Match layout">
                     <Button
                       startIcon={<ViewListIcon />}
+                      disabled={locked}
                       aria-pressed={layout === 'list'}
-                      onClick={() => setLayout('list')}
+                      onClick={() => changeWorkspace({ layout: 'list' })}
                     >
                       List
                     </Button>
                     <Button
                       startIcon={<GridViewIcon />}
+                      disabled={locked}
                       aria-pressed={layout === 'grid'}
-                      onClick={() => setLayout('grid')}
+                      onClick={() => changeWorkspace({ layout: 'grid' })}
                     >
                       Thumbnails
                     </Button>
@@ -719,6 +888,7 @@ export default function SetsView() {
                       aria-label="Find player or title"
                       placeholder="Find player or title"
                       value={search}
+                      disabled={locked}
                       onChange={(event) => setSearch(event.target.value)}
                     />
                   </label>
@@ -784,6 +954,10 @@ export default function SetsView() {
                             className={`${
                               inspectedId === set.id ? 'focused' : ''
                             } ${issue(set) ? 'exception' : ''}`}
+                            data-run-state={runPhase(set)}
+                            data-linked={linkedId === set.id || undefined}
+                            onPointerEnter={() => setLinkedId(set.id)}
+                            onPointerLeave={() => setLinkedId('')}
                           >
                             <td>
                               <input
@@ -802,6 +976,9 @@ export default function SetsView() {
                                 type="button"
                                 className="inspect-button"
                                 aria-label={`Inspect ${set.title}`}
+                                disabled={locked}
+                                onFocus={() => setLinkedId(set.id)}
+                                onBlur={() => setLinkedId('')}
                                 onClick={() => inspect(set.id)}
                               >
                                 {matchName(set)}
@@ -836,6 +1013,10 @@ export default function SetsView() {
                         className={`match-card ${
                           inspectedId === set.id ? 'focused' : ''
                         } ${issue(set) ? 'exception' : ''}`}
+                        data-run-state={runPhase(set)}
+                        data-linked={linkedId === set.id || undefined}
+                        onPointerEnter={() => setLinkedId(set.id)}
+                        onPointerLeave={() => setLinkedId('')}
                       >
                         <div className="card-check">
                           <input
@@ -852,6 +1033,9 @@ export default function SetsView() {
                           type="button"
                           className="thumbnail-inspect"
                           aria-label={`Inspect ${set.title}`}
+                          disabled={locked}
+                          onFocus={() => setLinkedId(set.id)}
+                          onBlur={() => setLinkedId('')}
                           onClick={() => inspect(set.id)}
                         >
                           <ThumbnailPreview set={set} style={thumbnailStyle} />
@@ -860,6 +1044,9 @@ export default function SetsView() {
                           <button
                             type="button"
                             className="inspect-button"
+                            disabled={locked}
+                            onFocus={() => setLinkedId(set.id)}
+                            onBlur={() => setLinkedId('')}
                             onClick={() => inspect(set.id)}
                           >
                             {matchName(set)}
@@ -874,10 +1061,13 @@ export default function SetsView() {
                           <div className="card-bottom">
                             {status(set)}
                             <Button
-                              onClick={() => {
-                                inspect(set.id);
-                                setReview(true);
-                              }}
+                              disabled={locked}
+                              onClick={() =>
+                                changeWorkspace({
+                                  inspectedId: set.id,
+                                  review: true,
+                                })
+                              }
                             >
                               Review ↗
                             </Button>
@@ -899,7 +1089,11 @@ export default function SetsView() {
                       <span>Inspected set</span>
                       <span className="mono">#{inspected.id}</span>
                     </div>
-                    <h2 ref={inspectorHeading} tabIndex={-1}>
+                    <h2
+                      className="inspector-title"
+                      ref={inspectorHeading}
+                      tabIndex={-1}
+                    >
                       {matchName(inspected)}
                     </h2>
                     <p className="help">{inspected.roundText || 'Match'}</p>
@@ -909,12 +1103,13 @@ export default function SetsView() {
                       variant="outlined"
                       fullWidth
                       disabled={locked}
-                      onClick={() => setReview(true)}
+                      onClick={() => changeWorkspace({ review: true })}
                     >
                       Review clip & timestamps →
                     </Button>
                     <ClipFields
                       draft={draft}
+                      saved={draftFor(inspected)}
                       onChange={updateDraft}
                       disabled={locked}
                       duration={duration}
@@ -951,6 +1146,13 @@ export default function SetsView() {
             </div>
           )}
           <footer className="batch-footer">
+            {hasProgress && (
+              <div className="batch-progress-strip" aria-hidden="true">
+                {selected.map((set) => (
+                  <span key={set.id} data-run-state={runPhase(set)} />
+                ))}
+              </div>
+            )}
             <span className="batch-count">{selected.length}</span>
             <div>
               <h2>
@@ -970,6 +1172,12 @@ export default function SetsView() {
                     downloadThumbnails ? 'thumbnails included' : 'video only'
                   }`}
               </p>
+              {hasProgress && (
+                <p className="help output-summary">
+                  {readyCount} of {selected.length} ready · {savedCount} clip
+                  files saved
+                </p>
+              )}
             </div>
             <div className="batch-actions">
               {review ? (
@@ -1018,6 +1226,7 @@ export default function SetsView() {
                   </Button>
                   <Button
                     variant="outlined"
+                    className={!locked && allReady ? 'output-ready' : undefined}
                     disabled={locked || !allReady}
                     onClick={() => {
                       const files = selected
