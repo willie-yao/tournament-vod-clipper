@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import SetsView from '../renderer/pages/SetsView';
@@ -81,6 +82,12 @@ const changeTime = (label: 'In time' | 'Out time', value: string) =>
 beforeEach(() => {
   downloadAPI();
   window.Twitch = undefined;
+});
+
+afterEach(() => {
+  Reflect.deleteProperty(document, 'startViewTransition');
+  Reflect.deleteProperty(window, 'matchMedia');
+  jest.restoreAllMocks();
 });
 
 it('exports real set, round and event metadata with the shared default thumbnail settings', async () => {
@@ -243,6 +250,17 @@ it('waits for thumbnail writes, prevents duplicate submission and gates continua
   );
   await waitFor(() => expect(api.saveThumbnail).toHaveBeenCalledTimes(1));
   expect(api.downloadVideo).toHaveBeenCalledTimes(1);
+  expect(screen.getAllByText('Saving thumbnail...').length).toBeGreaterThan(0);
+  expect(screen.getByText('0 of 2 ready · 1 clip files saved')).toBeVisible();
+  expect(nextButton()).toBeDisabled();
+  expect(
+    screen.getByRole('button', { name: 'Inspect Second clip' })
+  ).toBeDisabled();
+  expect(
+    within(
+      screen.getByRole('complementary', { name: 'Inspected match' })
+    ).getByRole('heading', { name: 'Player A vs Player B' })
+  ).toBeInTheDocument();
   await act(async () => releaseWrite());
   await screen.findByText('2 of 2 selected clips ready.');
   expect(api.downloadVideo).toHaveBeenCalledTimes(2);
@@ -275,10 +293,196 @@ it('retries a failed thumbnail without downloading the confirmed video again', a
   await screen.findByText(
     '0 of 1 selected clips ready. Review failed items and retry.'
   );
+  expect(
+    screen.getAllByText('Clip saved; thumbnail failed: test thumbnail failed')
+  ).toHaveLength(2);
+  expect(screen.getByText('0 of 1 ready · 1 clip files saved')).toBeVisible();
   fireEvent.click(downloadButton());
   await screen.findByText('1 of 1 selected clips ready.');
   expect(api.downloadVideo).toHaveBeenCalledTimes(1);
   expect(api.saveThumbnail).toHaveBeenCalledTimes(2);
+});
+
+it('keeps handle edits as per-set drafts through review, next, grid and Apply', () => {
+  renderSets([vodMetadata(), second()]);
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Review clip & timestamps →' })
+  );
+  const handle = screen.getByRole('slider', { name: 'Clip In boundary' });
+  handle.focus();
+  fireEvent.keyDown(handle, { key: 'ArrowRight' });
+  expect(screen.getByLabelText('In time')).toHaveValue('00:01:01');
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  changeTime('Out time', '00:03:00');
+  fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
+  expect(screen.getByLabelText('In time')).toHaveValue('00:01:01');
+  fireEvent.click(screen.getByRole('button', { name: 'Back to batch' }));
+  expect(downloadButton()).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Thumbnails' }));
+  expect(screen.getByLabelText('In time')).toHaveValue('00:01:01');
+  fireEvent.click(screen.getByRole('button', { name: 'Apply to clip' }));
+  expect(selection()).toBeChecked();
+  expect(downloadButton()).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Inspect Second clip' }));
+  expect(screen.getByLabelText('Out time')).toHaveValue('00:03:00');
+});
+
+it('uses an immediate focused review when reduced motion disables View Transitions', () => {
+  const start = jest.fn();
+  Object.defineProperty(document, 'startViewTransition', {
+    configurable: true,
+    value: start,
+  });
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: jest.fn().mockReturnValue({ matches: true }),
+  });
+  renderSets();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Review clip & timestamps →' })
+  );
+  expect(start).not.toHaveBeenCalled();
+  expect(
+    screen.getByRole('heading', { name: 'Player A vs Player B' })
+  ).toHaveFocus();
+  fireEvent.click(screen.getByRole('button', { name: 'Back to batch' }));
+  expect(
+    screen.getByRole('heading', { name: 'Player A vs Player B' })
+  ).toHaveFocus();
+  Reflect.deleteProperty(window, 'matchMedia');
+});
+
+it('keeps the latest workspace and focus when transition callbacks arrive after rapid navigation', async () => {
+  const updates: Array<() => void> = [];
+  const finish: Array<() => void> = [];
+  const skip = jest.fn();
+  Object.defineProperty(document, 'startViewTransition', {
+    configurable: true,
+    value: jest.fn((update: () => void) => {
+      updates.push(update);
+      return {
+        skipTransition: skip,
+        finished: new Promise<void>((resolve) => finish.push(resolve)),
+      };
+    }),
+  });
+  renderSets([
+    vodMetadata(),
+    second(),
+    { ...second(), id: '3', player1: 'Player D', title: 'Third clip' },
+  ]);
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Review clip & timestamps →' })
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Thumbnails' }));
+  expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled();
+  act(() => updates[0]());
+  changeTime('In time', '00:00:45');
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  act(() => updates[1]());
+  expect(
+    screen.getByRole('heading', { name: 'Player D vs Player B' })
+  ).toHaveFocus();
+  expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Back to batch' }));
+  act(() => updates[2]());
+  expect(screen.getByRole('button', { name: 'Thumbnails' })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  fireEvent.click(
+    screen.getByRole('button', { name: `Inspect ${vodMetadata().title}` })
+  );
+  act(() => updates[2]());
+  expect(screen.getByLabelText('In time')).toHaveValue('00:00:45');
+  expect(skip).toHaveBeenCalled();
+  await act(async () => finish.forEach((resolve) => resolve()));
+});
+
+it('falls back to the real review controls if starting a transition throws', () => {
+  const warning = jest.spyOn(console, 'warn').mockImplementation();
+  Object.defineProperty(document, 'startViewTransition', {
+    configurable: true,
+    value: () => {
+      throw new Error('Transition unsupported');
+    },
+  });
+  renderSets();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Review clip & timestamps →' })
+  );
+  expect(
+    screen.getByRole('slider', { name: 'Clip In boundary' })
+  ).toBeEnabled();
+  expect(
+    screen.getByRole('heading', { name: 'Player A vs Player B' })
+  ).toHaveFocus();
+  expect(warning).toHaveBeenCalledWith(
+    'Review transition unavailable; using the current view.',
+    expect.any(Error)
+  );
+});
+
+it('cancels pending review navigation when downloading locks the rendered batch', async () => {
+  const updates: Array<() => void> = [];
+  const finish: Array<() => void> = [];
+  const skip = jest.fn();
+  Object.defineProperty(document, 'startViewTransition', {
+    configurable: true,
+    value: jest.fn((update: () => void) => {
+      updates.push(update);
+      return {
+        skipTransition: skip,
+        finished: new Promise<void>((resolve) => finish.push(resolve)),
+      };
+    }),
+  });
+  const api = downloadAPI();
+  let release!: (file: { folderName: string; videoName: string }) => void;
+  api.downloadVideo.mockReturnValueOnce(
+    new Promise((resolve) => {
+      release = resolve;
+    })
+  );
+  renderSets();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Review clip & timestamps →' })
+  );
+  const download = downloadButton();
+  download.focus();
+  fireEvent.click(download);
+  expect(download).toBeDisabled();
+  act(() => updates[0]());
+  expect(
+    screen.getByRole('heading', { name: 'Tournament', exact: true })
+  ).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Back to batch' })).toBeNull();
+  expect(download).toHaveFocus();
+  expect(selection()).toBeChecked();
+  expect(skip).toHaveBeenCalled();
+
+  await act(async () =>
+    release({ folderName: 'Tournament', videoName: 'clip.mp4' })
+  );
+  await screen.findByText('1 of 1 selected clips ready.');
+  await act(async () => finish[0]());
+  fireEvent.click(screen.getByRole('button', { name: 'Thumbnails' }));
+  act(() => updates[1]());
+  await act(async () => finish[1]());
+  expect(screen.getByRole('button', { name: 'Thumbnails' })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  expect(screen.queryByRole('button', { name: 'Back to batch' })).toBeNull();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Review clip & timestamps →' })
+  );
+  act(() => updates[2]());
+  await act(async () => finish[2]());
+  expect(
+    screen.getByRole('heading', { name: 'Player A vs Player B' })
+  ).toHaveFocus();
 });
 
 it('can opt out of failed thumbnails without losing confirmed video progress', async () => {

@@ -5,6 +5,7 @@ import { formatClipTime, parseClipTime } from '../../common/clipTime';
 
 interface Props {
   draft: ClipDraft;
+  saved?: ClipDraft;
   onChange: (draft: ClipDraft) => void;
   disabled: boolean;
   duration?: number;
@@ -15,6 +16,7 @@ interface Props {
 
 export default function ClipFields({
   draft,
+  saved,
   onChange,
   disabled,
   duration,
@@ -30,6 +32,9 @@ export default function ClipFields({
         {(['start', 'end'] as const).map((field) => {
           const label = field === 'start' ? 'In' : 'Out';
           const parsed = parseClipTime(draft[field]);
+          const original = saved ? parseClipTime(saved[field]) : null;
+          const difference =
+            parsed !== null && original !== null ? parsed - original : 0;
           return (
             <div key={field} className="field">
               <label htmlFor={`${id}-${field}`}>
@@ -48,6 +53,21 @@ export default function ClipFields({
                   onChange({ ...draft, [field]: event.target.value })
                 }
               />
+              {saved && (
+                <span className="boundary-delta mono">
+                  {parsed !== null &&
+                    (original === null || difference !== 0) && (
+                      <>
+                        {original === null
+                          ? 'New boundary'
+                          : `${difference > 0 ? '+' : '-'}${formatClipTime(
+                              Math.abs(difference)
+                            )}`}{' '}
+                        · draft
+                      </>
+                    )}
+                </span>
+              )}
               {onSeek && (
                 <Button
                   variant="outlined"
@@ -104,6 +124,7 @@ export default function ClipFields({
 }
 
 ClipFields.defaultProps = {
+  saved: undefined,
   duration: undefined,
   playhead: undefined,
   onSeek: undefined,
