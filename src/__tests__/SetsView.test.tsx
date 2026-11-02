@@ -424,6 +424,67 @@ it('falls back to the real review controls if starting a transition throws', () 
   );
 });
 
+it('cancels pending review navigation when downloading locks the rendered batch', async () => {
+  const updates: Array<() => void> = [];
+  const finish: Array<() => void> = [];
+  const skip = jest.fn();
+  Object.defineProperty(document, 'startViewTransition', {
+    configurable: true,
+    value: jest.fn((update: () => void) => {
+      updates.push(update);
+      return {
+        skipTransition: skip,
+        finished: new Promise<void>((resolve) => finish.push(resolve)),
+      };
+    }),
+  });
+  const api = downloadAPI();
+  let release!: (file: { folderName: string; videoName: string }) => void;
+  api.downloadVideo.mockReturnValueOnce(
+    new Promise((resolve) => {
+      release = resolve;
+    })
+  );
+  renderSets();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Review clip & timestamps →' })
+  );
+  const download = downloadButton();
+  download.focus();
+  fireEvent.click(download);
+  expect(download).toBeDisabled();
+  act(() => updates[0]());
+  expect(
+    screen.getByRole('heading', { name: 'Tournament', exact: true })
+  ).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Back to batch' })).toBeNull();
+  expect(download).toHaveFocus();
+  expect(selection()).toBeChecked();
+  expect(skip).toHaveBeenCalled();
+
+  await act(async () =>
+    release({ folderName: 'Tournament', videoName: 'clip.mp4' })
+  );
+  await screen.findByText('1 of 1 selected clips ready.');
+  await act(async () => finish[0]());
+  fireEvent.click(screen.getByRole('button', { name: 'Thumbnails' }));
+  act(() => updates[1]());
+  await act(async () => finish[1]());
+  expect(screen.getByRole('button', { name: 'Thumbnails' })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  expect(screen.queryByRole('button', { name: 'Back to batch' })).toBeNull();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Review clip & timestamps →' })
+  );
+  act(() => updates[2]());
+  await act(async () => finish[2]());
+  expect(
+    screen.getByRole('heading', { name: 'Player A vs Player B' })
+  ).toHaveFocus();
+});
+
 it('can opt out of failed thumbnails without losing confirmed video progress', async () => {
   const api = downloadAPI();
   api.saveThumbnail.mockRejectedValueOnce(new Error('test thumbnail failed'));

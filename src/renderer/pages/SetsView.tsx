@@ -279,7 +279,7 @@ export default function SetsView() {
     setLinkedId('');
     // Late transition callbacks must commit the newest navigation intent.
     const commit = () => {
-      if (mounted.current)
+      if (mounted.current && !busyRef.current)
         flushSync(() => setWorkspace(desiredWorkspace.current));
     };
     const previous = transition.current;
@@ -430,6 +430,9 @@ export default function SetsView() {
       return;
     }
     busyRef.current = true;
+    desiredWorkspace.current = workspace;
+    transition.current?.skipTransition();
+    transition.current = undefined;
     setBusy(true);
     setSummary('');
     setError('');
