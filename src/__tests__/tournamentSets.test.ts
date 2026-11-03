@@ -11,6 +11,7 @@ import {
   TOURNAMENT_FIRST_TITLE,
 } from '../renderer/common/tournamentSets';
 import { setsResponse, tournamentSet } from '../test/fixtures';
+import { getVideoTitleError } from '../common/files';
 
 const slug = 'tournament/test/event/singles';
 const clientWith = (mocks: MockedResponse[]) =>
@@ -127,6 +128,65 @@ describe('retrieveTournamentSets', () => {
 });
 
 describe('formatSetMetadata', () => {
+  it('fits the generated title without changing full names, picks or thumbnail labels', () => {
+    const player1 = 'NorthernLightsVeryLongCompetitorTag';
+    const player2 = 'SouthernCrossAnotherLongCompetitorTag';
+    const tournamentName = 'Midnight Summit Championship #128';
+    const result = formatSetMetadata(
+      tournamentSet({
+        slots: [
+          { entrant: { id: 'a', name: `Sponsor | ${player1}` } },
+          { entrant: { id: 'b', name: player2 } },
+        ],
+        fullRoundText: 'Grand Finals (Reset)',
+        games: [
+          {
+            selections: [1, 2].map((selectionValue) => ({
+              entrant: { id: 'a' },
+              selectionValue,
+            })),
+          },
+        ],
+      }),
+      tournamentName,
+      1000,
+      { 1: 'Donkey Kong', 2: 'Zero Suit Samus' },
+      PLAYERS_FIRST_TITLE,
+      'Ultimate Singles'
+    );
+    expect(result).toMatchObject({
+      player1,
+      player2,
+      character1: 'Donkey Kong',
+      character2: 'Random Character',
+      tournamentName,
+      roundText: 'Grand Finals (Reset)',
+      eventName: 'Ultimate Singles',
+      download: true,
+    });
+    expect(result.originalTitle).toBe(
+      `${player1} (Donkey Kong, Zero Suit Samus) vs ${player2} - Grand Finals (Reset) - ${tournamentName}`
+    );
+    expect(getVideoTitleError(result.title)).toBeNull();
+    expect(result.title).toContain('GF (Reset)');
+  });
+
+  it('keeps absent entrants, rounds and selections explicit without inventing metadata', () => {
+    const result = formatSetMetadata(
+      tournamentSet({ slots: null, games: null, fullRoundText: null }),
+      'A long regional championship series '.repeat(5),
+      1000,
+      {},
+      TOURNAMENT_FIRST_TITLE
+    );
+    expect(result.title).toContain('Unknown player vs Unknown player - Match');
+    expect(result.needsCorrection).toContain('Player information');
+    expect(result.download).toBe(false);
+    expect(result.roundText).toBe('Match');
+    expect(result.character1).toBe('Random Character');
+    expect(getVideoTitleError(result.title)).toBeNull();
+  });
+
   it('carries real labels and preserves the first reported portrait while retaining all picks in the title', () => {
     const result = formatSetMetadata(
       tournamentSet({
