@@ -1,5 +1,10 @@
 import path from 'path';
+import { EventEmitter } from 'events';
 import { build, dependencies } from '../../package.json';
+import {
+  VOD_METADATA_FAILED,
+  VOD_METADATA_TIMEOUT_MS,
+} from '../common/retrieval';
 
 jest.mock('electron', () => ({
   app: {
@@ -27,12 +32,14 @@ jest.mock('electron', () => ({
       isMinimized: jest.fn(() => false),
       restore: jest.fn(),
       focus: jest.fn(),
-      webContents: {
-        send: jest.fn(),
-        executeJavaScript: jest.fn(),
-        setWindowOpenHandler: jest.fn(),
-        on: jest.fn(),
-      },
+      webContents: Object.assign(
+        new (jest.requireActual('events').EventEmitter)(),
+        {
+          send: jest.fn(),
+          executeJavaScript: jest.fn(),
+          setWindowOpenHandler: jest.fn(),
+        }
+      ),
     };
   }),
   ipcMain: { handle: jest.fn(), on: jest.fn() },
@@ -256,24 +263,33 @@ describe('main process startup', () => {
     ).rejects.toThrow('saved API key is invalid');
   });
 
-  it('propagates metadata errors and returns a finite VOD timestamp', async () => {
-    youtubeDl.mockRejectedValueOnce(new Error('test metadata failure'));
-    await expect(
-      handler('retrieve-video-information')({}, { vodUrl: 'test-url' })
-    ).rejects.toThrow('test metadata failure');
+  it('sanitizes metadata errors and returns a finite VOD timestamp', async () => {
+    const event = { sender: new EventEmitter() };
+    const args = { vodUrl: 'test-url', requestId: 'fixture' };
+    youtubeDl.mockRejectedValueOnce(
+      new Error('fixture private downloader payload')
+    );
+    expect(await handler('retrieve-video-information')(event, args)).toEqual({
+      error: VOD_METADATA_FAILED,
+    });
     youtubeDl.mockResolvedValueOnce({ timestamp: 1000 });
-    expect(
-      await handler('retrieve-video-information')({}, { vodUrl: 'test-url' })
-    ).toBe(1000);
+    expect(await handler('retrieve-video-information')(event, args)).toEqual({
+      timestamp: 1000,
+    });
   });
 
   it.each([null, undefined, NaN, Infinity])(
     'rejects invalid VOD timestamp %s',
     async (timestamp) => {
       youtubeDl.mockResolvedValueOnce({ timestamp });
-      await expect(
-        handler('retrieve-video-information')({}, { vodUrl: 'test-url' })
-      ).rejects.toThrow('VOD start timestamp');
+      expect(
+        await handler('retrieve-video-information')(
+          { sender: new EventEmitter() },
+          { vodUrl: 'test-url', requestId: 'fixture' }
+        )
+      ).toEqual({
+        error: 'The VOD start timestamp is unavailable. Check the VOD URL.',
+      });
     }
   );
 
@@ -487,5 +503,154 @@ describe('main process startup', () => {
         ([name]: [string]) => name === 'open-google-login'
       )
     ).toBe(false);
+  });
+
+  it('bounds hung metadata, aborts native work and releases sender listeners and timers', async () => {
+    jest.useFakeTimers();
+    try {
+      const sender = new EventEmitter();
+      youtubeDl.mockReturnValueOnce(new Promise(() => {}));
+      const pending = handler('retrieve-video-information')(
+        { sender },
+        { vodUrl: 'test-url', requestId: 'fixture' }
+      );
+      const { signal }: { signal: AbortSignal } = youtubeDl.mock.calls[0][3];
+      jest.advanceTimersByTime(VOD_METADATA_TIMEOUT_MS);
+      expect(await pending).toEqual({
+        error: expect.stringContaining('within 60 seconds'),
+      });
+      expect(signal.aborted).toBe(true);
+      expect(sender.eventNames()).toEqual([]);
+      expect(jest.getTimerCount()).toBe(0);
+      youtubeDl.mockResolvedValueOnce({ timestamp: 1000 });
+      expect(
+        await handler('retrieve-video-information')(
+          { sender },
+          { vodUrl: 'test-url', requestId: 'retry' }
+        )
+      ).toEqual({ timestamp: 1000 });
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('isolates cancellation by sender and request, including stale finalization', async () => {
+    const sender = new EventEmitter();
+    const other = new EventEmitter();
+    const cancel = ipcMain.on.mock.calls.find(
+      ([channel]: [string]) => channel === 'cancel-retrieve-video-information'
+    )[1];
+    let finishOld!: (value: { timestamp: number }) => void;
+    youtubeDl
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          finishOld = resolve;
+        })
+      )
+      .mockReturnValueOnce(new Promise(() => {}));
+    const first = handler('retrieve-video-information')(
+      { sender },
+      { vodUrl: 'old-url', requestId: 'old' }
+    );
+    const second = handler('retrieve-video-information')(
+      { sender },
+      { vodUrl: 'new-url', requestId: 'new' }
+    );
+    const firstSignal: AbortSignal = youtubeDl.mock.calls[0][3].signal;
+    const secondSignal: AbortSignal = youtubeDl.mock.calls[1][3].signal;
+    expect(firstSignal.aborted).toBe(true);
+    expect(await first).toEqual({ error: expect.stringContaining('canceled') });
+    cancel({ sender: other }, 'new');
+    cancel({ sender }, 'old');
+    expect(secondSignal.aborted).toBe(false);
+    finishOld({ timestamp: 900 });
+    await Promise.resolve();
+    expect(secondSignal.aborted).toBe(false);
+    cancel({ sender }, 'new');
+    expect(await second).toEqual({
+      error: expect.stringContaining('canceled'),
+    });
+    expect(secondSignal.aborted).toBe(true);
+    expect(sender.eventNames()).toEqual([]);
+  });
+
+  it.each(['destroyed', 'render-process-gone', 'did-start-navigation'])(
+    'cancels metadata on %s and removes its listeners',
+    async (eventName) => {
+      const sender = new EventEmitter();
+      youtubeDl.mockReturnValueOnce(new Promise(() => {}));
+      const pending = handler('retrieve-video-information')(
+        { sender },
+        { vodUrl: 'test-url', requestId: 'fixture' }
+      );
+      const { signal }: { signal: AbortSignal } = youtubeDl.mock.calls[0][3];
+      sender.emit(
+        'did-start-navigation',
+        {},
+        'https://offline.test',
+        false,
+        false
+      );
+      sender.emit(
+        'did-start-navigation',
+        {},
+        'https://offline.test',
+        true,
+        true
+      );
+      expect(signal.aborted).toBe(false);
+      sender.emit(eventName, {}, 'https://offline.test', false, true);
+      expect(await pending).toEqual({
+        error: expect.stringContaining('canceled'),
+      });
+      expect(signal.aborted).toBe(true);
+      expect(sender.eventNames()).toEqual([]);
+    }
+  );
+
+  it.each(['success', 'failure'])(
+    'releases metadata deadlines and listeners after %s',
+    async (outcome) => {
+      jest.useFakeTimers();
+      try {
+        const sender = new EventEmitter();
+        if (outcome === 'success')
+          youtubeDl.mockResolvedValueOnce({ timestamp: 1000 });
+        else youtubeDl.mockRejectedValueOnce(new Error('fixture failure'));
+        await handler('retrieve-video-information')(
+          { sender },
+          { vodUrl: 'test-url', requestId: 'fixture' }
+        );
+        expect(sender.eventNames()).toEqual([]);
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        jest.useRealTimers();
+      }
+    }
+  );
+
+  it('aborts pending metadata on app quit and window close', async () => {
+    const window = BrowserWindow.mock.results[0].value;
+    youtubeDl.mockReturnValue(new Promise(() => {}));
+    const first = handler('retrieve-video-information')(
+      { sender: window.webContents },
+      { vodUrl: 'test-url', requestId: 'quit' }
+    );
+    app.on.mock.calls.find(([name]: [string]) => name === 'before-quit')[1]();
+    expect(await first).toEqual({ error: expect.stringContaining('canceled') });
+    const second = handler('retrieve-video-information')(
+      { sender: window.webContents },
+      { vodUrl: 'test-url', requestId: 'close' }
+    );
+    window.on.mock.calls.find(([name]: [string]) => name === 'closed')[1]();
+    expect(await second).toEqual({
+      error: expect.stringContaining('canceled'),
+    });
+    expect(
+      youtubeDl.mock.calls.every(
+        (args: unknown[]) => (args[3] as { signal: AbortSignal }).signal.aborted
+      )
+    ).toBe(true);
   });
 });

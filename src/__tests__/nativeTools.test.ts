@@ -2,6 +2,7 @@
 import path from 'path';
 import { promises as fs } from 'fs';
 import { create } from 'youtube-dl-exec';
+import { RETRIEVAL_CANCELLED } from '../common/retrieval';
 import {
   NativeContext,
   nativeToolDirectory,
@@ -153,4 +154,140 @@ it('preserves downloader stderr as the useful rejection message', async () => {
   await expect(
     runYtDlp('https://example.test/video', {}, context)
   ).rejects.toThrow('fixture command failed');
+});
+
+it('terminates canceled metadata, escalates only its child and releases cleanup after exit', async () => {
+  jest.useFakeTimers({ doNotFake: ['performance'] });
+  try {
+    jest.spyOn(fs, 'access').mockResolvedValue(undefined);
+    const controller = new AbortController();
+    const removeAbort = jest.spyOn(controller.signal, 'removeEventListener');
+    let fail!: (error: Error) => void;
+    const child = Object.assign(
+      new Promise<{ stdout: string }>((_resolve, reject) => {
+        fail = reject;
+      }),
+      {
+        kill: jest.fn((signal: string) => {
+          if (signal === 'SIGKILL') fail(new Error('fixture child exited'));
+          return true;
+        }),
+      }
+    );
+    let spawned!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      spawned = resolve;
+    });
+    const command = Object.assign(jest.fn(), {
+      exec: jest.fn().mockImplementation(() => {
+        spawned();
+        return child;
+      }),
+    });
+    jest.mocked(create).mockReturnValue(command);
+    const removeExit = jest.fn();
+    onExit.mockReturnValueOnce(removeExit);
+    const result = runYtDlp(
+      'https://offline.test/video',
+      { skipDownload: true },
+      context,
+      { signal: controller.signal }
+    );
+    const canceled = result.catch((error: Error) => error.message);
+    await ready;
+    controller.abort();
+    expect(child.kill.mock.calls).toEqual([['SIGTERM']]);
+    jest.advanceTimersByTime(2_000);
+    expect(await canceled).toBe(RETRIEVAL_CANCELLED);
+    expect(child.kill.mock.calls).toEqual([['SIGTERM'], ['SIGKILL']]);
+    expect(removeExit).toHaveBeenCalledTimes(1);
+    expect(removeAbort).toHaveBeenCalledWith('abort', expect.any(Function));
+    expect(jest.getTimerCount()).toBe(0);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it.each([false, true])(
+  'cleans up signal-aware native completion with rejection=%s',
+  async (reject) => {
+    jest.useFakeTimers({ doNotFake: ['performance'] });
+    try {
+      jest.spyOn(fs, 'access').mockResolvedValue(undefined);
+      const controller = new AbortController();
+      const removeAbort = jest.spyOn(controller.signal, 'removeEventListener');
+      const child = Object.assign(
+        reject
+          ? Promise.reject(new Error('fixture failure'))
+          : Promise.resolve({ stdout: '{}' }),
+        { kill: jest.fn() }
+      );
+      jest
+        .mocked(create)
+        .mockReturnValue(
+          Object.assign(jest.fn(), { exec: jest.fn().mockReturnValue(child) })
+        );
+      const result = runYtDlp('https://offline.test/video', {}, context, {
+        signal: controller.signal,
+      });
+      expect(await result.catch((error: Error) => error.message)).toEqual(
+        reject ? 'fixture failure' : {}
+      );
+      controller.abort();
+      expect(child.kill).not.toHaveBeenCalled();
+      expect(removeAbort).toHaveBeenCalledWith('abort', expect.any(Function));
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
+  }
+);
+
+it('does not spawn already canceled metadata', async () => {
+  const controller = new AbortController();
+  controller.abort();
+  jest.mocked(create).mockClear();
+  await expect(
+    runYtDlp('https://offline.test/video', {}, context, {
+      signal: controller.signal,
+    })
+  ).rejects.toThrow(RETRIEVAL_CANCELLED);
+  expect(create).not.toHaveBeenCalled();
+});
+
+it('clears forced termination when metadata exits after SIGTERM', async () => {
+  jest.useFakeTimers({ doNotFake: ['performance'] });
+  try {
+    jest.spyOn(fs, 'access').mockResolvedValue(undefined);
+    const controller = new AbortController();
+    let fail!: (error: Error) => void;
+    const child = Object.assign(
+      new Promise<{ stdout: string }>((_resolve, reject) => {
+        fail = reject;
+      }),
+      { kill: jest.fn(() => fail(new Error('fixture child exited'))) }
+    );
+    let spawned!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      spawned = resolve;
+    });
+    const command = Object.assign(jest.fn(), {
+      exec: jest.fn().mockImplementation(() => {
+        spawned();
+        return child;
+      }),
+    });
+    jest.mocked(create).mockReturnValue(command);
+    const result = runYtDlp('https://offline.test/video', {}, context, {
+      signal: controller.signal,
+    });
+    await ready;
+    controller.abort();
+    await expect(result).rejects.toThrow(RETRIEVAL_CANCELLED);
+    expect(jest.getTimerCount()).toBe(0);
+    jest.advanceTimersByTime(2_000);
+    expect(child.kill.mock.calls).toEqual([['SIGTERM']]);
+  } finally {
+    jest.useRealTimers();
+  }
 });

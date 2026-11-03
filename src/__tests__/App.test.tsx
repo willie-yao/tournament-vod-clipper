@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom';
+import { randomUUID } from 'crypto';
 import {
   act,
   fireEvent,
@@ -9,7 +10,15 @@ import {
 import { ApolloLink, Operation, createHttpLink } from '@apollo/client';
 import { MockLink, MockedResponse } from '@apollo/client/testing';
 import App from '../renderer/App';
-import { GET_SETS_AT_STREAM_STATION } from '../renderer/common/StartggQueries';
+import {
+  GET_ALL_CHARACTERS,
+  GET_SETS_AT_STREAM_STATION,
+} from '../renderer/common/StartggQueries';
+import {
+  RETRIEVAL_TIMEOUT_MS,
+  STARTGG_REQUEST_TIMEOUT_MS,
+  VOD_METADATA_TIMEOUT_MS,
+} from '../common/retrieval';
 import { setsResponse, tournamentSet } from '../test/fixtures';
 
 jest.mock('@apollo/client', () => ({
@@ -29,6 +38,10 @@ const request = {
 };
 
 function setup(secret = '', mocks: MockedResponse[] = []) {
+  Object.defineProperty(window, 'crypto', {
+    configurable: true,
+    value: { randomUUID },
+  });
   let savedKey = secret;
   const settings = new Map<string, unknown>([
     ['eventId', slug],
@@ -48,7 +61,8 @@ function setup(secret = '', mocks: MockedResponse[] = []) {
     getOutputDirectory: jest.fn().mockResolvedValue('/mock/output'),
     chooseOutputDirectory: jest.fn().mockResolvedValue(null),
     createFolder: jest.fn().mockResolvedValue('/mock/output'),
-    retrieveVideoInformation: jest.fn().mockResolvedValue(1000),
+    retrieveVideoInformation: jest.fn().mockResolvedValue({ timestamp: 1000 }),
+    cancelRetrieveVideoInformation: jest.fn(),
   };
   Object.defineProperty(window, 'electron', {
     configurable: true,
@@ -250,7 +264,9 @@ describe('App settings and retrieval', () => {
     const retrieve = screen.getByRole('button', { name: 'Retrieve Sets' });
     await waitFor(() => expect(retrieve).toBeEnabled());
     fireEvent.click(retrieve);
-    await screen.findByText('Error retrieving sets: test query failure');
+    await screen.findByText(
+      'Error retrieving sets: Could not retrieve start.gg data. Check your API key, event slug and connection, then retry.'
+    );
     await waitFor(() => expect(retrieve).toBeEnabled());
     fireEvent.change(
       screen.getByLabelText('Start.gg API key', { exact: false }),
@@ -272,19 +288,264 @@ describe('App settings and retrieval', () => {
       { request, result: { data: setsResponse([tournamentSet()]) } },
       { request, result: { data: setsResponse([tournamentSet()]) } },
     ]);
-    ipcRenderer.retrieveVideoInformation.mockRejectedValueOnce(
-      new Error('test VOD failure')
-    );
+    ipcRenderer.retrieveVideoInformation.mockResolvedValueOnce({
+      error: 'Could not read the VOD start time. Check the VOD URL and retry.',
+    });
     render(<App />);
     const retrieve = screen.getByRole('button', { name: 'Retrieve Sets' });
     await waitFor(() => expect(retrieve).toBeEnabled());
     fireEvent.click(retrieve);
-    await screen.findByText('Error retrieving sets: test VOD failure');
+    await screen.findByText(
+      'Error retrieving sets: Could not read the VOD start time. Check the VOD URL and retry.'
+    );
     await waitFor(() => expect(retrieve).toBeEnabled());
     fireEvent.click(retrieve);
     await screen.findByRole('heading', { name: 'Tournament' });
     expect(
       screen.getByText('Player A vs Player B - Finals - Tournament')
     ).toBeInTheDocument();
+  });
+});
+
+describe('retrieval cancellation and deadlines', () => {
+  afterEach(() => jest.useRealTimers());
+
+  it('times out a hung query, aborts its signal and retries with the saved source intact', async () => {
+    const { operations } = setup('fixture-key', [
+      { request, result: { data: setsResponse([]) }, delay: 600_000 },
+      { request, result: { data: setsResponse([]) } },
+    ]);
+    render(<App />);
+    const retrieve = screen.getByRole('button', { name: 'Retrieve Sets' });
+    await waitFor(() => expect(retrieve).toBeEnabled());
+    jest.useFakeTimers();
+    fireEvent.click(retrieve);
+    await act(async () => {});
+    expect(operations).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Match review' })).toBeDisabled();
+    await act(async () => {
+      jest.advanceTimersByTime(STARTGG_REQUEST_TIMEOUT_MS);
+    });
+    expect(
+      screen.getByText(/start.gg did not respond within 30 seconds/)
+    ).toBeVisible();
+    expect(operations[0].getContext().fetchOptions.signal.aborted).toBe(true);
+    expect(retrieve).toBeEnabled();
+    expect(screen.getByLabelText('VOD Link', { exact: false })).toHaveValue(
+      'https://www.twitch.tv/videos/123'
+    );
+    fireEvent.click(retrieve);
+    await act(async () => {});
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(screen.getByText('No sets found')).toBeVisible();
+  });
+
+  it('does not start a late fetch after a key-store wait times out', async () => {
+    const { store, operations } = setup('fixture-key', [
+      { request, result: { data: setsResponse([]) } },
+    ]);
+    render(<App />);
+    const retrieve = screen.getByRole('button', { name: 'Retrieve Sets' });
+    await waitFor(() => expect(retrieve).toBeEnabled());
+    let finish!: (key: string) => void;
+    store.getSecret.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+    );
+    jest.useFakeTimers();
+    fireEvent.click(retrieve);
+    await act(async () => {});
+    await act(async () => {
+      jest.advanceTimersByTime(STARTGG_REQUEST_TIMEOUT_MS);
+    });
+    expect(
+      screen.getByText(/start.gg did not respond within 30 seconds/)
+    ).toBeVisible();
+    expect(retrieve).toBeEnabled();
+    await act(async () => finish('fixture-key'));
+    expect(operations).toHaveLength(0);
+    fireEvent.click(retrieve);
+    await act(async () => {});
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(screen.getByText('No sets found')).toBeVisible();
+  });
+
+  it('bounds character metadata queries with the same network deadline', async () => {
+    const { store, operations, ipcRenderer } = setup('fixture-key', [
+      { request, result: { data: setsResponse([tournamentSet()]) } },
+      {
+        request: { query: GET_ALL_CHARACTERS, variables: { gameid: 1386 } },
+        result: { data: { videogame: { characters: [] } } },
+        delay: 600_000,
+      },
+    ]);
+    const get = store.get.getMockImplementation()!;
+    store.get.mockImplementation((key) =>
+      key === 'characterMap' ? undefined : get(key)
+    );
+    render(<App />);
+    const retrieve = screen.getByRole('button', { name: 'Retrieve Sets' });
+    await waitFor(() => expect(retrieve).toBeEnabled());
+    jest.useFakeTimers();
+    fireEvent.click(retrieve);
+    await act(async () => {});
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(operations).toHaveLength(2);
+    await act(async () => {
+      jest.advanceTimersByTime(STARTGG_REQUEST_TIMEOUT_MS);
+    });
+    expect(
+      screen.getByText(/start.gg did not respond within 30 seconds/)
+    ).toBeVisible();
+    expect(operations[1].getContext().fetchOptions.signal.aborted).toBe(true);
+    expect(ipcRenderer.retrieveVideoInformation).not.toHaveBeenCalled();
+    expect(retrieve).toBeEnabled();
+    expect(store.set).not.toHaveBeenCalledWith(
+      'characterMap',
+      expect.anything()
+    );
+  });
+
+  it('cancels timed-out metadata and ignores its late result while a retry is waiting', async () => {
+    const { ipcRenderer } = setup('fixture-key', [
+      { request, result: { data: setsResponse([tournamentSet()]) } },
+      { request, result: { data: setsResponse([tournamentSet()]) } },
+    ]);
+    let finishOld!: (value: { timestamp: number }) => void;
+    ipcRenderer.retrieveVideoInformation
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          finishOld = resolve;
+        })
+      )
+      .mockReturnValueOnce(new Promise(() => {}));
+    render(<App />);
+    const retrieve = screen.getByRole('button', { name: 'Retrieve Sets' });
+    await waitFor(() => expect(retrieve).toBeEnabled());
+    jest.useFakeTimers();
+    fireEvent.click(retrieve);
+    await act(async () => {});
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(ipcRenderer.retrieveVideoInformation).toHaveBeenCalledTimes(1);
+    const first =
+      ipcRenderer.retrieveVideoInformation.mock.calls[0][0].requestId;
+    await act(async () => {
+      jest.advanceTimersByTime(VOD_METADATA_TIMEOUT_MS);
+    });
+    expect(
+      screen.getByText(/VOD metadata did not respond within 60 seconds/)
+    ).toBeVisible();
+    expect(ipcRenderer.cancelRetrieveVideoInformation).toHaveBeenCalledWith(
+      first
+    );
+    expect(retrieve).toBeEnabled();
+    fireEvent.click(retrieve);
+    await act(async () => {});
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+    });
+    const second =
+      ipcRenderer.retrieveVideoInformation.mock.calls[1][0].requestId;
+    expect(second).not.toBe(first);
+    await act(async () => finishOld({ timestamp: 1000 }));
+    expect(
+      screen.getByRole('button', { name: 'Retrieving sets...' })
+    ).toBeDisabled();
+    expect(
+      screen.queryByRole('heading', { name: 'Tournament' })
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel retrieval' }));
+    await act(async () => {});
+    expect(ipcRenderer.cancelRetrieveVideoInformation).toHaveBeenLastCalledWith(
+      second
+    );
+    expect(
+      screen.getByText(/Retrieval canceled. Retry when ready/)
+    ).toBeVisible();
+    expect(retrieve).toBeEnabled();
+  });
+
+  it.each(['unmount', 'pagehide'])(
+    'cancels metadata on %s and never navigates on late completion',
+    async (teardown) => {
+      const { ipcRenderer } = setup('fixture-key', [
+        { request, result: { data: setsResponse([tournamentSet()]) } },
+      ]);
+      let finish!: (value: { timestamp: number }) => void;
+      ipcRenderer.retrieveVideoInformation.mockReturnValueOnce(
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+      );
+      const view = render(<App />);
+      const retrieve = screen.getByRole('button', { name: 'Retrieve Sets' });
+      await waitFor(() => expect(retrieve).toBeEnabled());
+      fireEvent.click(retrieve);
+      await waitFor(() =>
+        expect(ipcRenderer.retrieveVideoInformation).toHaveBeenCalled()
+      );
+      const { requestId } =
+        ipcRenderer.retrieveVideoInformation.mock.calls[0][0];
+      if (teardown === 'unmount') view.unmount();
+      else
+        act(() => {
+          window.dispatchEvent(new Event('pagehide'));
+        });
+      expect(ipcRenderer.cancelRetrieveVideoInformation).toHaveBeenCalledWith(
+        requestId
+      );
+      await act(async () => finish({ timestamp: 1000 }));
+      expect(
+        screen.queryByRole('heading', { name: 'Tournament' })
+      ).not.toBeInTheDocument();
+    }
+  );
+
+  it('bounds complete pagination and rejects same-turn double submission', async () => {
+    const pages = Math.ceil(RETRIEVAL_TIMEOUT_MS / 20_000) + 1;
+    const { operations } = setup(
+      'fixture-key',
+      Array.from({ length: pages }, (_, index) => ({
+        request: {
+          ...request,
+          variables: { ...request.variables, page: index + 1 },
+        },
+        result: {
+          data: setsResponse([tournamentSet({ id: String(index) })], pages),
+        },
+        delay: 20_000,
+      }))
+    );
+    render(<App />);
+    const retrieve = screen.getByRole('button', { name: 'Retrieve Sets' });
+    await waitFor(() => expect(retrieve).toBeEnabled());
+    jest.useFakeTimers();
+    act(() => {
+      retrieve.click();
+      retrieve.click();
+    });
+    await act(async () => {});
+    expect(operations).toHaveLength(1);
+    for (let elapsed = 0; elapsed < RETRIEVAL_TIMEOUT_MS; elapsed += 20_000) {
+      // eslint-disable-next-line no-await-in-loop
+      await act(async () => {
+        jest.advanceTimersByTime(20_000);
+      });
+    }
+    expect(screen.getByText(/Retrieval exceeded five minutes/)).toBeVisible();
+    expect(retrieve).toBeEnabled();
+    expect(
+      operations[operations.length - 1].getContext().fetchOptions.signal.aborted
+    ).toBe(true);
+    expect(screen.getByRole('button', { name: 'Match review' })).toBeDisabled();
   });
 });

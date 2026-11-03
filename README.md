@@ -70,7 +70,7 @@ This tool clips VODs automatically by retrieving timestamps of when matches are 
 - Then, enter the VOD url for the stream in the `VOD Link` field. This can only be a Twitch link at the moment. For example:
   - https://www.twitch.tv/videos/123456789
 - To retrieve only the streamed sets, enter the name of the twitch channel assigned to stream in the `Stream Station` field. You can also enter a station number.
-- Finally, click the `Retrieve Sets` button. This will take you to a new page.
+- Finally, click `Retrieve Sets` to load Match review. Each start.gg page or character lookup has a 30-second limit, VOD metadata has a 60-second limit, and the complete retrieval has a five-minute limit. These limits allow multiple pages without leaving a stalled request waiting indefinitely; results are not silently truncated. `Cancel retrieval` stops pending retrieval work and lets you retry. Navigation, reload, window close and app quit also cancel work that is no longer needed. Timeouts leave your source fields intact and show an actionable error. These limits do not apply to clip downloads or YouTube uploads.
 
 ### Downloading sets
 

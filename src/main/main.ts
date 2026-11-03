@@ -16,6 +16,7 @@ import {
   ipcMain,
   safeStorage,
   dialog,
+  WebContents,
 } from 'electron';
 import MenuBuilder from './menu';
 import { legacyProfilePath, resolveHtmlPath, resolvePreloadPath } from './util';
@@ -23,6 +24,14 @@ import { getClipRangeError } from '../common/clipTime';
 import { getVideoTitleError, VideoUpload } from '../common/files';
 import OutputFiles from './outputFiles';
 import { runYtDlp } from './nativeTools';
+import {
+  createRetrievalScope,
+  RetrievalError,
+  VideoInformationResult,
+  VOD_METADATA_FAILED,
+  VOD_METADATA_TIMEOUT_MS,
+  withRetrievalAbort,
+} from '../common/retrieval';
 import { startRendererHost } from './rendererHost';
 import Store from 'electron-store';
 import { youtube as createYoutube } from '@googleapis/youtube';
@@ -129,26 +138,81 @@ ipcMain.handle('open-folder', async (event, folderName: string) => {
   if (error) throw new Error(`Could not open the output folder: ${error}`);
 });
 
-ipcMain.handle('retrieve-video-information', async (event, arg) => {
-  const output = await runYtDlp(
-    arg.vodUrl,
-    {
-      dumpSingleJson: true,
-      skipDownload: true,
-    },
-    nativeContext()
-  );
-  const timestamp: unknown =
-    output && typeof output === 'object'
-      ? Object.getOwnPropertyDescriptor(output, 'timestamp')?.value
-      : undefined;
-  if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {
-    throw new Error(
-      'The VOD start timestamp is unavailable. Check the VOD URL.'
-    );
-  }
-  return timestamp;
+const metadataRequests = new Map<
+  WebContents,
+  { requestId: string; scope: ReturnType<typeof createRetrievalScope> }
+>();
+
+ipcMain.on('cancel-retrieve-video-information', (event, requestId: string) => {
+  const active = metadataRequests.get(event.sender);
+  if (active?.requestId === requestId) active.scope.cancel();
 });
+
+ipcMain.handle(
+  'retrieve-video-information',
+  async (event, arg): Promise<VideoInformationResult> => {
+    if (
+      typeof arg?.requestId !== 'string' ||
+      !arg.requestId ||
+      typeof arg?.vodUrl !== 'string' ||
+      !arg.vodUrl
+    ) {
+      return { error: 'Invalid VOD metadata request. Retry retrieval.' };
+    }
+    const { sender } = event;
+    metadataRequests.get(sender)?.scope.cancel();
+    const scope = createRetrievalScope(
+      VOD_METADATA_TIMEOUT_MS,
+      'VOD metadata did not respond within 60 seconds. Check the VOD URL and connection, then retry.'
+    );
+    const active = { requestId: arg.requestId, scope };
+    metadataRequests.set(sender, active);
+    const cancel = () => scope.cancel();
+    const onNavigation = (
+      _event: Electron.Event,
+      _url: string,
+      isInPlace: boolean,
+      isMainFrame: boolean
+    ) => {
+      if (isMainFrame && !isInPlace) cancel();
+    };
+    sender.once('destroyed', cancel);
+    sender.once('render-process-gone', cancel);
+    sender.on('did-start-navigation', onNavigation);
+    try {
+      const output = await withRetrievalAbort(scope.signal, () =>
+        runYtDlp(
+          arg.vodUrl,
+          { dumpSingleJson: true, skipDownload: true },
+          nativeContext(),
+          { signal: scope.signal }
+        )
+      );
+      const timestamp: unknown =
+        output && typeof output === 'object'
+          ? Object.getOwnPropertyDescriptor(output, 'timestamp')?.value
+          : undefined;
+      if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {
+        throw new RetrievalError(
+          'The VOD start timestamp is unavailable. Check the VOD URL.'
+        );
+      }
+      return { timestamp };
+    } catch (error) {
+      return {
+        error:
+          error instanceof RetrievalError ? error.message : VOD_METADATA_FAILED,
+      };
+    } finally {
+      scope.dispose();
+      sender.removeListener('destroyed', cancel);
+      sender.removeListener('render-process-gone', cancel);
+      sender.removeListener('did-start-navigation', onNavigation);
+      if (metadataRequests.get(sender) === active)
+        metadataRequests.delete(sender);
+    }
+  }
+);
 
 ipcMain.handle('download-video', async (event, arg) => {
   const error = getClipRangeError(arg?.startTime, arg?.endTime);
@@ -429,7 +493,9 @@ const createWindow = async () => {
     }
   });
 
+  const contents = mainWindow.webContents;
   mainWindow.on('closed', () => {
+    metadataRequests.get(contents)?.scope.cancel();
     mainWindow = null;
   });
 
@@ -477,5 +543,8 @@ app
     app.quit();
   });
 
-app.on('before-quit', () => youtubeAuth.stop());
+app.on('before-quit', () => {
+  metadataRequests.forEach(({ scope }) => scope.cancel());
+  youtubeAuth.stop();
+});
 app.on('will-quit', () => rendererHost?.server.close());
