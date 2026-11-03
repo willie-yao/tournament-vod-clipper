@@ -9,6 +9,7 @@ import {
   createHttpLink,
 } from '@apollo/client';
 import { setContext } from '@apollo/client/link/context';
+import { retrievalAbortError, withRetrievalAbort } from '../common/retrieval';
 import YTUploadView from './pages/YTUploadView';
 import theme from './theme';
 import MainView from './pages/MainView';
@@ -16,8 +17,14 @@ import SetsView from './pages/SetsView';
 
 export default function App() {
   const client = useMemo(() => {
-    const auth = setContext(async () => {
-      const token = await window.electron.store.getSecret('apikey');
+    const auth = setContext(async (_request, context) => {
+      const signal: AbortSignal | undefined = context.fetchOptions?.signal;
+      if (signal?.aborted) throw retrievalAbortError(signal);
+      const readKey = () => window.electron.store.getSecret('apikey');
+      const token = signal
+        ? await withRetrievalAbort(signal, readKey)
+        : await readKey();
+      if (signal?.aborted) throw retrievalAbortError(signal);
       if (!token) {
         throw new Error('Save your start.gg API key before retrieving sets.');
       }

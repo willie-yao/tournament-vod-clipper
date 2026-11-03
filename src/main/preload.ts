@@ -1,9 +1,24 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 import { VideoFile, VideoUpload } from '../common/files';
 import type { YouTubeSession, YouTubeStatus } from '../common/youtube';
+import type { VideoInformationResult } from '../common/retrieval';
 
 export type Channels = 'ipc-example';
 export type electronAPI = 'electronAPI';
+
+const metadataRequests = new Set<string>();
+const cancelMetadata = () => {
+  metadataRequests.forEach((requestId) =>
+    ipcRenderer.send('cancel-retrieve-video-information', requestId)
+  );
+  metadataRequests.clear();
+  window.removeEventListener('unload', cancelMetadata);
+};
+const forgetMetadata = (requestId: string) => {
+  metadataRequests.delete(requestId);
+  if (!metadataRequests.size)
+    window.removeEventListener('unload', cancelMetadata);
+};
 
 const electronHandler = {
   store: {
@@ -43,8 +58,22 @@ const electronHandler = {
     downloadVideo(args: object): Promise<VideoFile> {
       return ipcRenderer.invoke('download-video', args);
     },
-    retrieveVideoInformation(args: { vodUrl: string }): Promise<number> {
-      return ipcRenderer.invoke('retrieve-video-information', args);
+    async retrieveVideoInformation(args: {
+      vodUrl: string;
+      requestId: string;
+    }): Promise<VideoInformationResult> {
+      metadataRequests.add(args.requestId);
+      if (metadataRequests.size === 1)
+        window.addEventListener('unload', cancelMetadata);
+      try {
+        return await ipcRenderer.invoke('retrieve-video-information', args);
+      } finally {
+        forgetMetadata(args.requestId);
+      }
+    },
+    cancelRetrieveVideoInformation(requestId: string): void {
+      ipcRenderer.send('cancel-retrieve-video-information', requestId);
+      forgetMetadata(requestId);
     },
     getTournamentFolders(): Promise<string[]> {
       return ipcRenderer.invoke('get-tournament-folders');

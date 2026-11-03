@@ -113,7 +113,7 @@ describe('retrieveTournamentSets', () => {
     ).rejects.toThrow('not found');
     await expect(
       retrieveTournamentSets(client, slug, 'streamer')
-    ).rejects.toThrow('test network failure');
+    ).rejects.toThrow('Check your API key, event slug and connection');
   });
 
   it.each(['0', '-1', '1.5', 'Infinity'])(

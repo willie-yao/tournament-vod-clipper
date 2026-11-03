@@ -1,6 +1,8 @@
 import { ApolloClient } from '@apollo/client';
 import { getClipRangeError } from '../../common/clipTime';
+import { RetrievalError } from '../../common/retrieval';
 import generateSetTitle, { TitleFormat } from './setTitle';
+import startggRequest from './startggRequest';
 import {
   GET_SETS_AT_STATION,
   GET_SETS_AT_STREAM_STATION,
@@ -71,10 +73,12 @@ export interface VODMetadata {
 export async function retrieveTournamentSets(
   client: Pick<ApolloClient<object>, 'query'>,
   eventId: string,
-  station: string
+  station: string,
+  signal?: AbortSignal
 ) {
   const input = station.trim();
-  if (!input) throw new Error('Enter a station number or stream channel.');
+  if (!input)
+    throw new RetrievalError('Enter a station number or stream channel.');
   const numeric = Number(input);
   const stationNumber = Number.isNaN(numeric) ? null : numeric;
   if (
@@ -83,7 +87,7 @@ export async function retrieveTournamentSets(
       stationNumber < 1 ||
       stationNumber > 2147483647)
   ) {
-    throw new Error('Station numbers must be positive integers.');
+    throw new RetrievalError('Station numbers must be positive integers.');
   }
 
   const sets: TournamentSet[] = [];
@@ -95,21 +99,28 @@ export async function retrieveTournamentSets(
   let totalPages = 1;
   do {
     // eslint-disable-next-line no-await-in-loop
-    const { data } = await client.query<SetsResponse>({
-      query:
-        stationNumber === null
-          ? GET_SETS_AT_STREAM_STATION
-          : GET_SETS_AT_STATION,
-      variables: {
-        eventId,
-        page,
-        ...(stationNumber === null ? {} : { stationNumbers: [stationNumber] }),
+    const { data } = await startggRequest<SetsResponse>(
+      client,
+      {
+        query:
+          stationNumber === null
+            ? GET_SETS_AT_STREAM_STATION
+            : GET_SETS_AT_STATION,
+        variables: {
+          eventId,
+          page,
+          ...(stationNumber === null
+            ? {}
+            : { stationNumbers: [stationNumber] }),
+        },
       },
-      fetchPolicy: 'network-only',
-    });
+      signal
+    );
     const { event } = data;
     if (!event?.tournament?.name || !event.sets) {
-      throw new Error('Tournament event not found or set data is unavailable.');
+      throw new RetrievalError(
+        'Tournament event not found or set data is unavailable.'
+      );
     }
     tournamentName = event.tournament.name;
     eventName = event.name || '';
@@ -119,7 +130,9 @@ export async function retrieveTournamentSets(
       totalPages < 0 ||
       !Array.isArray(event.sets.nodes)
     ) {
-      throw new Error('The tournament returned invalid pagination data.');
+      throw new RetrievalError(
+        'The tournament returned invalid pagination data.'
+      );
     }
 
     const pageSets = event.sets.nodes.filter(
