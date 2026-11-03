@@ -3,6 +3,12 @@ import path from 'path';
 import { tmpdir } from 'os';
 import { promises as fs } from 'fs';
 import OutputFiles, { containedPath, safeName } from '../main/outputFiles';
+import {
+  formatSetMetadata,
+  PLAYERS_FIRST_TITLE,
+  TOURNAMENT_FIRST_TITLE,
+} from '../renderer/common/tournamentSets';
+import { tournamentSet } from '../test/fixtures';
 
 let scratch: string;
 let root: string;
@@ -77,6 +83,57 @@ it('preserves partial downloads instead of resuming or replacing them silently',
     'partial user data'
   );
 });
+
+it.each([PLAYERS_FIRST_TITLE, TOURNAMENT_FIRST_TITLE] as const)(
+  'protects repeated shortened titles and keeps rematch rounds distinct: %s',
+  async (format) => {
+    const tournament = 'A Regional Championship With A Very Long Name #2026';
+    const metadata = (id: string, fullRoundText: string) =>
+      formatSetMetadata(
+        tournamentSet({
+          id,
+          fullRoundText,
+          slots: [
+            { entrant: { id: 'a', name: 'NorthernCompetitor'.repeat(3) } },
+            { entrant: { id: 'b', name: 'SouthernCompetitor'.repeat(3) } },
+          ],
+        }),
+        tournament,
+        1000,
+        {},
+        format
+      );
+    const initial = metadata('1', 'Losers Round 3');
+    const target = await files.target(tournament, initial.title);
+    await fs.writeFile(target.path, 'original clip');
+    await files.saveThumbnail(target, Buffer.from('original thumbnail'));
+    expect(metadata('2', 'Losers Round 3').title).toBe(initial.title);
+    await expect(files.target(tournament, initial.title)).rejects.toThrow(
+      'already exists'
+    );
+    const partial = await files.target(
+      tournament,
+      metadata('3', 'Losers Round 4').title
+    );
+    expect(partial.videoName).not.toBe(target.videoName);
+    await fs.writeFile(`${partial.path}.part`, 'partial rematch');
+    await expect(
+      files.target(tournament, metadata('3', 'Losers Round 4').title)
+    ).rejects.toThrow('partial download');
+    const finals = await files.target(
+      tournament,
+      metadata('4', 'Grand Finals').title
+    );
+    const reset = await files.target(
+      tournament,
+      metadata('5', 'Grand Finals (Reset)').title
+    );
+    expect(finals.videoName).not.toBe(reset.videoName);
+    expect(await fs.readFile(target.path, 'utf8')).toBe('original clip');
+    const thumbnail = await files.thumbnail(target);
+    expect(await fs.readFile(thumbnail!, 'utf8')).toBe('original thumbnail');
+  }
+);
 
 it.each(['Nul\0Tournament', 'A: B: C', 'CON'])(
   'normalizes new tournament name %s before creating output',

@@ -9,6 +9,11 @@ import {
 import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom';
 import YTUploadView from '../renderer/pages/YTUploadView';
 import type { YouTubeStatus } from '../common/youtube';
+import {
+  formatSetMetadata,
+  PLAYERS_FIRST_TITLE,
+} from '../renderer/common/tournamentSets';
+import { tournamentSet } from '../test/fixtures';
 
 const connected: Extract<YouTubeStatus, { state: 'connected' }> = {
   state: 'connected',
@@ -18,7 +23,7 @@ const connected: Extract<YouTubeStatus, { state: 'connected' }> = {
 };
 
 let fixtureNumber = 0;
-async function setup() {
+async function setup(videoNames = ['one.mp4', 'two.mp4']) {
   const folderName = `Tournament${fixtureNumber}`;
   fixtureNumber += 1;
   const api = {
@@ -26,7 +31,7 @@ async function setup() {
     chooseOutputDirectory: jest.fn().mockResolvedValue(null),
     createFolder: jest.fn().mockResolvedValue('/mock/output'),
     getTournamentFolders: jest.fn().mockResolvedValue([folderName]),
-    getVideosInFolder: jest.fn().mockResolvedValue(['one.mp4', 'two.mp4']),
+    getVideosInFolder: jest.fn().mockResolvedValue(videoNames),
     getYouTubeStatus: jest.fn().mockResolvedValue({
       state: 'disconnected',
       message: 'Connect in your browser.',
@@ -63,7 +68,7 @@ async function setup() {
       </Routes>
     </MemoryRouter>
   );
-  await screen.findByLabelText('Title: one.mp4');
+  await screen.findByLabelText(`Title: ${videoNames[0]}`);
   await waitFor(() =>
     expect(
       screen.getByRole('button', { name: 'Connect YouTube' })
@@ -152,6 +157,48 @@ it('rejects invalid titles before creating a playlist or video', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
   await screen.findByText(
     'one.mp4: YouTube titles must contain 1 to 100 characters.'
+  );
+  expect(api.createPlaylist).not.toHaveBeenCalled();
+  expect(api.uploadSingleVideo).not.toHaveBeenCalled();
+});
+
+it('loads fitted filenames and preserves a custom upload title through recovery', async () => {
+  const generated = formatSetMetadata(
+    tournamentSet({ fullRoundText: 'Winners Quarter-Final' }),
+    'A Very Long Regional Championship Series '.repeat(4),
+    1000,
+    {},
+    PLAYERS_FIRST_TITLE
+  );
+  const videoName = `${generated.title}.mp4`;
+  const api = await setup([videoName]);
+  const input = screen.getByLabelText(`Title: ${videoName}`);
+  expect(input).toHaveValue(generated.title);
+  const custom = 'Custom upload title '.padEnd(100, 'x');
+  fireEvent.change(input, { target: { value: custom } });
+  await login();
+  api.uploadThumbnail.mockRejectedValueOnce(new Error('thumbnail rejected'));
+  fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
+  await screen.findByText('1 of 1 videos confirmed; 0 fully processed.');
+  expect(api.uploadSingleVideo).toHaveBeenCalledWith(
+    expect.objectContaining({ videoName, title: custom })
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Retry Failed Steps' }));
+  await screen.findByText('1 of 1 videos confirmed; 1 fully processed.');
+  expect(api.uploadSingleVideo).toHaveBeenCalledTimes(1);
+  expect(input).toHaveValue(custom);
+});
+
+it('does not parse or silently shorten an older arbitrary filename', async () => {
+  const videoName = `${'An old arbitrary title '.repeat(6)}.mp4`;
+  const api = await setup([videoName]);
+  expect(screen.getByLabelText(`Title: ${videoName}`)).toHaveValue(
+    videoName.slice(0, -4)
+  );
+  await login();
+  fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
+  await screen.findByText(
+    `${videoName}: YouTube titles must contain 1 to 100 characters.`
   );
   expect(api.createPlaylist).not.toHaveBeenCalled();
   expect(api.uploadSingleVideo).not.toHaveBeenCalled();

@@ -1,15 +1,16 @@
 import { ApolloClient } from '@apollo/client';
 import { getClipRangeError } from '../../common/clipTime';
+import generateSetTitle, { TitleFormat } from './setTitle';
 import {
   GET_SETS_AT_STATION,
   GET_SETS_AT_STREAM_STATION,
 } from './StartggQueries';
 
-export const PLAYERS_FIRST_TITLE = 'Players - Round - Tournament Name';
-export const TOURNAMENT_FIRST_TITLE = 'Tournament Name: Players - Round';
-export type TitleFormat =
-  | typeof PLAYERS_FIRST_TITLE
-  | typeof TOURNAMENT_FIRST_TITLE;
+export {
+  PLAYERS_FIRST_TITLE,
+  TOURNAMENT_FIRST_TITLE,
+  TitleFormat,
+} from './setTitle';
 export type CharacterMap = Record<number, string>;
 
 interface Entrant {
@@ -52,6 +53,7 @@ interface SetsResponse {
 export interface VODMetadata {
   id: string;
   title: string;
+  originalTitle?: string;
   startTime: number | null;
   endTime: number | null;
   needsCorrection: string | null;
@@ -153,7 +155,10 @@ export function formatSetMetadata(
   const playerNames = entrants.map((entrant) =>
     entrant?.name?.split('|').pop()?.trim()
   );
-  const players = playerNames.map((name) => name || 'Unknown player');
+  const players: [string, string] = [
+    playerNames[0] || 'Unknown player',
+    playerNames[1] || 'Unknown player',
+  ];
   const characterNames = entrants.map((entrant) => {
     const names = new Set<string>();
     if (!entrant) return [];
@@ -173,14 +178,13 @@ export function formatSetMetadata(
     });
     return [...names];
   });
-  const playerTitles = players.map((player, index) =>
-    characterNames[index].length
-      ? `${player} (${characterNames[index].join(', ')})`
-      : player
-  );
-  const match = `${playerTitles[0]} vs ${playerTitles[1]} - ${
-    set.fullRoundText || 'Match'
-  }`;
+  const { title, originalTitle } = generateSetTitle({
+    players,
+    characters: [characterNames[0], characterNames[1]],
+    round: set.fullRoundText || 'Match',
+    tournament: tournamentName,
+    format: titleFormat,
+  });
   const startTime =
     typeof set.startedAt === 'number' && Number.isFinite(set.startedAt)
       ? set.startedAt - vodTimestamp
@@ -197,10 +201,8 @@ export function formatSetMetadata(
 
   return {
     id: String(set.id),
-    title:
-      titleFormat === TOURNAMENT_FIRST_TITLE
-        ? `${tournamentName}: ${match}`
-        : `${match} - ${tournamentName}`,
+    title,
+    ...(title !== originalTitle ? { originalTitle } : {}),
     startTime,
     endTime,
     needsCorrection,
