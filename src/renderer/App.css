@@ -63,6 +63,53 @@ p {
   flex-direction: column;
   overflow: hidden;
 }
+.source-splices {
+  position: relative;
+  isolation: isolate;
+  background: #191c20;
+}
+.source-splices > .source-backdrop {
+  position: absolute;
+  inset: 44px 0 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.32;
+}
+.source-splices > .source-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: -560px 0 0 -640px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 28'%3E%3Cpath d='M4 4h9L8 24H4zM17 4l12 10-17 10z' fill='none' stroke='%23e7bc78' stroke-width='0.08'/%3E%3C/svg%3E");
+  background-size: 640px 560px;
+  background-repeat: repeat;
+  animation: cutroom-source-splices 24s linear infinite;
+}
+.source-splices > .appbar {
+  position: relative;
+  z-index: 2;
+}
+.source-splices > .source-page {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  flex: 1;
+  background: #202327;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+}
+@keyframes cutroom-source-splices {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: translate(640px, 560px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .source-splices > .source-backdrop::before {
+    animation: none;
+  }
+}
 .appbar {
   flex-shrink: 0;
   min-height: 44px;
@@ -86,12 +133,6 @@ p {
   width: 20px;
   height: 20px;
 }
-.brand-edition {
-  color: var(--muted);
-  font-weight: 400;
-  font-size: 11px;
-  padding-left: 4px;
-}
 .appbar nav {
   display: flex;
   align-self: stretch;
@@ -109,6 +150,85 @@ p {
 }
 .appbar nav .Mui-disabled {
   color: #848b96;
+}
+.appbar.nav-amber {
+  height: 44px;
+  padding: 0 18px 0 0;
+  gap: 24px;
+  background: var(--amber);
+  border-bottom-color: #191c20;
+}
+.nav-amber .brand {
+  isolation: isolate;
+  position: relative;
+  align-self: stretch;
+  padding: 0 28px 0 20px;
+  gap: 10px;
+}
+.nav-amber .brand::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: #191c20;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+  pointer-events: none;
+}
+.nav-amber .brand .cut-mark {
+  width: 32px;
+  height: 28px;
+}
+.nav-amber .brand-product {
+  color: #191c20;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  white-space: nowrap;
+}
+.nav-amber .amber-nav {
+  margin-left: auto;
+  align-items: center;
+  height: 44px;
+}
+.nav-amber .amber-nav .MuiButton-root {
+  position: relative;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: #191c20;
+  font-size: 12px;
+  background: transparent;
+  font-weight: 600;
+}
+.nav-amber .amber-nav [aria-current='page'] {
+  background: #191c20;
+  border-color: #191c20;
+  color: var(--amber);
+  font-weight: 700;
+}
+.nav-amber
+  .amber-nav
+  .MuiButton-root:hover:not(:disabled):not([aria-current='page']) {
+  border-color: #191c20;
+}
+.nav-amber .amber-nav .MuiButton-root:focus-visible {
+  outline: 2px solid #191c20;
+  outline-offset: 2px;
+}
+.nav-amber .amber-nav .Mui-disabled {
+  color: #191c20;
+  opacity: 0.5;
+}
+.nav-amber .amber-nav .Mui-disabled[aria-current='page'] {
+  color: var(--amber);
+}
+@media (max-width: 1100px) {
+  .appbar.nav-amber {
+    gap: 14px;
+  }
 }
 .app-heading {
   flex-shrink: 0;
@@ -130,17 +250,6 @@ p {
   margin-top: 6px;
   line-height: 1.6;
   overflow-wrap: anywhere;
-}
-.heading-stats {
-  text-align: right;
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.8;
-  flex-shrink: 0;
-}
-.heading-stats strong {
-  color: var(--amber);
-  font-weight: 600;
 }
 .mono {
   font-family: 'SFMono-Regular', Consolas, monospace;
@@ -183,19 +292,53 @@ p {
   color: var(--muted);
   overflow-wrap: anywhere;
 }
-.source-tree {
-  padding-left: 10px;
-  border-left: 1px solid #41464e;
+.source-panel {
+  padding: 20px 14px;
+  gap: 20px;
 }
-.source-tree a {
+.source-panel h2 {
   display: block;
-  margin-top: 5px;
-  font-size: 11px;
-  overflow-wrap: anywhere;
-  line-height: 1.6;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: break-word;
 }
-.bin-output {
-  margin-top: auto;
+.source-panel .source-panel-station {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.source-panel-facts {
+  margin: 0;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.source-panel-facts dt {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.source-panel-facts dd {
+  margin: 6px 0 0;
+  font-size: 14px;
+}
+.source-panel-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.source-panel .source-panel-actions a,
+.source-panel .source-panel-actions .MuiButton-root {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  text-align: left;
+  justify-content: flex-start;
+  font-size: 12px;
+  line-height: 1.5;
+  text-decoration: none;
 }
 .batch-center {
   min-width: 0;
@@ -210,8 +353,7 @@ p {
   border-bottom: 1px solid var(--line);
   background: #24282d;
 }
-.range-labels,
-.range-caption {
+.range-labels {
   display: flex;
   justify-content: space-between;
   gap: 10px;
@@ -223,7 +365,7 @@ p {
   height: 36px;
   border: 1px solid #3c424c;
   background: #1a1d21;
-  margin: 10px 0;
+  margin: 10px 0 0;
 }
 .range-track button {
   position: absolute;
@@ -336,6 +478,8 @@ p {
   background: #30353d;
 }
 .inspect-button {
+  display: block;
+  width: 100%;
   padding: 0;
   color: #ebedf0;
   background: transparent;
@@ -349,6 +493,7 @@ p {
   display: block;
   color: var(--muted);
   font-size: 10px;
+  font-weight: 400;
   line-height: 1.5;
   margin-top: 4px;
   max-width: 340px;
@@ -379,13 +524,6 @@ p {
   width: 13px;
   height: 13px;
   flex-shrink: 0;
-}
-.table-note {
-  padding: 10px 18px;
-  flex-shrink: 0;
-  font-size: 11px;
-  line-height: 1.65;
-  color: var(--muted);
 }
 .thumbnail-grid {
   display: grid;
@@ -497,7 +635,10 @@ p {
   margin: 16px 0 7px;
 }
 .inspector .review-action {
-  margin: 18px 0;
+  margin: 12px 0 0;
+}
+.inspector > .clip-status + .clip-fields {
+  margin-top: 18px;
 }
 .clip-fields {
   display: flex;
@@ -811,13 +952,6 @@ html {
     animation: none !important;
   }
 }
-.batch-count {
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  padding: 7px 10px;
-  font-size: 15px;
-  font-weight: 600;
-}
 .batch-footer h2 {
   font-size: 14px;
   font-weight: 600;
@@ -996,10 +1130,87 @@ input[type='checkbox'] {
 .settings-body .MuiColorInput-TextField {
   width: 100%;
 }
-.image-actions {
+.settings-body.settings-preview-first {
+  width: 100%;
+  min-width: 0;
+  max-width: 600px;
+  gap: 16px;
+}
+.settings-preview-first h2 {
+  letter-spacing: -0.02em;
+}
+.settings-switch {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+}
+.settings-preview {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+.settings-preview .thumbnail-preview {
+  border: 1px solid var(--line);
+}
+.settings-preview figcaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.settings-color-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+}
+.settings-asset-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.settings-asset-row strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+.settings-asset-row p {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.settings-asset-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.settings-asset-actions .MuiButton-root {
+  font-size: 11px;
+  min-width: 0;
+  padding: 5px 9px;
+}
+.settings-preview-first .output-folder {
+  padding: 13px 0 0;
+}
+.settings-preview-first .settings-done {
+  align-self: flex-end;
+  padding: 7px 25px;
+}
+@media (max-width: 650px) {
+  .settings-asset-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .settings-color-row {
+    grid-template-columns: 1fr;
+    gap: 9px;
+  }
 }
 .output-folder {
   padding: 16px 0;
@@ -1054,14 +1265,14 @@ summary:focus-visible {
   outline-offset: 3px;
 }
 .source-page {
-  max-width: 1060px;
+  max-width: 760px;
   width: 100%;
   padding: 28px 32px;
   margin: 0 auto;
   overflow-y: auto;
 }
 .source-intro {
-  margin-bottom: 24px;
+  margin-bottom: 28px;
   max-width: 65ch;
 }
 .source-intro h1 {
@@ -1070,13 +1281,15 @@ summary:focus-visible {
 }
 .source-form {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
 }
 .source-form .MuiSnackbar-root {
   top: 60px;
 }
+.source-access,
 .source-inputs,
+.source-fields,
 .source-settings {
   display: flex;
   flex-direction: column;
@@ -1084,14 +1297,37 @@ summary:focus-visible {
   min-width: 0;
 }
 .source-settings {
-  border-left: 1px solid var(--line);
-  padding-left: 24px;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
 }
-.source-inputs > .MuiButton-root {
-  align-self: flex-start;
-  padding: 8px 20px;
+.source-form h2 {
+  font-size: 15px;
+  font-weight: 600;
 }
-.source-settings > .MuiButton-root {
+.source-access-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+.source-access-fields .help-disclosure {
+  grid-column: 1 / -1;
+}
+.source-settings .output-folder {
+  padding: 0;
+  border: 0;
+}
+.source-submit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.source-submit > .MuiButton-root {
+  width: 100%;
+  padding: 10px 20px;
+}
+.source-access-fields > .MuiButton-root {
   align-self: flex-start;
 }
 .loading-sets {
@@ -1246,14 +1482,6 @@ summary:focus-visible {
   }
   .batch-footer {
     position: static;
-  }
-  .source-form {
-    grid-template-columns: 1fr;
-  }
-  .source-settings {
-    border: 0;
-    border-top: 1px solid var(--line);
-    padding: 24px 0 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {

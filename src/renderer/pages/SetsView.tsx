@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Alert, Button, Dialog } from '@mui/material';
-import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import ViewListIcon from '@mui/icons-material/ViewList';
 import GridViewIcon from '@mui/icons-material/GridView';
@@ -26,6 +25,7 @@ import AppShell from '../common/AppShell';
 import OutputFolder from '../common/OutputFolder';
 import {
   DEFAULT_THUMBNAIL_COLOR,
+  DEFAULT_THUMBNAIL_RIGHT_COLOR,
   exportThumbnail,
 } from '../common/thumbnailDrawing';
 import ThumbnailPreview from '../components/ThumbnailPreview';
@@ -107,6 +107,9 @@ export default function SetsView() {
   const [choosingOutput, setChoosingOutput] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [thumbnailColor, setThumbnailColor] = useState(DEFAULT_THUMBNAIL_COLOR);
+  const [thumbnailRightColor, setThumbnailRightColor] = useState(
+    DEFAULT_THUMBNAIL_RIGHT_COLOR
+  );
   const [thumbnailLogo, setThumbnailLogo] = useState('');
   const [thumbnailBg, setThumbnailBg] = useState('');
   const [downloadThumbnails, setDownloadThumbnails] = useState(true);
@@ -135,11 +138,13 @@ export default function SetsView() {
   const dirty = inspected && draft && draftChanged(inspected, draft);
   const thumbnailStyle = {
     color: thumbnailColor,
+    rightColor: thumbnailRightColor,
     logo: thumbnailLogo,
     background: thumbnailBg,
   };
   const thumbnailKey = JSON.stringify([
     thumbnailColor,
+    thumbnailRightColor,
     thumbnailLogo,
     thumbnailBg,
   ]);
@@ -326,6 +331,12 @@ export default function SetsView() {
   };
   const inspect = (id: string) => {
     changeWorkspace({ inspectedId: id });
+  };
+  const activateMatch = (id: string) => {
+    changeWorkspace({
+      inspectedId: id,
+      review: desiredWorkspace.current.inspectedId === id,
+    });
   };
   const stepReview = (step: number) => {
     const index = sets.findIndex(
@@ -535,8 +546,7 @@ export default function SetsView() {
                   {matchName(inspected)}
                 </h1>
                 <p>
-                  {inspected.roundText || 'Match'} · Set #{inspected.id} ·
-                  Timestamp review
+                  {inspected.roundText || 'Match'} · Set #{inspected.id}
                 </p>
               </div>
               <div className="review-navigation">
@@ -567,13 +577,6 @@ export default function SetsView() {
                   {state.eventId?.split('/event/')[1] || 'Tournament sets'} /{' '}
                   {state.station || 'Stream station'}
                 </p>
-              </div>
-              <div className="heading-stats">
-                <strong>{eligible.length} valid ranges</strong> /{' '}
-                {sets.length - eligible.length} need correction
-                <br />
-                <span className="mono">{formatClipTime(rangeExtent)}</span>{' '}
-                {duration ? 'source duration' : 'last reported boundary'}
               </div>
             </header>
           )}
@@ -696,14 +699,15 @@ export default function SetsView() {
                       {draft.start || 'Missing In'} →{' '}
                       {draft.end || 'Missing Out'}
                     </span>
-                    <span>
-                      {!currentError
-                        ? `${formatClipTime(
-                            (parseClipTime(draft.end) || 0) -
-                              (parseClipTime(draft.start) || 0)
-                          )} clip`
-                        : 'Range needs correction'}
-                    </span>
+                    {!currentError && (
+                      <span>
+                        {formatClipTime(
+                          (parseClipTime(draft.end) || 0) -
+                            (parseClipTime(draft.start) || 0)
+                        )}{' '}
+                        clip
+                      </span>
+                    )}
                   </div>
                   <details className="help-disclosure">
                     <summary>Timing help</summary>
@@ -762,36 +766,33 @@ export default function SetsView() {
             </div>
           ) : (
             <div className="desk">
-              <aside className="source-bin">
-                <section>
-                  <h2>
-                    <FolderOutlinedIcon fontSize="small" />
-                    Source bin
-                  </h2>
-                  <div className="source-tree">
-                    <p>{state.tournamentName}</p>
-                    <p>{state.station || 'Stream station'}</p>
-                    <a href={state.vodUrl} target="_blank" rel="noreferrer">
-                      Open source VOD ↗
-                    </a>
-                  </div>
-                </section>
-                <section>
-                  <h2>{duration ? 'VOD duration' : 'Reported range'}</h2>
-                  <p className="mono">{formatClipTime(rangeExtent)}</p>
-                </section>
-                <section className="bin-output">
-                  <h2>
-                    <FolderOutlinedIcon fontSize="small" />
-                    Local output
-                  </h2>
+              <aside
+                className="source-bin source-panel"
+                aria-label="Source and output"
+              >
+                <header>
+                  <h2>{state.tournamentName}</h2>
+                  <p className="source-panel-station">
+                    {state.station || 'Stream station'}
+                  </p>
+                </header>
+                <dl className="source-panel-facts">
+                  <dt>{duration ? 'VOD duration' : 'Reported range'}</dt>
+                  <dd className="mono">{formatClipTime(rangeExtent)}</dd>
+                </dl>
+                <div className="source-panel-actions">
+                  <a href={state.vodUrl} target="_blank" rel="noreferrer">
+                    Open source VOD ↗
+                  </a>
                   <Button
+                    variant="outlined"
+                    fullWidth
                     disabled={locked}
                     onClick={() => setOptionsOpen(true)}
                   >
                     Output options
                   </Button>
-                </section>
+                </div>
               </aside>
               <main className="batch-center">
                 <section className="ranges" aria-label="Saved clip ranges">
@@ -845,10 +846,6 @@ export default function SetsView() {
                           onClick={() => inspect(set.id)}
                         />
                       ))}
-                  </div>
-                  <div className="range-caption">
-                    <span>Saved ranges</span>
-                    <span>{sets.length - eligible.length} need correction</span>
                   </div>
                 </section>
                 <div className="batch-toolbar">
@@ -979,17 +976,19 @@ export default function SetsView() {
                               <button
                                 type="button"
                                 className="inspect-button"
-                                aria-label={`Inspect ${set.title}`}
+                                aria-label={`${
+                                  inspectedId === set.id ? 'Review' : 'Inspect'
+                                } ${set.title}`}
                                 disabled={locked}
                                 onFocus={() => setLinkedId(set.id)}
                                 onBlur={() => setLinkedId('')}
-                                onClick={() => inspect(set.id)}
+                                onClick={() => activateMatch(set.id)}
                               >
                                 {matchName(set)}
+                                <span className="match-title" title={set.title}>
+                                  {set.title}
+                                </span>
                               </button>
-                              <span className="match-title" title={set.title}>
-                                {set.title}
-                              </span>
                             </td>
                             <td className="mono match-range">
                               {formatClipTime(set.startTime) || 'Missing In'} →{' '}
@@ -1036,11 +1035,13 @@ export default function SetsView() {
                         <button
                           type="button"
                           className="thumbnail-inspect"
-                          aria-label={`Inspect ${set.title}`}
+                          aria-label={`${
+                            inspectedId === set.id ? 'Review' : 'Inspect'
+                          } ${set.title}`}
                           disabled={locked}
                           onFocus={() => setLinkedId(set.id)}
                           onBlur={() => setLinkedId('')}
-                          onClick={() => inspect(set.id)}
+                          onClick={() => activateMatch(set.id)}
                         >
                           <ThumbnailPreview set={set} style={thumbnailStyle} />
                         </button>
@@ -1048,16 +1049,19 @@ export default function SetsView() {
                           <button
                             type="button"
                             className="inspect-button"
+                            aria-label={`${
+                              inspectedId === set.id ? 'Review' : 'Inspect'
+                            } match ${set.title}`}
                             disabled={locked}
                             onFocus={() => setLinkedId(set.id)}
                             onBlur={() => setLinkedId('')}
-                            onClick={() => inspect(set.id)}
+                            onClick={() => activateMatch(set.id)}
                           >
                             {matchName(set)}
+                            <span className="match-title" title={set.title}>
+                              {set.title}
+                            </span>
                           </button>
-                          <span className="match-title" title={set.title}>
-                            {set.title}
-                          </span>
                           <div className="card-range mono">
                             {formatClipTime(set.startTime) || 'Missing In'} →{' '}
                             {formatClipTime(set.endTime) || 'Missing Out'}
@@ -1081,10 +1085,6 @@ export default function SetsView() {
                     ))}
                   </div>
                 )}
-                <p className="table-note">
-                  Inspecting keeps selection unchanged. Apply drafts before
-                  downloading.
-                </p>
               </main>
               <aside className="inspector" aria-label="Inspected match">
                 {inspected && draft ? (
@@ -1102,15 +1102,6 @@ export default function SetsView() {
                     </h2>
                     <p className="help">{inspected.roundText || 'Match'}</p>
                     {status(inspected)}
-                    <Button
-                      className="review-action"
-                      variant="outlined"
-                      fullWidth
-                      disabled={locked}
-                      onClick={() => changeWorkspace({ review: true })}
-                    >
-                      Review clip & timestamps →
-                    </Button>
                     <ClipFields
                       draft={draft}
                       saved={draftFor(inspected)}
@@ -1139,6 +1130,15 @@ export default function SetsView() {
                     {savedMessage && (
                       <Alert severity="success">{savedMessage}</Alert>
                     )}
+                    <Button
+                      className="review-action"
+                      variant="outlined"
+                      fullWidth
+                      disabled={locked}
+                      onClick={() => changeWorkspace({ review: true })}
+                    >
+                      Review clip & timestamps →
+                    </Button>
                     <hr className="section-rule" />
                     {thumbnailControls}
                   </>
@@ -1158,25 +1158,17 @@ export default function SetsView() {
                 ))}
               </div>
             )}
-            <span className="batch-count">{selected.length}</span>
             <div>
               <h2>
                 {review
                   ? `${selected.length} clips remain selected in the batch`
                   : `${selected.length} clips in this batch`}
               </h2>
-              <p className="help">
-                {selectedDirty &&
-                  'Apply pending edits to selected clips before downloading.'}
-                {!selectedDirty &&
-                  selectedInvalid &&
-                  'Correct invalid selected ranges before downloading.'}
-                {!selectedDirty &&
-                  !selectedInvalid &&
-                  `${formatClipTime(selectedDuration)} selected · ${
-                    downloadThumbnails ? 'thumbnails included' : 'video only'
-                  }`}
-              </p>
+              {selected.length > 0 && !selectedDirty && !selectedInvalid && (
+                <p className="help">
+                  {formatClipTime(selectedDuration)} selected
+                </p>
+              )}
               {hasProgress && (
                 <p className="help output-summary">
                   {readyCount} of {selected.length} ready · {savedCount} clip
@@ -1272,19 +1264,10 @@ export default function SetsView() {
             }}
             aria-labelledby="output-options-title"
           >
-            <div className="settings-body">
+            <div className="settings-body settings-preview-first">
               <h2 id="output-options-title">Thumbnail & output options</h2>
-              <OutputFolder
-                disabled={locked}
-                onChoosingChange={setChoosingOutput}
-                onChange={() => {
-                  progress.current.clear();
-                  setResults({});
-                  setSummary('');
-                }}
-              />
               <label
-                className="include-clip"
+                className="settings-switch"
                 htmlFor={`${controlId}-options-thumbnails`}
               >
                 <input
@@ -1298,44 +1281,94 @@ export default function SetsView() {
                 />
                 Create thumbnails for the batch
               </label>
-              <MuiColorInput
-                label="Left portrait color"
-                value={thumbnailColor}
-                onChange={setThumbnailColor}
-                disabled={locked}
-              />
-              <div className="image-actions">
-                <Button
-                  variant="outlined"
+              {inspected && (
+                <figure className="settings-preview">
+                  <ThumbnailPreview set={inspected} style={thumbnailStyle} />
+                  <figcaption>
+                    <span>Offset Duel</span>
+                    <span>
+                      {downloadThumbnails
+                        ? '1280 × 720 JPEG'
+                        : 'Preview only · thumbnails off'}
+                    </span>
+                  </figcaption>
+                </figure>
+              )}
+              <div className="settings-color-row">
+                <MuiColorInput
+                  label="Left field color"
+                  value={thumbnailColor}
+                  onChange={setThumbnailColor}
                   disabled={locked}
-                  onClick={() => inputLogo.current?.click()}
-                >
-                  Select logo
-                </Button>
-                <Button
-                  disabled={locked || !thumbnailLogo}
-                  onClick={() => setThumbnailLogo('')}
-                >
-                  Remove logo
-                </Button>
-                <Button
-                  variant="outlined"
+                />
+                <MuiColorInput
+                  label="Right field color"
+                  value={thumbnailRightColor}
+                  onChange={setThumbnailRightColor}
                   disabled={locked}
-                  onClick={() => inputBackground.current?.click()}
-                >
-                  Select background image
-                </Button>
-                <Button
-                  disabled={locked || !thumbnailBg}
-                  onClick={() => setThumbnailBg('')}
-                >
-                  Remove background
-                </Button>
+                />
               </div>
-              <p className="help">
-                Custom backgrounds sit behind both portraits; your logo appears
-                in the header.
-              </p>
+              <div>
+                <div className="settings-asset-row">
+                  <div>
+                    <strong>Header logo</strong>
+                    <p>
+                      {thumbnailLogo
+                        ? 'Custom logo selected'
+                        : 'Optional · tournament header'}
+                    </p>
+                  </div>
+                  <div className="settings-asset-actions">
+                    <Button
+                      variant="outlined"
+                      disabled={locked}
+                      onClick={() => inputLogo.current?.click()}
+                    >
+                      Select logo
+                    </Button>
+                    <Button
+                      disabled={locked || !thumbnailLogo}
+                      onClick={() => setThumbnailLogo('')}
+                    >
+                      Remove logo
+                    </Button>
+                  </div>
+                </div>
+                <div className="settings-asset-row">
+                  <div>
+                    <strong>Background image</strong>
+                    <p>
+                      {thumbnailBg
+                        ? 'Custom background selected'
+                        : 'Optional · behind both portraits'}
+                    </p>
+                  </div>
+                  <div className="settings-asset-actions">
+                    <Button
+                      variant="outlined"
+                      disabled={locked}
+                      onClick={() => inputBackground.current?.click()}
+                    >
+                      Select background image
+                    </Button>
+                    <Button
+                      disabled={locked || !thumbnailBg}
+                      onClick={() => setThumbnailBg('')}
+                    >
+                      Remove background
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <OutputFolder
+                disabled={locked}
+                onChoosingChange={setChoosingOutput}
+                onChange={() => {
+                  progress.current.clear();
+                  setResults({});
+                  setSummary('');
+                }}
+              />
               <input
                 ref={inputLogo}
                 type="file"
@@ -1358,10 +1391,8 @@ export default function SetsView() {
                   event.target.value = '';
                 }}
               />
-              {inspected && (
-                <ThumbnailPreview set={inspected} style={thumbnailStyle} />
-              )}
               <Button
+                className="settings-done"
                 disabled={locked}
                 variant="contained"
                 onClick={() => setOptionsOpen(false)}

@@ -23,7 +23,7 @@ export default function ThumbnailGenerator({
     roundText,
     eventName,
   } = set;
-  const { color, logo, background } = style;
+  const { color, rightColor, logo, background } = style;
   useEffect(() => {
     let active = true;
     setStatus('Preparing thumbnail...');
@@ -37,7 +37,7 @@ export default function ThumbnailGenerator({
         roundText,
         eventName,
       },
-      { color, logo, background }
+      { color, rightColor, logo, background }
     )
       .then((image) => {
         if (!active || !canvas.current) return undefined;
@@ -68,6 +68,7 @@ export default function ThumbnailGenerator({
     roundText,
     eventName,
     color,
+    rightColor,
     logo,
     background,
   ]);

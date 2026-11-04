@@ -27,7 +27,13 @@ const content = {
   eventName: 'Ultimate Singles',
   roundText: 'Winners Final',
 };
-const style = { color: '#223d55', logo: '', background: '' };
+const style = {
+  color: '#223d55',
+  rightColor: '#8b4c37',
+  logo: '',
+  background: '',
+};
+const fieldColors = jest.fn();
 const fillText = jest.fn();
 const drawImage = jest.fn();
 const scale = jest.fn();
@@ -83,6 +89,7 @@ beforeEach(() => {
     fillText,
     drawImage,
   };
+  context.fillRect.mockImplementation(() => fieldColors(context.fillStyle));
   Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
     configurable: true,
     value: () => context,
@@ -118,8 +125,24 @@ it('draws the approved dimensions and real labels without a central match symbol
   expect(labels).not.toEqual(expect.arrayContaining(['VS']));
   expect(labels).not.toEqual(expect.arrayContaining(['X']));
   expect(drawImage).toHaveBeenCalledTimes(2);
+  expect(fieldColors.mock.calls.slice(0, 3).map(([color]) => color)).toEqual([
+    '#223d55',
+    '#223d55',
+    '#8b4c37',
+  ]);
 });
 
+it('exports the selected right field color through the shared JPEG renderer', async () => {
+  await expect(
+    exportThumbnail(content, { ...style, rightColor: '#336699' })
+  ).resolves.toEqual(new Uint8Array([255, 216, 255]));
+  expect(fieldColors.mock.calls.slice(0, 3).map(([color]) => color)).toEqual([
+    '#223d55',
+    '#223d55',
+    '#336699',
+  ]);
+  expect(encode).toHaveBeenCalledWith(expect.any(Function), 'image/jpeg', 0.92);
+});
 it('uses an explicit missing-pick fallback and distinguishes unavailable artwork from missing metadata', async () => {
   await renderThumbnail(
     { ...content, character1: 'Random Character', character2: 'Unlisted' },

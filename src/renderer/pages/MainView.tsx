@@ -274,142 +274,163 @@ const VideoSearch = ({
     }
   };
 
+  const sourceFields = (
+    <>
+      <TextField
+        error={slugError}
+        className="textfield"
+        label="Start.GG Event Slug"
+        required
+        variant="outlined"
+        value={eventId}
+        onChange={(event) => setEventId(event.target.value)}
+        disabled={waiting || choosingOutput}
+        placeholder="tournament/name/event/name"
+        helperText={slugError ? 'Use tournament/name/event/name.' : undefined}
+      />
+      <TextField
+        error={urlError}
+        className="textfield"
+        label="VOD Link"
+        required
+        variant="outlined"
+        value={vodUrl}
+        onChange={(event) => setVodUrl(event.target.value)}
+        disabled={waiting || choosingOutput}
+        placeholder="https://www.twitch.tv/videos/123456789"
+        helperText={urlError ? 'Enter a valid HTTP or HTTPS URL.' : undefined}
+      />
+      <TextField
+        className="textfield"
+        label="Stream Station"
+        required
+        variant="outlined"
+        value={station}
+        onChange={(event) => setStation(event.target.value)}
+        disabled={waiting || choosingOutput}
+        placeholder="Twitch channel name or station number"
+      />
+      <TextField
+        value={titleFormat}
+        label="Video Title Format"
+        variant="outlined"
+        disabled={waiting || choosingOutput}
+        select
+        onChange={(event) => {
+          const { value } = event.target;
+          if (value === PLAYERS_FIRST_TITLE || value === TOURNAMENT_FIRST_TITLE)
+            setTitleFormat(value);
+        }}
+      >
+        <MenuItem value={PLAYERS_FIRST_TITLE}>{PLAYERS_FIRST_TITLE}</MenuItem>
+        <MenuItem value={TOURNAMENT_FIRST_TITLE}>
+          {TOURNAMENT_FIRST_TITLE}
+        </MenuItem>
+      </TextField>
+      <details className="help-disclosure">
+        <summary>Source format examples</summary>
+        <p>
+          Use the start.gg event slug, such as{' '}
+          <code>tournament/name/event/name</code>, and the Twitch VOD URL, such
+          as <code>https://www.twitch.tv/videos/123456789</code>. Stream Station
+          accepts a Twitch channel name or station number.
+        </p>
+      </details>
+    </>
+  );
+  const sourceAction = (
+    <>
+      <Button
+        variant="contained"
+        disabled={disabled}
+        aria-describedby={
+          blockedReason && !waiting ? 'source-requirements' : undefined
+        }
+        onClick={retrieveSets}
+      >
+        {waiting ? 'Retrieving sets...' : 'Retrieve Sets'}
+      </Button>
+      {blockedReason && !waiting && (
+        <p className="help" id="source-requirements" role="status">
+          {blockedReason}
+        </p>
+      )}
+      {waiting && (
+        <div className="loading-sets" role="status">
+          <p className="help">Retrieving sets and VOD start time...</p>
+          <LinearProgress />
+          <Button onClick={() => activeRetrieval.current?.scope.cancel()}>
+            Cancel retrieval
+          </Button>
+        </div>
+      )}
+    </>
+  );
+  const accessFields = (
+    <>
+      <TextField
+        required
+        type="password"
+        label="Start.gg API key"
+        variant="outlined"
+        value={keyDraft}
+        onChange={(event) => setKeyDraft(event.target.value)}
+        disabled={!settingsReady || savingKey || waiting || choosingOutput}
+      />
+      <Button
+        variant="outlined"
+        disabled={
+          !settingsReady ||
+          savingKey ||
+          waiting ||
+          choosingOutput ||
+          keyDraft.trim() === apiKey
+        }
+        onClick={saveKey}
+      >
+        {savingKey ? 'Saving API key...' : 'Save API Key'}
+      </Button>
+      <details className="help-disclosure">
+        <summary>API key help</summary>
+        <p>
+          Create a personal token in your{' '}
+          <a
+            href="https://start.gg/admin/profile/developer"
+            target="_blank"
+            rel="noreferrer"
+          >
+            start.gg developer settings
+          </a>
+          . Save it here before retrieving sets. The key is encrypted on this
+          device.
+        </p>
+      </details>
+    </>
+  );
+  const outputFolder = (
+    <OutputFolder
+      disabled={waiting || savingKey}
+      onChoosingChange={onChoosingOutput}
+    />
+  );
+
   return (
     <div className="source-form">
       {SnackbarPopup(errorMessage, 'error', errorOpen, setErrorOpen)}
       {SnackbarPopup(infoMessage, 'info', infoOpen, setInfoOpen)}
+      <section className="source-access" aria-label="Start.gg access">
+        <h2>Start.gg access</h2>
+        <div className="source-access-fields">{accessFields}</div>
+      </section>
       <section className="source-inputs" aria-label="Tournament source">
-        <TextField
-          error={slugError}
-          className="textfield"
-          label="Start.GG Event Slug"
-          required
-          variant="outlined"
-          value={eventId}
-          onChange={(event) => setEventId(event.target.value)}
-          disabled={waiting || choosingOutput}
-          placeholder="tournament/name/event/name"
-          helperText={slugError ? 'Use tournament/name/event/name.' : undefined}
-        />
-        <TextField
-          error={urlError}
-          className="textfield"
-          label="VOD Link"
-          required
-          variant="outlined"
-          value={vodUrl}
-          onChange={(event) => setVodUrl(event.target.value)}
-          disabled={waiting || choosingOutput}
-          placeholder="https://www.twitch.tv/videos/123456789"
-          helperText={urlError ? 'Enter a valid HTTP or HTTPS URL.' : undefined}
-        />
-        <TextField
-          className="textfield"
-          label="Stream Station"
-          required
-          variant="outlined"
-          value={station}
-          onChange={(event) => setStation(event.target.value)}
-          disabled={waiting || choosingOutput}
-          placeholder="Twitch channel name or station number"
-        />
-        <TextField
-          value={titleFormat}
-          label="Video Title Format"
-          variant="outlined"
-          disabled={waiting || choosingOutput}
-          select
-          onChange={(event) => {
-            const { value } = event.target;
-            if (
-              value === PLAYERS_FIRST_TITLE ||
-              value === TOURNAMENT_FIRST_TITLE
-            )
-              setTitleFormat(value);
-          }}
-        >
-          <MenuItem value={PLAYERS_FIRST_TITLE}>{PLAYERS_FIRST_TITLE}</MenuItem>
-          <MenuItem value={TOURNAMENT_FIRST_TITLE}>
-            {TOURNAMENT_FIRST_TITLE}
-          </MenuItem>
-        </TextField>
-        <details className="help-disclosure">
-          <summary>Source format examples</summary>
-          <p>
-            Use the start.gg event slug, such as{' '}
-            <code>tournament/name/event/name</code>, and the Twitch VOD URL,
-            such as <code>https://www.twitch.tv/videos/123456789</code>. Stream
-            Station accepts a Twitch channel name or station number.
-          </p>
-        </details>
-        <Button
-          variant="contained"
-          disabled={disabled}
-          aria-describedby={
-            blockedReason && !waiting ? 'source-requirements' : undefined
-          }
-          onClick={retrieveSets}
-        >
-          {waiting ? 'Retrieving sets...' : 'Retrieve Sets'}
-        </Button>
-        {blockedReason && !waiting && (
-          <p className="help" id="source-requirements" role="status">
-            {blockedReason}
-          </p>
-        )}
-        {waiting && (
-          <div className="loading-sets" role="status">
-            <p className="help">Retrieving sets and VOD start time...</p>
-            <LinearProgress />
-            <Button onClick={() => activeRetrieval.current?.scope.cancel()}>
-              Cancel retrieval
-            </Button>
-          </div>
-        )}
+        <h2>Match source</h2>
+        <div className="source-fields">{sourceFields}</div>
       </section>
       <aside className="source-settings" aria-label="Source settings">
-        <TextField
-          required
-          type="password"
-          label="Start.gg API key"
-          variant="outlined"
-          value={keyDraft}
-          onChange={(event) => setKeyDraft(event.target.value)}
-          disabled={!settingsReady || savingKey || waiting || choosingOutput}
-        />
-        <Button
-          variant="outlined"
-          disabled={
-            !settingsReady ||
-            savingKey ||
-            waiting ||
-            choosingOutput ||
-            keyDraft.trim() === apiKey
-          }
-          onClick={saveKey}
-        >
-          {savingKey ? 'Saving API key...' : 'Save API Key'}
-        </Button>
-        <details className="help-disclosure">
-          <summary>API key help</summary>
-          <p>
-            Create a personal token in your{' '}
-            <a
-              href="https://start.gg/admin/profile/developer"
-              target="_blank"
-              rel="noreferrer"
-            >
-              start.gg developer settings
-            </a>
-            . Save it here before retrieving sets. The key is encrypted on this
-            device.
-          </p>
-        </details>
-        <OutputFolder
-          disabled={waiting || savingKey}
-          onChoosingChange={onChoosingOutput}
-        />
+        <h2>Output</h2>
+        {outputFolder}
       </aside>
+      <div className="source-submit">{sourceAction}</div>
     </div>
   );
 };

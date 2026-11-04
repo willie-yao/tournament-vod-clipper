@@ -47,7 +47,7 @@ export default function ClipFields({
                 className="mono"
                 aria-label={`${label} time`}
                 aria-invalid={Boolean(error)}
-                aria-describedby={error ? `${id}-validation` : `${id}-help`}
+                aria-describedby={error ? `${id}-validation` : undefined}
                 placeholder="HH:mm:ss"
                 value={draft[field]}
                 disabled={disabled}
@@ -100,9 +100,6 @@ export default function ClipFields({
           );
         })}
       </div>
-      <p className="help" id={`${id}-help`}>
-        Elapsed HH:mm:ss; hours may exceed 23. Out must follow In.
-      </p>
       <label className="field" htmlFor={`${id}-title`}>
         Video title
         <input
