@@ -6,6 +6,7 @@ import { formatClipTime, parseClipTime } from '../../common/clipTime';
 interface Props {
   draft: ClipDraft;
   saved?: ClipDraft;
+  originalTitle?: string;
   onChange: (draft: ClipDraft) => void;
   disabled: boolean;
   duration?: number;
@@ -17,6 +18,7 @@ interface Props {
 export default function ClipFields({
   draft,
   saved,
+  originalTitle,
   onChange,
   disabled,
   duration,
@@ -111,6 +113,12 @@ export default function ClipFields({
         />
         <span>{[...draft.title].length}/100 characters for YouTube</span>
       </label>
+      {originalTitle && (
+        <details className="help">
+          <summary>Full generated title</summary>
+          <p>{originalTitle}</p>
+        </details>
+      )}
       {error && (
         <Alert id={`${id}-validation`} severity="warning">
           {error}
@@ -122,6 +130,7 @@ export default function ClipFields({
 
 ClipFields.defaultProps = {
   saved: undefined,
+  originalTitle: undefined,
   duration: undefined,
   playhead: undefined,
   onSeek: undefined,

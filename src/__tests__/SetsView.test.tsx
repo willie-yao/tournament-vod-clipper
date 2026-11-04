@@ -9,8 +9,12 @@ import {
 } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import SetsView from '../renderer/pages/SetsView';
-import { VODMetadata } from '../renderer/common/tournamentSets';
-import { vodMetadata } from '../test/fixtures';
+import {
+  VODMetadata,
+  formatSetMetadata,
+  PLAYERS_FIRST_TITLE,
+} from '../renderer/common/tournamentSets';
+import { tournamentSet, vodMetadata } from '../test/fixtures';
 import { exportThumbnail } from '../renderer/common/thumbnailDrawing';
 
 jest.mock(
@@ -423,6 +427,53 @@ it('preserves deselection when an already valid clip is edited', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Apply to clip' }));
   expect(selection('Edited title')).not.toBeChecked();
   expect(downloadButton()).toBeDisabled();
+});
+
+it('keeps full title reference and manual overrides through review, Apply and download', async () => {
+  const api = downloadAPI();
+  const set = formatSetMetadata(
+    tournamentSet({ fullRoundText: 'Winners Quarter-Final' }),
+    'A Very Long Regional Championship Series '.repeat(4),
+    1000,
+    {},
+    PLAYERS_FIRST_TITLE
+  );
+  renderSets([set]);
+  expect(screen.getByLabelText('Video title')).toHaveValue(set.title);
+  expect(screen.getByText(set.originalTitle!.trim())).toBeInTheDocument();
+  const invalid = 'Custom '.repeat(15);
+  fireEvent.change(screen.getByLabelText('Video title'), {
+    target: { value: invalid },
+  });
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Review clip & timestamps →' })
+  );
+  expect(screen.getByLabelText('Video title')).toHaveValue(invalid);
+  expect(screen.getByText(set.originalTitle!.trim())).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Apply to clip' })).toBeDisabled();
+  const custom = 'Handwritten title '.padEnd(100, 'x');
+  fireEvent.change(screen.getByLabelText('Video title'), {
+    target: { value: custom },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply to clip' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Back to batch' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Thumbnails' }));
+  expect(screen.getByLabelText('Video title')).toHaveValue(custom);
+  fireEvent.click(downloadButton());
+  await screen.findByText('1 of 1 selected clips ready.');
+  expect(api.downloadVideo).toHaveBeenCalledWith(
+    expect.objectContaining({ title: custom })
+  );
+  expect(exportThumbnail).toHaveBeenCalledWith(
+    expect.objectContaining({
+      player1: set.player1,
+      player2: set.player2,
+      roundText: 'Winners Quarter-Final',
+      tournamentName: set.tournamentName,
+      originalTitle: set.originalTitle,
+    }),
+    expect.anything()
+  );
 });
 
 it('preserves each review draft and batch context across previous/next, return and layout changes', async () => {

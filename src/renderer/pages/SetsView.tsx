@@ -727,6 +727,7 @@ export default function SetsView() {
                 <ClipFields
                   draft={draft}
                   saved={draftFor(inspected)}
+                  originalTitle={inspected.originalTitle}
                   onChange={updateDraft}
                   disabled={locked}
                   duration={duration}
@@ -1104,6 +1105,7 @@ export default function SetsView() {
                     <ClipFields
                       draft={draft}
                       saved={draftFor(inspected)}
+                      originalTitle={inspected.originalTitle}
                       onChange={updateDraft}
                       disabled={locked}
                       duration={duration}

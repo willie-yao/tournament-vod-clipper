@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button, TextField, MenuItem, LinearProgress } from '@mui/material';
 import { useApolloClient } from '@apollo/client';
 import { useNavigate } from 'react-router-dom';
@@ -15,6 +15,14 @@ import {
 } from '../common/tournamentSets';
 import AppShell from '../common/AppShell';
 import OutputFolder from '../common/OutputFolder';
+import startggRequest from '../common/startggRequest';
+import {
+  createRetrievalScope,
+  RetrievalError,
+  RETRIEVAL_TIMEOUT_MS,
+  VOD_METADATA_TIMEOUT_MS,
+  withRetrievalAbort,
+} from '../../common/retrieval';
 
 interface CharactersResponse {
   videogame: { characters: { id: number; name: string }[] | null } | null;
@@ -56,6 +64,10 @@ const VideoSearch = ({
   const [settingsReady, setSettingsReady] = useState(false);
   const [savingKey, setSavingKey] = useState(false);
   const [waiting, setWaiting] = useState(false);
+  const activeRetrieval = useRef<{
+    requestId: string;
+    scope: ReturnType<typeof createRetrievalScope>;
+  } | null>(null);
   const [titleFormat, setTitleFormat] =
     useState<TitleFormat>(PLAYERS_FIRST_TITLE);
   const [errorMessage, setErrorMessage] = useState('');
@@ -92,6 +104,19 @@ const VideoSearch = ({
     () => onBusyChange(waiting || savingKey),
     [waiting, savingKey, onBusyChange]
   );
+
+  useEffect(() => {
+    const cancel = () => {
+      const active = activeRetrieval.current;
+      activeRetrieval.current = null;
+      active?.scope.cancel();
+    };
+    window.addEventListener('pagehide', cancel);
+    return () => {
+      window.removeEventListener('pagehide', cancel);
+      cancel();
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -143,6 +168,16 @@ const VideoSearch = ({
   };
 
   const retrieveSets = async () => {
+    if (disabled || activeRetrieval.current) return;
+    const scope = createRetrievalScope(
+      RETRIEVAL_TIMEOUT_MS,
+      'Retrieval exceeded five minutes. Check your connection and retry.'
+    );
+    const requestId = crypto.randomUUID();
+    const active = { requestId, scope };
+    activeRetrieval.current = active;
+    const cancelMetadata = () =>
+      window.electron.ipcRenderer.cancelRetrieveVideoInformation(requestId);
     setWaiting(true);
     setErrorOpen(false);
     try {
@@ -152,28 +187,52 @@ const VideoSearch = ({
       const result = await retrieveTournamentSets(
         client,
         eventId.trim(),
-        station.trim()
+        station.trim(),
+        scope.signal
       );
       let sets: VODMetadata[] = [];
       if (result.sets.length) {
         let characterMap: CharacterMap =
           window.electron.store.get('characterMap');
         if (!characterMap) {
-          const { data } = await client.query<CharactersResponse>({
-            query: GET_ALL_CHARACTERS,
-            variables: { gameid: 1386 },
-            fetchPolicy: 'network-only',
-          });
+          const { data } = await startggRequest<CharactersResponse>(
+            client,
+            {
+              query: GET_ALL_CHARACTERS,
+              variables: { gameid: 1386 },
+            },
+            scope.signal
+          );
+          if (activeRetrieval.current !== active || scope.signal.aborted)
+            return;
           characterMap = {};
           (data.videogame?.characters ?? []).forEach((character) => {
             characterMap[character.id] = character.name;
           });
           window.electron.store.set('characterMap', characterMap);
         }
-        const timestamp =
-          await window.electron.ipcRenderer.retrieveVideoInformation({
-            vodUrl: vodUrl.trim(),
-          });
+        const metadataScope = createRetrievalScope(
+          VOD_METADATA_TIMEOUT_MS,
+          'VOD metadata did not respond within 60 seconds. Check the VOD URL and connection, then retry.',
+          scope.signal
+        );
+        metadataScope.signal.addEventListener('abort', cancelMetadata, {
+          once: true,
+        });
+        let timestamp: number;
+        try {
+          const response = await withRetrievalAbort(metadataScope.signal, () =>
+            window.electron.ipcRenderer.retrieveVideoInformation({
+              vodUrl: vodUrl.trim(),
+              requestId,
+            })
+          );
+          if ('error' in response) throw new RetrievalError(response.error);
+          timestamp = response.timestamp;
+        } finally {
+          metadataScope.signal.removeEventListener('abort', cancelMetadata);
+          metadataScope.dispose();
+        }
         sets = result.sets.map((set) =>
           formatSetMetadata(
             set,
@@ -185,6 +244,7 @@ const VideoSearch = ({
           )
         );
       }
+      if (activeRetrieval.current !== active || scope.signal.aborted) return;
       navigate('/SetsView', {
         state: {
           sets,
@@ -196,14 +256,21 @@ const VideoSearch = ({
         },
       });
     } catch (error) {
+      if (activeRetrieval.current !== active) return;
       setErrorMessage(
         `Error retrieving sets: ${
-          error instanceof Error ? error.message : String(error)
+          error instanceof RetrievalError
+            ? error.message
+            : 'Retrieval failed. Check your source settings and connection, then retry.'
         }`
       );
       setErrorOpen(true);
     } finally {
-      setWaiting(false);
+      scope.dispose();
+      if (activeRetrieval.current === active) {
+        activeRetrieval.current = null;
+        setWaiting(false);
+      }
     }
   };
 
@@ -292,6 +359,9 @@ const VideoSearch = ({
         <div className="loading-sets" role="status">
           <p className="help">Retrieving sets and VOD start time...</p>
           <LinearProgress />
+          <Button onClick={() => activeRetrieval.current?.scope.cancel()}>
+            Cancel retrieval
+          </Button>
         </div>
       )}
     </>

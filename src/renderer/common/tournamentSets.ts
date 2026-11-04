@@ -1,15 +1,18 @@
 import { ApolloClient } from '@apollo/client';
 import { getClipRangeError } from '../../common/clipTime';
+import { RetrievalError } from '../../common/retrieval';
+import generateSetTitle, { TitleFormat } from './setTitle';
+import startggRequest from './startggRequest';
 import {
   GET_SETS_AT_STATION,
   GET_SETS_AT_STREAM_STATION,
 } from './StartggQueries';
 
-export const PLAYERS_FIRST_TITLE = 'Players - Round - Tournament Name';
-export const TOURNAMENT_FIRST_TITLE = 'Tournament Name: Players - Round';
-export type TitleFormat =
-  | typeof PLAYERS_FIRST_TITLE
-  | typeof TOURNAMENT_FIRST_TITLE;
+export {
+  PLAYERS_FIRST_TITLE,
+  TOURNAMENT_FIRST_TITLE,
+  TitleFormat,
+} from './setTitle';
 export type CharacterMap = Record<number, string>;
 
 interface Entrant {
@@ -52,6 +55,7 @@ interface SetsResponse {
 export interface VODMetadata {
   id: string;
   title: string;
+  originalTitle?: string;
   startTime: number | null;
   endTime: number | null;
   needsCorrection: string | null;
@@ -69,10 +73,12 @@ export interface VODMetadata {
 export async function retrieveTournamentSets(
   client: Pick<ApolloClient<object>, 'query'>,
   eventId: string,
-  station: string
+  station: string,
+  signal?: AbortSignal
 ) {
   const input = station.trim();
-  if (!input) throw new Error('Enter a station number or stream channel.');
+  if (!input)
+    throw new RetrievalError('Enter a station number or stream channel.');
   const numeric = Number(input);
   const stationNumber = Number.isNaN(numeric) ? null : numeric;
   if (
@@ -81,7 +87,7 @@ export async function retrieveTournamentSets(
       stationNumber < 1 ||
       stationNumber > 2147483647)
   ) {
-    throw new Error('Station numbers must be positive integers.');
+    throw new RetrievalError('Station numbers must be positive integers.');
   }
 
   const sets: TournamentSet[] = [];
@@ -93,21 +99,28 @@ export async function retrieveTournamentSets(
   let totalPages = 1;
   do {
     // eslint-disable-next-line no-await-in-loop
-    const { data } = await client.query<SetsResponse>({
-      query:
-        stationNumber === null
-          ? GET_SETS_AT_STREAM_STATION
-          : GET_SETS_AT_STATION,
-      variables: {
-        eventId,
-        page,
-        ...(stationNumber === null ? {} : { stationNumbers: [stationNumber] }),
+    const { data } = await startggRequest<SetsResponse>(
+      client,
+      {
+        query:
+          stationNumber === null
+            ? GET_SETS_AT_STREAM_STATION
+            : GET_SETS_AT_STATION,
+        variables: {
+          eventId,
+          page,
+          ...(stationNumber === null
+            ? {}
+            : { stationNumbers: [stationNumber] }),
+        },
       },
-      fetchPolicy: 'network-only',
-    });
+      signal
+    );
     const { event } = data;
     if (!event?.tournament?.name || !event.sets) {
-      throw new Error('Tournament event not found or set data is unavailable.');
+      throw new RetrievalError(
+        'Tournament event not found or set data is unavailable.'
+      );
     }
     tournamentName = event.tournament.name;
     eventName = event.name || '';
@@ -117,7 +130,9 @@ export async function retrieveTournamentSets(
       totalPages < 0 ||
       !Array.isArray(event.sets.nodes)
     ) {
-      throw new Error('The tournament returned invalid pagination data.');
+      throw new RetrievalError(
+        'The tournament returned invalid pagination data.'
+      );
     }
 
     const pageSets = event.sets.nodes.filter(
@@ -153,7 +168,10 @@ export function formatSetMetadata(
   const playerNames = entrants.map((entrant) =>
     entrant?.name?.split('|').pop()?.trim()
   );
-  const players = playerNames.map((name) => name || 'Unknown player');
+  const players: [string, string] = [
+    playerNames[0] || 'Unknown player',
+    playerNames[1] || 'Unknown player',
+  ];
   const characterNames = entrants.map((entrant) => {
     const names = new Set<string>();
     if (!entrant) return [];
@@ -173,14 +191,13 @@ export function formatSetMetadata(
     });
     return [...names];
   });
-  const playerTitles = players.map((player, index) =>
-    characterNames[index].length
-      ? `${player} (${characterNames[index].join(', ')})`
-      : player
-  );
-  const match = `${playerTitles[0]} vs ${playerTitles[1]} - ${
-    set.fullRoundText || 'Match'
-  }`;
+  const { title, originalTitle } = generateSetTitle({
+    players,
+    characters: [characterNames[0], characterNames[1]],
+    round: set.fullRoundText || 'Match',
+    tournament: tournamentName,
+    format: titleFormat,
+  });
   const startTime =
     typeof set.startedAt === 'number' && Number.isFinite(set.startedAt)
       ? set.startedAt - vodTimestamp
@@ -197,10 +214,8 @@ export function formatSetMetadata(
 
   return {
     id: String(set.id),
-    title:
-      titleFormat === TOURNAMENT_FIRST_TITLE
-        ? `${tournamentName}: ${match}`
-        : `${match} - ${tournamentName}`,
+    title,
+    ...(title !== originalTitle ? { originalTitle } : {}),
     startTime,
     endTime,
     needsCorrection,
