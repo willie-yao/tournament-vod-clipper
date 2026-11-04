@@ -10,8 +10,10 @@ declare global {
 export const THUMBNAIL_WIDTH = 1280;
 export const THUMBNAIL_HEIGHT = 720;
 export const DEFAULT_THUMBNAIL_COLOR = '#223d55';
+export const DEFAULT_THUMBNAIL_RIGHT_COLOR = '#8b4c37';
 export interface ThumbnailStyle {
   color: string;
+  rightColor: string;
   logo: string;
   background: string;
 }
@@ -306,7 +308,7 @@ export async function renderThumbnail(
     polygon(context, points);
     context.clip();
     context.globalAlpha = background ? 0.74 : 1;
-    context.fillStyle = index === 0 ? style.color : '#8b4c37';
+    context.fillStyle = index === 0 ? style.color : style.rightColor;
     context.fillRect(0, 82, 1280, 578);
     context.globalAlpha = 1;
     drawPortrait(

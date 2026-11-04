@@ -21,6 +21,7 @@ jest.mock(
 );
 jest.mock('../renderer/common/thumbnailDrawing', () => ({
   DEFAULT_THUMBNAIL_COLOR: '#223d55',
+  DEFAULT_THUMBNAIL_RIGHT_COLOR: '#8b4c37',
   exportThumbnail: jest.fn(async () => new Uint8Array([255, 216, 255])),
 }));
 
@@ -90,6 +91,109 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
+it('preserves the full source identity and VOD link in the source and output sidebar', () => {
+  renderSets();
+  const source = screen.getByRole('complementary', {
+    name: 'Source and output',
+  });
+  expect(source).toHaveClass('source-panel');
+  expect(source).toHaveTextContent('Tournament');
+  expect(source).toHaveTextContent('streamer');
+  expect(within(source).getByText('Reported range')).toBeVisible();
+  expect(within(source).getByText('00:02:00')).toBeVisible();
+  expect(
+    within(source).queryByTestId('FolderOutlinedIcon')
+  ).not.toBeInTheDocument();
+  const link = within(source).getByRole('link', {
+    name: 'Open source VOD ↗',
+  });
+  expect(source).toContainElement(link);
+  expect(link).toHaveAttribute('href', 'https://www.twitch.tv/videos/123');
+  expect(link).toHaveAttribute('target', '_blank');
+  expect(link).toHaveAttribute('rel', 'noreferrer');
+});
+
+it('opens the existing batch output settings from the source sidebar', async () => {
+  renderSets();
+  const source = screen.getByRole('complementary', {
+    name: 'Source and output',
+  });
+  fireEvent.click(
+    within(source).getByRole('button', { name: 'Output options' })
+  );
+  const dialog = screen.getByRole('dialog', {
+    name: 'Thumbnail & output options',
+  });
+  expect(within(dialog).getByLabelText('Left field color')).toBeVisible();
+  expect(within(dialog).getByLabelText('Right field color')).toBeVisible();
+  const done = within(dialog).getByRole('button', { name: 'Done' });
+  await waitFor(() => expect(done).toBeEnabled());
+  fireEvent.click(done);
+  await waitFor(() => expect(dialog).not.toBeVisible());
+});
+
+it('keeps one footer count summary without thumbnail mode copy', () => {
+  renderSets([vodMetadata(), second()]);
+  const footer = screen.getByRole('contentinfo');
+  expect(
+    within(footer).getByRole('heading', { name: '2 clips in this batch' })
+  ).toBeVisible();
+  expect(within(footer).queryByText('2')).not.toBeInTheDocument();
+  expect(
+    within(footer).queryByText(/thumbnails included|video only/)
+  ).not.toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole('checkbox', {
+      name: 'Create thumbnails for the batch',
+    })
+  );
+  expect(
+    within(footer).queryByText(/thumbnails included|video only/)
+  ).not.toBeInTheDocument();
+  expect(downloadButton()).toHaveTextContent('Download 2 clips');
+  fireEvent.click(
+    screen.getByRole('checkbox', { name: 'Select all valid clips' })
+  );
+  expect(
+    within(footer).getByRole('heading', { name: '0 clips in this batch' })
+  ).toBeVisible();
+  expect(within(footer).queryByText('0')).not.toBeInTheDocument();
+  expect(downloadButton()).toBeDisabled();
+});
+
+it('orders fields, Apply and Review while carrying unapplied drafts into review', () => {
+  renderSets();
+  const inspector = screen.getByRole('complementary', {
+    name: 'Inspected match',
+  });
+  const apply = within(inspector).getByRole('button', {
+    name: 'Apply to clip',
+  });
+  const review = within(inspector).getByRole('button', {
+    name: 'Review clip & timestamps →',
+  });
+  ['In time', 'Out time', 'Video title'].forEach((label) => {
+    expect(
+      within(inspector).getByLabelText(label).compareDocumentPosition(apply)
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  expect(apply.compareDocumentPosition(review)).toBe(
+    Node.DOCUMENT_POSITION_FOLLOWING
+  );
+  changeTime('In time', '00:00:45');
+  expect(apply).toBeEnabled();
+  expect(review).toBeEnabled();
+  fireEvent.click(review);
+  expect(
+    screen.getByRole('heading', { name: 'Player A vs Player B' })
+  ).toHaveFocus();
+  expect(screen.getByLabelText('In time')).toHaveValue('00:00:45');
+  expect(screen.getByRole('button', { name: 'Apply to clip' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Back to batch' }));
+  expect(screen.getByLabelText('In time')).toHaveValue('00:00:45');
+  expect(selection()).toBeChecked();
+});
+
 it('exports real set, round and event metadata with the shared default thumbnail settings', async () => {
   const api = downloadAPI();
   const set = {
@@ -102,6 +206,7 @@ it('exports real set, round and event metadata with the shared default thumbnail
   await screen.findByText('1 of 1 selected clips ready.');
   expect(exportThumbnail).toHaveBeenLastCalledWith(set, {
     color: '#223d55',
+    rightColor: '#8b4c37',
     logo: '',
     background: '',
   });
@@ -140,6 +245,74 @@ it('keeps invalid records visible and correcting a 25-hour range does not select
   );
 });
 
+it.each([1, 2])(
+  'removes repeated helper copy with %s exceptions while keeping accessible validation',
+  (count) => {
+    renderSets([
+      vodMetadata(),
+      ...Array.from({ length: count }, (_, index) => ({
+        ...second(),
+        id: `invalid-${index}`,
+        title: `Incomplete clip ${index}`,
+        endTime: null,
+        download: false,
+        needsCorrection: 'Enter valid start and end times.',
+      })),
+    ]);
+    [
+      /Inspecting keeps selection unchanged/,
+      /Correct invalid selected ranges before downloading/,
+      /Apply pending edits to selected clips before downloading/,
+      /Elapsed HH:mm:ss/,
+      /^Saved ranges$/,
+      /^\d+ needs? correction$/,
+      /valid ranges/,
+    ].forEach((copy) => {
+      expect(screen.queryByText(copy)).not.toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole('region', { name: 'Saved clip ranges' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: `Exceptions ${count}` })
+    ).toBeVisible();
+    expect(
+      screen.getAllByText('Enter valid start and end times.')
+    ).toHaveLength(count);
+    expect(screen.getByLabelText('In time')).not.toHaveAttribute(
+      'aria-describedby'
+    );
+    expect(screen.getByLabelText('Out time')).not.toHaveAttribute(
+      'aria-describedby'
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Review clip & timestamps →' })
+    );
+    expect(screen.queryByText(/Elapsed HH:mm:ss/)).not.toBeInTheDocument();
+    changeTime('Out time', '00:00:30');
+    expect(screen.getByLabelText('Out time')).toHaveAccessibleDescription(
+      'End time must be after start time.'
+    );
+    expect(
+      screen.getByRole('slider', { name: 'Clip Out boundary' })
+    ).toHaveAccessibleDescription(/End time must be after start time/);
+    expect(
+      screen.queryByText('Range needs correction')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Apply to clip' })
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to batch' }));
+    expect(
+      screen.getByText('End time must be after start time.')
+    ).toBeVisible();
+    expect(
+      screen.queryByText(/Apply pending edits to selected clips/)
+    ).not.toBeInTheDocument();
+    expect(downloadButton()).toBeDisabled();
+  }
+);
+
 it('shares inspection, selection, applied titles and drafts between list and thumbnails', () => {
   renderSets([vodMetadata(), second()]);
   fireEvent.click(selection());
@@ -161,6 +334,84 @@ it('shares inspection, selection, applied titles and drafts between list and thu
   expect(
     screen.getByRole('heading', { name: 'Player C vs Player B' })
   ).toBeInTheDocument();
+});
+
+it.each([
+  ['List', 'title'],
+  ['Thumbnails', 'title'],
+  ['Thumbnails', 'thumbnail'],
+] as const)(
+  'opens review from the inspected %s %s without changing selection or drafts',
+  (view, entry) => {
+    renderSets([vodMetadata(), second()]);
+    fireEvent.click(selection());
+    fireEvent.click(screen.getByRole('button', { name: view }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Inspect Second clip' })
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Back to batch' })
+    ).not.toBeInTheDocument();
+    expect(selection()).not.toBeChecked();
+    expect(selection('Second clip')).toBeChecked();
+    changeTime('In time', '00:01:15');
+    fireEvent.click(
+      entry === 'thumbnail'
+        ? screen.getByRole('button', { name: 'Review Second clip' })
+        : screen.getByText('Second clip')
+    );
+    expect(
+      screen.getByRole('button', {
+        name: `Back to ${view === 'List' ? 'list' : 'thumbnails'}`,
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Player C vs Player B' })
+    ).toHaveFocus();
+    expect(screen.getByLabelText('In time')).toHaveValue('00:01:15');
+    fireEvent.click(screen.getByRole('button', { name: 'Back to batch' }));
+    expect(screen.getByRole('button', { name: view })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(selection()).not.toBeChecked();
+    expect(selection('Second clip')).toBeChecked();
+    expect(screen.getByLabelText('In time')).toHaveValue('00:01:15');
+  }
+);
+
+it('opens review on repeated activation while the inspection transition is pending', async () => {
+  const updates: Array<() => void> = [];
+  let finish!: () => void;
+  const skip = jest.fn();
+  Object.defineProperty(document, 'startViewTransition', {
+    configurable: true,
+    value: jest.fn((update: () => void) => {
+      updates.push(update);
+      return {
+        skipTransition: skip,
+        finished: new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+      };
+    }),
+  });
+  renderSets([vodMetadata(), second()]);
+  const match = screen.getByRole('button', { name: 'Inspect Second clip' });
+  fireEvent.click(match);
+  fireEvent.click(match);
+  expect(skip).toHaveBeenCalledTimes(1);
+  expect(
+    screen.getByRole('heading', { name: 'Player C vs Player B' })
+  ).toHaveFocus();
+  act(() => updates[0]());
+  expect(
+    screen.getByRole('heading', { name: 'Player C vs Player B' })
+  ).toHaveFocus();
+  expect(
+    screen.getByRole('button', { name: 'Back to list' })
+  ).toBeInTheDocument();
+  await act(async () => finish());
 });
 
 it('preserves deselection when an already valid clip is edited', () => {
@@ -455,7 +706,7 @@ it('cancels pending review navigation when downloading locks the rendered batch'
   expect(download).toBeDisabled();
   act(() => updates[0]());
   expect(
-    screen.getByRole('heading', { name: 'Tournament', exact: true })
+    screen.getByRole('heading', { name: 'Tournament', exact: true, level: 1 })
   ).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Back to batch' })).toBeNull();
   expect(download).toHaveFocus();
@@ -518,12 +769,59 @@ it('locks downloads and navigation while a new output root is being validated, t
   await waitFor(() => expect(choose).toBeEnabled());
   fireEvent.click(choose);
   expect(screen.getByRole('button', { name: 'Done' })).toBeDisabled();
+  expect(screen.getByLabelText('Left field color')).toBeDisabled();
+  expect(screen.getByLabelText('Right field color')).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Select logo' })).toBeDisabled();
+  expect(
+    screen.getByRole('button', { name: 'Select background image' })
+  ).toBeDisabled();
   await act(async () => release('/chosen/output'));
   fireEvent.click(screen.getByText('Output folder'));
   expect(screen.getByText('/chosen/output')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Done' }));
   await waitFor(() => expect(nextButton()).toBeDisabled());
   expect(downloadButton()).toBeEnabled();
+});
+
+it('keeps both field colors in the selected settings layout and invalidates old thumbnail readiness', async () => {
+  const api = downloadAPI();
+  renderSets();
+  fireEvent.click(downloadButton());
+  await screen.findByText('1 of 1 selected clips ready.');
+  expect(nextButton()).toBeEnabled();
+  fireEvent.click(screen.getAllByRole('button', { name: 'Output options' })[0]);
+  const dialog = within(screen.getByRole('dialog'));
+  expect(dialog.getByText('Offset Duel')).toBeVisible();
+  expect(dialog.getByText('1280 × 720 JPEG')).toBeVisible();
+  expect(dialog.getByLabelText('Left field color')).toHaveValue('#223d55');
+  expect(dialog.getByLabelText('Right field color')).toHaveValue('#8b4c37');
+  expect(dialog.getByRole('button', { name: 'Remove logo' })).toBeDisabled();
+  expect(
+    dialog.getByRole('button', { name: 'Remove background' })
+  ).toBeDisabled();
+  fireEvent.change(dialog.getByLabelText('Right field color'), {
+    target: { value: '#336699' },
+  });
+  fireEvent.click(dialog.getByRole('button', { name: 'Done' }));
+  await waitFor(() => expect(nextButton()).toBeDisabled());
+  expect(selection()).toBeChecked();
+  fireEvent.click(downloadButton());
+  await screen.findByText('1 of 1 selected clips ready.');
+  expect(exportThumbnail).toHaveBeenLastCalledWith(vodMetadata(), {
+    color: '#223d55',
+    rightColor: 'rgb(51, 102, 153)',
+    logo: '',
+    background: '',
+  });
+  expect(api.downloadVideo).toHaveBeenCalledTimes(1);
+  expect(api.saveThumbnail).toHaveBeenCalledTimes(2);
+  expect(nextButton()).toBeEnabled();
+  fireEvent.click(screen.getAllByRole('button', { name: 'Output options' })[0]);
+  fireEvent.change(screen.getByLabelText('Left field color'), {
+    target: { value: '#405060' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+  await waitFor(() => expect(nextButton()).toBeDisabled());
 });
 
 it('keeps all exception records visible in list and grid and shows a useful empty search', () => {

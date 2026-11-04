@@ -1,6 +1,5 @@
 import { ReactNode } from 'react';
 import { Button } from '@mui/material';
-import TuneIcon from '@mui/icons-material/Tune';
 import { useNavigate } from 'react-router-dom';
 
 interface Props {
@@ -12,14 +11,27 @@ interface Props {
 export default function AppShell({ current, locked = false, children }: Props) {
   const navigate = useNavigate();
   return (
-    <div className="app-shell">
-      <header className="appbar">
+    <div
+      className={
+        current === 'source' ? 'app-shell source-splices' : 'app-shell'
+      }
+    >
+      {current === 'source' && (
+        <div className="source-backdrop" aria-hidden="true" />
+      )}
+      <header className="appbar nav-amber">
         <div className="brand">
-          <TuneIcon />
-          <span>Tournament VOD Clipper</span>
-          <span className="brand-edition">Cutroom</span>
+          <svg
+            className="cut-mark"
+            viewBox="0 0 32 28"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M4 4h9L8 24H4zM17 4l12 10-17 10z" fill="currentColor" />
+          </svg>
         </div>
-        <nav aria-label="Workspace">
+        <span className="brand-product">Tournament VOD Clipper</span>
+        <nav className="amber-nav" aria-label="Workspace">
           <Button
             aria-current={current === 'source' ? 'page' : undefined}
             disabled={locked}

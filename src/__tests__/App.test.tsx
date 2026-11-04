@@ -19,6 +19,7 @@ jest.mock('@apollo/client', () => ({
 jest.mock('../renderer/components/ThumbnailGenerator', () => () => null);
 jest.mock('../renderer/common/thumbnailDrawing', () => ({
   DEFAULT_THUMBNAIL_COLOR: '#223d55',
+  DEFAULT_THUMBNAIL_RIGHT_COLOR: '#8b4c37',
   exportThumbnail: jest.fn(),
 }));
 
@@ -68,6 +69,33 @@ function setup(secret = '', mocks: MockedResponse[] = []) {
 }
 
 describe('App settings and retrieval', () => {
+  it('keeps API access, required source fields and output before retrieval in reading order', async () => {
+    setup();
+    render(<App />);
+    const key = screen.getByLabelText('Start.gg API key', { exact: false });
+    await waitFor(() => expect(key).toBeEnabled());
+    const controls = [
+      key,
+      screen.getByRole('button', { name: 'Save API Key' }),
+      screen.getByLabelText('Start.GG Event Slug', { exact: false }),
+      screen.getByLabelText('VOD Link', { exact: false }),
+      screen.getByLabelText('Stream Station', { exact: false }),
+      screen.getByRole('button', { name: 'Choose Output Folder' }),
+      screen.getByRole('button', { name: 'Retrieve Sets' }),
+    ];
+    controls.slice(1).forEach((control, index) => {
+      expect(controls[index].compareDocumentPosition(control)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING
+      );
+    });
+    expect(
+      screen.getByRole('region', { name: 'Start.gg access' })
+    ).toContainElement(key);
+    expect(controls[controls.length - 1]).toHaveAccessibleDescription(
+      'Save a start.gg API key to retrieve sets.'
+    );
+  });
+
   it('locks retrieval and navigation until output-root selection validation completes', async () => {
     const { ipcRenderer, operations } = setup('test-key');
     let release!: () => void;
@@ -282,7 +310,7 @@ describe('App settings and retrieval', () => {
     await screen.findByText('Error retrieving sets: test VOD failure');
     await waitFor(() => expect(retrieve).toBeEnabled());
     fireEvent.click(retrieve);
-    await screen.findByRole('heading', { name: 'Tournament' });
+    await screen.findByRole('heading', { name: 'Tournament', level: 1 });
     expect(
       screen.getByText('Player A vs Player B - Finals - Tournament')
     ).toBeInTheDocument();
