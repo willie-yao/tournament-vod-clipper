@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom';
 import YTUploadView from '../renderer/pages/YTUploadView';
@@ -21,6 +22,11 @@ const connected: Extract<YouTubeStatus, { state: 'connected' }> = {
   sessionId: 'session-fixture',
   message: 'Connected to Fixture tournament channel',
 };
+
+const steps = (videoName: string) =>
+  within(screen.getByRole('list', { name: `Upload steps for ${videoName}` }))
+    .getAllByRole('listitem')
+    .map((step) => step.textContent);
 
 let fixtureNumber = 0;
 async function setup(videoNames = ['one.mp4', 'two.mp4']) {
@@ -124,6 +130,14 @@ it('reports partial video success and recovers after re-login without resubmitti
   expect(
     screen.getByText('Thumbnail: test thumbnail rejected')
   ).toBeInTheDocument();
+  expect(steps('one.mp4')).toEqual(
+    expect.arrayContaining(['Video confirmed', 'Thumbnail pending'])
+  );
+  expect(steps('two.mp4')).toEqual([
+    'Video confirmed',
+    'Thumbnail confirmed',
+    'Playlist confirmed',
+  ]);
   api.connectYouTube.mockResolvedValueOnce({
     ...connected,
     sessionId: 'reconnected-session',
@@ -137,6 +151,11 @@ it('reports partial video success and recovers after re-login without resubmitti
   );
   fireEvent.click(screen.getByRole('button', { name: 'Retry Failed Steps' }));
   await screen.findByText('2 of 2 videos confirmed; 2 fully processed.');
+  expect(steps('one.mp4')).toEqual([
+    'Video confirmed',
+    'Thumbnail confirmed',
+    'Playlist confirmed',
+  ]);
   expect(api.uploadSingleVideo).toHaveBeenCalledTimes(2);
   expect(api.createPlaylist).toHaveBeenCalledTimes(1);
   expect(api.uploadThumbnail).toHaveBeenCalledTimes(3);
@@ -212,9 +231,12 @@ it('shows missing configuration honestly without enabling uploads', async () => 
       message: 'The maintainer must supply Desktop client configuration.',
     })
   );
-  expect(
-    screen.getByText('The maintainer must supply Desktop client configuration.')
-  ).toBeInTheDocument();
+  const reason = screen.getByText(
+    'The maintainer must supply Desktop client configuration.'
+  );
+  expect(reason).not.toBeVisible();
+  fireEvent.click(screen.getByText('Connection details'));
+  expect(reason).toBeVisible();
   expect(
     screen.getByRole('button', { name: 'Connect YouTube' })
   ).toBeDisabled();

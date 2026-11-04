@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Button, TextField, MenuItem, LinearProgress } from '@mui/material';
+import { Button, TextField, MenuItem } from '@mui/material';
 import { useApolloClient } from '@apollo/client';
 import { useNavigate } from 'react-router-dom';
 import SnackbarPopup from 'renderer/common/SnackbarPopup';
@@ -358,7 +358,9 @@ const VideoSearch = ({
       {waiting && (
         <div className="loading-sets" role="status">
           <p className="help">Retrieving sets and VOD start time...</p>
-          <LinearProgress />
+          <div className="splice-scan" aria-hidden="true">
+            <span className="splice-scan-draft" />
+          </div>
           <Button onClick={() => activeRetrieval.current?.scope.cancel()}>
             Cancel retrieval
           </Button>

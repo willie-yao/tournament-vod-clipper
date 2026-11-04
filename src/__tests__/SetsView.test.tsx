@@ -95,36 +95,21 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-it('preserves the full source identity and VOD link in the source and output sidebar', () => {
+it('shows the source VOD link in the page heading without a source sidebar', () => {
   renderSets();
-  const source = screen.getByRole('complementary', {
-    name: 'Source and output',
-  });
-  expect(source).toHaveClass('source-panel');
-  expect(source).toHaveTextContent('Tournament');
-  expect(source).toHaveTextContent('streamer');
-  expect(within(source).getByText('Reported range')).toBeVisible();
-  expect(within(source).getByText('00:02:00')).toBeVisible();
   expect(
-    within(source).queryByTestId('FolderOutlinedIcon')
+    screen.queryByRole('complementary', { name: 'Source and output' })
   ).not.toBeInTheDocument();
-  const link = within(source).getByRole('link', {
-    name: 'Open source VOD ↗',
-  });
-  expect(source).toContainElement(link);
+  const link = screen.getByRole('link', { name: 'Open source VOD ↗' });
+  expect(link.closest('header')).toHaveClass('app-heading');
   expect(link).toHaveAttribute('href', 'https://www.twitch.tv/videos/123');
   expect(link).toHaveAttribute('target', '_blank');
   expect(link).toHaveAttribute('rel', 'noreferrer');
 });
 
-it('opens the existing batch output settings from the source sidebar', async () => {
+it('opens the existing batch output settings from the batch footer', async () => {
   renderSets();
-  const source = screen.getByRole('complementary', {
-    name: 'Source and output',
-  });
-  fireEvent.click(
-    within(source).getByRole('button', { name: 'Output options' })
-  );
+  fireEvent.click(screen.getByRole('button', { name: 'Output options' }));
   const dialog = screen.getByRole('dialog', {
     name: 'Thumbnail & output options',
   });
@@ -629,6 +614,47 @@ it('keeps handle edits as per-set drafts through review, next, grid and Apply', 
   expect(screen.getByLabelText('Out time')).toHaveValue('00:03:00');
 });
 
+it('marks only the title invalid in review when the title alone is wrong', () => {
+  renderSets();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Review clip & timestamps →' })
+  );
+  fireEvent.change(screen.getByLabelText('Video title'), {
+    target: { value: '' },
+  });
+  expect(screen.getByLabelText('In time')).toHaveAttribute(
+    'aria-invalid',
+    'false'
+  );
+  expect(screen.getByLabelText('Out time')).toHaveAttribute(
+    'aria-invalid',
+    'false'
+  );
+});
+
+it('explains that an excluded clip with unapplied edits needs Apply before it can return', () => {
+  renderSets();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Review clip & timestamps →' })
+  );
+  fireEvent.click(selection());
+  changeTime('Out time', '00:02:30');
+  expect(selection()).toBeDisabled();
+  expect(selection()).toHaveAccessibleDescription(
+    'Apply to clip before adding it back to the batch.'
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Apply to clip' }));
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Changes applied. Batch selection is unchanged.'
+  );
+  expect(selection()).toBeEnabled();
+  expect(
+    screen.queryByText('Apply to clip before adding it back to the batch.')
+  ).not.toBeInTheDocument();
+  fireEvent.click(selection());
+  expect(selection()).toBeChecked();
+});
+
 it('uses an immediate focused review when reduced motion disables View Transitions', () => {
   const start = jest.fn();
   Object.defineProperty(document, 'startViewTransition', {
@@ -818,8 +844,19 @@ it('locks downloads and navigation while a new output root is being validated, t
   );
   const choose = screen.getByRole('button', { name: 'Choose Output Folder' });
   await waitFor(() => expect(choose).toBeEnabled());
+  fireEvent.change(screen.getByLabelText('Left field color'), {
+    target: { value: '#112233' },
+  });
+  expect(screen.getByRole('button', { name: 'Undo' })).toBeEnabled();
+  expect(
+    screen.getByRole('button', { name: 'Reset to default' })
+  ).toBeEnabled();
   fireEvent.click(choose);
   expect(screen.getByRole('button', { name: 'Done' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
+  expect(
+    screen.getByRole('button', { name: 'Reset to default' })
+  ).toBeDisabled();
   expect(screen.getByLabelText('Left field color')).toBeDisabled();
   expect(screen.getByLabelText('Right field color')).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Select logo' })).toBeDisabled();
@@ -842,7 +879,6 @@ it('keeps both field colors in the selected settings layout and invalidates old 
   expect(nextButton()).toBeEnabled();
   fireEvent.click(screen.getAllByRole('button', { name: 'Output options' })[0]);
   const dialog = within(screen.getByRole('dialog'));
-  expect(dialog.getByText('Offset Duel')).toBeVisible();
   expect(dialog.getByText('1280 × 720 JPEG')).toBeVisible();
   expect(dialog.getByLabelText('Left field color')).toHaveValue('#223d55');
   expect(dialog.getByLabelText('Right field color')).toHaveValue('#8b4c37');
@@ -873,6 +909,53 @@ it('keeps both field colors in the selected settings layout and invalidates old 
   });
   fireEvent.click(screen.getByRole('button', { name: 'Done' }));
   await waitFor(() => expect(nextButton()).toBeDisabled());
+});
+
+function openColorSettings() {
+  renderSets();
+  fireEvent.click(screen.getByRole('button', { name: 'Output options' }));
+  return within(screen.getByRole('dialog'));
+}
+
+it('resets both field colors to their defaults and can undo the reset', () => {
+  const dialog = openColorSettings();
+  const reset = dialog.getByRole('button', { name: 'Reset to default' });
+  const undo = dialog.getByRole('button', { name: 'Undo' });
+  expect(reset).toBeDisabled();
+  expect(undo).toBeDisabled();
+  fireEvent.change(dialog.getByLabelText('Left field color'), {
+    target: { value: '#112233' },
+  });
+  expect(reset).toBeEnabled();
+  fireEvent.click(reset);
+  expect(dialog.getByLabelText('Left field color')).toHaveValue('#223d55');
+  expect(dialog.getByLabelText('Right field color')).toHaveValue('#8b4c37');
+  expect(reset).toBeDisabled();
+  fireEvent.click(undo);
+  expect(dialog.getByLabelText('Left field color')).toHaveValue(
+    'rgb(17, 34, 51)'
+  );
+  expect(reset).toBeEnabled();
+});
+
+it('undoes field color edits one step at a time and groups quick edits', () => {
+  const now = jest.spyOn(Date, 'now');
+  const dialog = openColorSettings();
+  const undo = dialog.getByRole('button', { name: 'Undo' });
+  const edit = (label: string, value: string, at: number) => {
+    now.mockReturnValue(at);
+    fireEvent.change(dialog.getByLabelText(label), { target: { value } });
+  };
+  edit('Left field color', '#111111', 10000);
+  edit('Left field color', '#222222', 10100);
+  edit('Right field color', '#333333', 12000);
+  expect(undo).toBeEnabled();
+  fireEvent.click(undo);
+  expect(dialog.getByLabelText('Right field color')).toHaveValue('#8b4c37');
+  expect(dialog.getByLabelText('Left field color')).toHaveValue('#222222');
+  fireEvent.click(undo);
+  expect(dialog.getByLabelText('Left field color')).toHaveValue('#223d55');
+  expect(undo).toBeDisabled();
 });
 
 it('keeps all exception records visible in list and grid and shows a useful empty search', () => {

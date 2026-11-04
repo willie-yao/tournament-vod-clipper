@@ -170,7 +170,12 @@ export default function ClipRange({
   return (
     <section className="clip-range" aria-label="Clip boundary adjustment">
       <div className="trim-labels">
-        <h3>Clip range</h3>
+        <h3>
+          Clip range
+          {!error && start !== null && end !== null && (
+            <span className="mono"> · {formatClipTime(end - start)}</span>
+          )}
+        </h3>
         <span className="trim-legend" aria-hidden="true">
           <i className="saved-key" /> Saved <i className="draft-key" /> Draft
         </span>
