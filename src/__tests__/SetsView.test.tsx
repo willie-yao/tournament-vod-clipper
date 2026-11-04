@@ -7,8 +7,11 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import SetsView from '../renderer/pages/SetsView';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import SetsView, { SetsState } from '../renderer/pages/SetsView';
+import AppShell from '../renderer/common/AppShell';
+import OutputFolder from '../renderer/common/OutputFolder';
+import { holdBatch, releaseHeldBatch } from '../renderer/common/heldBatch';
 import {
   VODMetadata,
   formatSetMetadata,
@@ -29,23 +32,46 @@ jest.mock('../renderer/common/thumbnailDrawing', () => ({
   exportThumbnail: jest.fn(async () => new Uint8Array([255, 216, 255])),
 }));
 
+const setsState = (sets: VODMetadata[]): SetsState => ({
+  sets,
+  vodUrl: 'https://www.twitch.tv/videos/123',
+  tournamentName: 'Tournament',
+  station: 'streamer',
+  skippedSets: 0,
+});
+
 function renderSets(sets: VODMetadata[] = [vodMetadata()]) {
   return render(
     <MemoryRouter
-      initialEntries={[
-        {
-          pathname: '/SetsView',
-          state: {
-            sets,
-            vodUrl: 'https://www.twitch.tv/videos/123',
-            tournamentName: 'Tournament',
-            station: 'streamer',
-            skippedSets: 0,
-          },
-        },
-      ]}
+      initialEntries={[{ pathname: '/SetsView', state: setsState(sets) }]}
     >
       <SetsView />
+    </MemoryRouter>
+  );
+}
+
+function renderTabs(state: SetsState) {
+  return render(
+    <MemoryRouter initialEntries={[{ pathname: '/SetsView', state }]}>
+      <Routes>
+        <Route path="/SetsView" element={<SetsView />} />
+        <Route
+          path="/YTUploadView"
+          element={
+            <AppShell current="output">
+              <OutputFolder />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/"
+          element={
+            <AppShell current="source">
+              <main />
+            </AppShell>
+          }
+        />
+      </Routes>
     </MemoryRouter>
   );
 }
@@ -90,6 +116,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  releaseHeldBatch();
   Reflect.deleteProperty(document, 'startViewTransition');
   Reflect.deleteProperty(window, 'matchMedia');
   jest.restoreAllMocks();
@@ -983,4 +1010,104 @@ it('keeps all exception records visible in list and grid and shows a useful empt
   ).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
   expect(selection()).toBeInTheDocument();
+});
+
+describe('batch kept across pages', () => {
+  const matchReview = () =>
+    screen.getByRole('button', { name: 'Match review' });
+
+  it('restores applied edits, drafts, selection and workspace after leaving the page', () => {
+    renderTabs(setsState([vodMetadata(), second()]));
+    changeTime('In time', '00:00:45');
+    fireEvent.click(screen.getByRole('button', { name: 'Apply to clip' }));
+    fireEvent.click(selection());
+    fireEvent.click(screen.getByRole('button', { name: 'Thumbnails' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Inspect Second clip' })
+    );
+    changeTime('Out time', '00:03:00');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Review clip & timestamps →' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Output & YouTube' }));
+    expect(screen.queryByLabelText('Out time')).not.toBeInTheDocument();
+    fireEvent.click(matchReview());
+    expect(screen.getByLabelText('Out time')).toHaveValue('00:03:00');
+    expect(screen.getByRole('button', { name: 'Apply to clip' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to thumbnails' }));
+    expect(screen.getByRole('button', { name: 'Thumbnails' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    expect(selection()).not.toBeChecked();
+    expect(selection('Second clip')).toBeChecked();
+    fireEvent.click(
+      screen.getByRole('button', { name: `Inspect ${vodMetadata().title}` })
+    );
+    expect(screen.getByLabelText('In time')).toHaveValue('00:00:45');
+    expect(
+      screen.getByRole('button', { name: 'Apply to clip' })
+    ).toBeDisabled();
+  });
+
+  it('forgets held downloads when the output folder changes on another page', async () => {
+    const api = downloadAPI();
+    renderTabs(setsState([vodMetadata()]));
+    fireEvent.click(downloadButton());
+    await screen.findByText('1 of 1 selected clips ready.');
+    fireEvent.click(screen.getByRole('button', { name: 'Output & YouTube' }));
+    api.chooseOutputDirectory.mockResolvedValueOnce('/chosen/output');
+    const choose = screen.getByRole('button', { name: 'Choose Output Folder' });
+    await waitFor(() => expect(choose).toBeEnabled());
+    fireEvent.click(choose);
+    await screen.findByText('/chosen/output');
+    fireEvent.click(matchReview());
+    expect(nextButton()).toBeDisabled();
+    expect(downloadButton()).toHaveTextContent('Download 1 clips');
+  });
+
+  it('starts fresh when a new retrieval replaces the held batch', () => {
+    const first = renderTabs(setsState([vodMetadata()]));
+    changeTime('In time', '00:00:45');
+    fireEvent.click(screen.getByRole('button', { name: 'Apply to clip' }));
+    first.unmount();
+    renderTabs(setsState([second()]));
+    expect(screen.getByLabelText('Video title')).toHaveValue('Second clip');
+    expect(screen.queryByText('Player A vs Player B')).not.toBeInTheDocument();
+  });
+
+  it('enables Match review only while a batch is held', () => {
+    const state = setsState([vodMetadata()]);
+    const view = render(
+      <MemoryRouter>
+        <AppShell current="output">
+          <main />
+        </AppShell>
+      </MemoryRouter>
+    );
+    expect(matchReview()).toBeDisabled();
+    view.unmount();
+    holdBatch({
+      source: state,
+      sets: state.sets,
+      drafts: {},
+      workspace: { inspectedId: '1', layout: 'list', review: false },
+      filter: 'all',
+      search: '',
+      results: {},
+      downloadThumbnails: true,
+      thumbnailColor: '',
+      thumbnailRightColor: '',
+      thumbnailLogo: '',
+      thumbnailBg: '',
+    });
+    render(
+      <MemoryRouter>
+        <AppShell current="output">
+          <main />
+        </AppShell>
+      </MemoryRouter>
+    );
+    expect(matchReview()).toBeEnabled();
+  });
 });

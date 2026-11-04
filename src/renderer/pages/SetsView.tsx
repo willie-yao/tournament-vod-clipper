@@ -29,6 +29,7 @@ import {
 } from '../../common/clipTime';
 import { getVideoTitleError, VideoFile } from '../../common/files';
 import AppShell from '../common/AppShell';
+import { heldBatch, holdBatch } from '../common/heldBatch';
 import OutputFolder from '../common/OutputFolder';
 import SnackbarPopup from '../common/SnackbarPopup';
 import {
@@ -50,14 +51,16 @@ export interface SetsState {
   station?: string;
 }
 
-interface DownloadResult {
+export interface DownloadResult {
   file?: VideoFile;
   thumbnailReady: boolean;
   thumbnailKey?: string;
   error?: string;
 }
 
-interface Workspace {
+export type BatchFilter = 'all' | 'ready' | 'exceptions';
+
+export interface Workspace {
   inspectedId: string;
   layout: 'list' | 'grid';
   review: boolean;
@@ -96,26 +99,37 @@ export default function SetsView() {
   const { state }: { state: SetsState | null } = useLocation();
   const navigate = useNavigate();
   const controlId = useId();
-  const [sets, setSets] = useState(() =>
-    (state?.sets || []).map((set) => ({
-      ...set,
-      download: set.download && !correctionFor(set),
-    }))
-  );
-  const [workspace, setWorkspace] = useState<Workspace>({
-    inspectedId: state?.sets[0]?.id || '',
-    layout: 'list',
-    review: false,
+  const [restored] = useState(() => {
+    const batch = heldBatch();
+    return state && batch?.source === state ? batch : undefined;
   });
+  const [sets, setSets] = useState(
+    () =>
+      restored?.sets ||
+      (state?.sets || []).map((set) => ({
+        ...set,
+        download: set.download && !correctionFor(set),
+      }))
+  );
+  const [workspace, setWorkspace] = useState<Workspace>(
+    () =>
+      restored?.workspace || {
+        inspectedId: state?.sets[0]?.id || '',
+        layout: 'list',
+        review: false,
+      }
+  );
   const { inspectedId, layout, review } = workspace;
   const desiredWorkspace = useRef(workspace);
   const transition = useRef<ReviewTransition>();
   const mounted = useRef(true);
   const previousReview = useRef(false);
   const [linkedId, setLinkedId] = useState('');
-  const [filter, setFilter] = useState<'all' | 'ready' | 'exceptions'>('all');
-  const [search, setSearch] = useState('');
-  const [drafts, setDrafts] = useState<Record<string, ClipDraft>>({});
+  const [filter, setFilter] = useState<BatchFilter>(restored?.filter || 'all');
+  const [search, setSearch] = useState(restored?.search || '');
+  const [drafts, setDrafts] = useState<Record<string, ClipDraft>>(
+    restored?.drafts || {}
+  );
   const [savedMessage, setSavedMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -126,16 +140,24 @@ export default function SetsView() {
   }>();
   const [choosingOutput, setChoosingOutput] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const [thumbnailColor, setThumbnailColor] = useState(DEFAULT_THUMBNAIL_COLOR);
+  const [thumbnailColor, setThumbnailColor] = useState(
+    restored?.thumbnailColor || DEFAULT_THUMBNAIL_COLOR
+  );
   const [thumbnailRightColor, setThumbnailRightColor] = useState(
-    DEFAULT_THUMBNAIL_RIGHT_COLOR
+    restored?.thumbnailRightColor || DEFAULT_THUMBNAIL_RIGHT_COLOR
   );
   const [colorHistory, setColorHistory] = useState<FieldColors[]>([]);
   const lastColorEdit = useRef(0);
-  const [thumbnailLogo, setThumbnailLogo] = useState('');
-  const [thumbnailBg, setThumbnailBg] = useState('');
-  const [downloadThumbnails, setDownloadThumbnails] = useState(true);
-  const [results, setResults] = useState<Record<string, DownloadResult>>({});
+  const [thumbnailLogo, setThumbnailLogo] = useState(
+    restored?.thumbnailLogo || ''
+  );
+  const [thumbnailBg, setThumbnailBg] = useState(restored?.thumbnailBg || '');
+  const [downloadThumbnails, setDownloadThumbnails] = useState(
+    restored?.downloadThumbnails ?? true
+  );
+  const [results, setResults] = useState<Record<string, DownloadResult>>(
+    restored?.results || {}
+  );
   const [summary, setSummary] = useState('');
   const [summarySuccess, setSummarySuccess] = useState(false);
   const [playerState, setPlayerState] = useState<PlayerState>({
@@ -146,7 +168,9 @@ export default function SetsView() {
   });
   const [duration, setDuration] = useState<number>();
   const busyRef = useRef(false);
-  const progress = useRef(new Map<string, DownloadResult>());
+  const progress = useRef(
+    new Map<string, DownloadResult>(Object.entries(restored?.results ?? {}))
+  );
   const player = useRef<PlayerHandle>(null);
   const reviewHeading = useRef<HTMLHeadingElement>(null);
   const inspectorHeading = useRef<HTMLHeadingElement>(null);
@@ -302,12 +326,36 @@ export default function SetsView() {
     );
   });
 
-  useEffect(
-    () => () => {
-      if (thumbnailLogo) URL.revokeObjectURL(thumbnailLogo);
-    },
-    [thumbnailLogo]
-  );
+  useEffect(() => {
+    if (!state) return;
+    holdBatch({
+      source: state,
+      sets,
+      drafts,
+      workspace,
+      filter,
+      search,
+      results,
+      downloadThumbnails,
+      thumbnailColor,
+      thumbnailRightColor,
+      thumbnailLogo,
+      thumbnailBg,
+    });
+  }, [
+    state,
+    sets,
+    drafts,
+    workspace,
+    filter,
+    search,
+    results,
+    downloadThumbnails,
+    thumbnailColor,
+    thumbnailRightColor,
+    thumbnailLogo,
+    thumbnailBg,
+  ]);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -315,12 +363,6 @@ export default function SetsView() {
       transition.current?.skipTransition();
     };
   }, []);
-  useEffect(
-    () => () => {
-      if (thumbnailBg) URL.revokeObjectURL(thumbnailBg);
-    },
-    [thumbnailBg]
-  );
   useEffect(() => {
     if (review) {
       reviewHeading.current?.focus({ preventScroll: true });
@@ -1460,7 +1502,10 @@ export default function SetsView() {
                   </Button>
                   <Button
                     disabled={locked || !thumbnailLogo}
-                    onClick={() => setThumbnailLogo('')}
+                    onClick={() => {
+                      URL.revokeObjectURL(thumbnailLogo);
+                      setThumbnailLogo('');
+                    }}
                   >
                     Remove logo
                   </Button>
@@ -1483,7 +1528,10 @@ export default function SetsView() {
                   </Button>
                   <Button
                     disabled={locked || !thumbnailBg}
-                    onClick={() => setThumbnailBg('')}
+                    onClick={() => {
+                      URL.revokeObjectURL(thumbnailBg);
+                      setThumbnailBg('');
+                    }}
                   >
                     Remove background
                   </Button>
@@ -1505,7 +1553,10 @@ export default function SetsView() {
                 hidden
                 onChange={(event) => {
                   const file = event.target.files?.[0];
-                  if (file) setThumbnailLogo(URL.createObjectURL(file));
+                  if (file) {
+                    if (thumbnailLogo) URL.revokeObjectURL(thumbnailLogo);
+                    setThumbnailLogo(URL.createObjectURL(file));
+                  }
                   event.target.value = '';
                 }}
               />
@@ -1516,7 +1567,10 @@ export default function SetsView() {
                 hidden
                 onChange={(event) => {
                   const file = event.target.files?.[0];
-                  if (file) setThumbnailBg(URL.createObjectURL(file));
+                  if (file) {
+                    if (thumbnailBg) URL.revokeObjectURL(thumbnailBg);
+                    setThumbnailBg(URL.createObjectURL(file));
+                  }
                   event.target.value = '';
                 }}
               />
