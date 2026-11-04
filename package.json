@@ -284,7 +284,7 @@
     "publish": null
   },
   "engines": {
-    "node": ">=22.12.0 <23",
+    "node": ">=26.13.0 <27",
     "npm": "10.x || 11.x"
   },
   "electronmon": {

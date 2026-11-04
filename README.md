@@ -15,7 +15,7 @@ Packaging targets are Windows x64 and macOS Apple Silicon. Linux and Intel Mac n
 
 ## Development checks
 
-Use Node.js 22 LTS, at least 22.12 (`.nvmrc`), and npm 10 or 11. Electron is pinned to supported stable 44.9.3, verified against the official release on 2026-10-29.
+Use Node.js 26 LTS, at least 26.13.0 (`.nvmrc`), and npm 10 or 11 for development, builds and CI. Electron's bundled runtime is separate; Electron remains pinned to supported stable 44.9.3, verified against the official release on 2026-10-29.
 
 ```sh
 npm ci --ignore-scripts
