@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { heldBatch } from './heldBatch';
 
 interface Props {
   current: 'source' | 'batch' | 'output';
@@ -10,6 +11,7 @@ interface Props {
 
 export default function AppShell({ current, locked = false, children }: Props) {
   const navigate = useNavigate();
+  const batch = heldBatch();
   return (
     <div
       className={
@@ -41,7 +43,12 @@ export default function AppShell({ current, locked = false, children }: Props) {
           </Button>
           <Button
             aria-current={current === 'batch' ? 'page' : undefined}
-            disabled={locked || current !== 'batch'}
+            disabled={locked || (current !== 'batch' && !batch)}
+            onClick={
+              current !== 'batch' && batch
+                ? () => navigate('/SetsView', { state: batch.source })
+                : undefined
+            }
           >
             Match review
           </Button>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, Box, Button } from '@mui/material';
+import { forgetHeldDownloads } from './heldBatch';
 
 interface Props {
   disabled?: boolean;
@@ -38,6 +39,7 @@ const OutputFolder = ({ disabled, onChange, onChoosingChange }: Props) => {
       if (selected) {
         setDirectory(selected);
         setError('');
+        forgetHeldDownloads();
         onChange?.();
       }
     } catch (failure) {

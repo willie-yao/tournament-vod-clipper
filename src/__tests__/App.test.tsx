@@ -10,6 +10,7 @@ import {
 import { ApolloLink, Operation, createHttpLink } from '@apollo/client';
 import { MockLink, MockedResponse } from '@apollo/client/testing';
 import App from '../renderer/App';
+import { releaseHeldBatch } from '../renderer/common/heldBatch';
 import {
   GET_ALL_CHARACTERS,
   GET_SETS_AT_STREAM_STATION,
@@ -336,7 +337,10 @@ describe('App settings and retrieval', () => {
 });
 
 describe('retrieval cancellation and deadlines', () => {
-  afterEach(() => jest.useRealTimers());
+  afterEach(() => {
+    jest.useRealTimers();
+    releaseHeldBatch();
+  });
 
   it('times out a hung query, aborts its signal and retries with the saved source intact', async () => {
     const { operations } = setup('fixture-key', [
