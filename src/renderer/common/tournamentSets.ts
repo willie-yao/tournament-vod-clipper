@@ -8,11 +8,8 @@ import {
   GET_SETS_AT_STREAM_STATION,
 } from './StartggQueries';
 
-export {
-  PLAYERS_FIRST_TITLE,
-  TOURNAMENT_FIRST_TITLE,
-  TitleFormat,
-} from './setTitle';
+export { PLAYERS_FIRST_TITLE, TOURNAMENT_FIRST_TITLE } from './setTitle';
+export type { TitleFormat } from './setTitle';
 export type CharacterMap = Record<number, string>;
 
 interface Entrant {
