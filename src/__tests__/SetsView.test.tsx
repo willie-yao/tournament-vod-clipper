@@ -376,9 +376,12 @@ it.each([
     expect(selection('Second clip')).toBeChecked();
     changeTime('In time', '00:01:15');
     fireEvent.click(
-      entry === 'thumbnail'
-        ? screen.getByRole('button', { name: 'Review Second clip' })
-        : screen.getByText('Second clip')
+      screen.getByRole('button', {
+        name:
+          view === 'Thumbnails' && entry === 'title'
+            ? 'Review match Second clip'
+            : 'Review Second clip',
+      })
     );
     expect(
       screen.getByRole('button', {

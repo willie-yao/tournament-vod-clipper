@@ -16,6 +16,7 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import ArrowOutwardIcon from '@mui/icons-material/ArrowOutward';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { MuiColorInput } from 'mui-color-input';
 import { VODMetadata } from '../common/tournamentSets';
@@ -572,6 +573,10 @@ export default function SetsView() {
       </span>
     );
   };
+  const clipLength = (set: VODMetadata) =>
+    issue(set)
+      ? '-'
+      : formatClipTime((set.endTime || 0) - (set.startTime || 0));
   const statusLamp = (set: VODMetadata) => {
     const { text, tone } = statusInfo(set);
     return (
@@ -1185,11 +1190,7 @@ export default function SetsView() {
                               {formatClipTime(set.endTime) || 'Missing Out'}
                             </td>
                             <td className="mono length-column">
-                              {!issue(set)
-                                ? formatClipTime(
-                                    (set.endTime || 0) - (set.startTime || 0)
-                                  )
-                                : '-'}
+                              {clipLength(set)}
                             </td>
                             <td>{statusLamp(set)}</td>
                           </tr>
@@ -1236,9 +1237,18 @@ export default function SetsView() {
                           <ThumbnailPreview set={set} style={thumbnailStyle} />
                         </button>
                         <div className="card-meta">
+                          <div className="card-kicker">
+                            <span className="card-round">
+                              {set.roundText || 'Match'}
+                            </span>
+                            <span className="card-length">
+                              {clipLength(set)}
+                            </span>
+                          </div>
                           <button
                             type="button"
                             className="inspect-button"
+                            title={set.title}
                             aria-label={`${
                               inspectedId === set.id ? 'Review' : 'Inspect'
                             } match ${set.title}`}
@@ -1248,17 +1258,43 @@ export default function SetsView() {
                             onClick={() => activateMatch(set.id)}
                           >
                             {matchName(set)}
-                            <span className="match-title" title={set.title}>
-                              {set.title}
-                            </span>
                           </button>
-                          <div className="card-range mono">
-                            {formatClipTime(set.startTime) || 'Missing In'} →{' '}
-                            {formatClipTime(set.endTime) || 'Missing Out'}
+                          <div className="card-timeline">
+                            {set.startTime !== null && set.endTime !== null && (
+                              <div className="card-track" aria-hidden="true">
+                                <span
+                                  style={{
+                                    left: `${
+                                      (set.startTime / rangeExtent) * 100
+                                    }%`,
+                                    width: `${
+                                      (Math.max(
+                                        0,
+                                        set.endTime - set.startTime
+                                      ) /
+                                        rangeExtent) *
+                                      100
+                                    }%`,
+                                  }}
+                                />
+                              </div>
+                            )}
+                            <div className="card-times mono">
+                              <span>
+                                {formatClipTime(set.startTime) || 'Missing In'}
+                              </span>
+                              <span>
+                                {formatClipTime(set.endTime) || 'Missing Out'}
+                              </span>
+                            </div>
                           </div>
-                          <div className="card-bottom">
-                            {status(set)}
-                            <Button
+                          <div className="card-foot">
+                            {statusLamp(set)}
+                            <button
+                              type="button"
+                              className="card-go"
+                              aria-label={`Review ${matchName(set)}`}
+                              title="Review clip"
                               disabled={locked}
                               onClick={() =>
                                 changeWorkspace({
@@ -1267,8 +1303,8 @@ export default function SetsView() {
                                 })
                               }
                             >
-                              Review ↗
-                            </Button>
+                              <ArrowOutwardIcon />
+                            </button>
                           </div>
                         </div>
                       </article>
