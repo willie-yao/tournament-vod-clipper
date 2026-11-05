@@ -22,6 +22,7 @@ import {
   draftFor,
   draftChanged,
   draftError,
+  thumbnailDraftError,
 } from '../common/clipDraft';
 import {
   formatClipTime,
@@ -39,6 +40,7 @@ import {
   exportThumbnail,
 } from '../common/thumbnailDrawing';
 import ThumbnailPreview from '../components/ThumbnailPreview';
+import ThumbnailFields from '../components/ThumbnailFields';
 import ClipFields from '../components/ClipFields';
 import ClipRange from '../components/ClipRange';
 import VodPlayer, { PlayerHandle, PlayerState } from '../components/VodPlayer';
@@ -185,7 +187,8 @@ export default function SetsView() {
     Math.min(inspectedIndex - 2, sets.length - QUEUE_SIZE)
   );
   const draft = inspected && (drafts[inspected.id] || draftFor(inspected));
-  const currentError = draft && draftError(draft, duration);
+  const currentError =
+    draft && (draftError(draft, duration) || thumbnailDraftError(draft));
   const dirty = inspected && draft && draftChanged(inspected, draft);
   const thumbnailStyle = {
     color: thumbnailColor,
@@ -229,6 +232,15 @@ export default function SetsView() {
     setThumbnailColor(previous.left);
     setThumbnailRightColor(previous.right);
   };
+  const thumbnailKeyFor = (set: VODMetadata) =>
+    JSON.stringify([
+      thumbnailKey,
+      set.player1,
+      set.player2,
+      set.character1,
+      set.character2,
+      set.roundText || '',
+    ]);
   const resultKey = (set: VODMetadata) =>
     JSON.stringify([set.id, set.title, set.startTime, set.endTime]);
   const issue = (set: VODMetadata) =>
@@ -249,7 +261,8 @@ export default function SetsView() {
     return Boolean(
       result?.file &&
         (!downloadThumbnails ||
-          (result.thumbnailReady && result.thumbnailKey === thumbnailKey)) &&
+          (result.thumbnailReady &&
+            result.thumbnailKey === thumbnailKeyFor(set))) &&
         !result.error
     );
   };
@@ -467,6 +480,11 @@ export default function SetsView() {
               startTime,
               endTime,
               title: draft.title.trim(),
+              player1: draft.player1.trim(),
+              player2: draft.player2.trim(),
+              character1: draft.character1.trim(),
+              character2: draft.character2.trim(),
+              roundText: draft.roundText.trim(),
               needsCorrection: null,
             }
           : set
@@ -569,13 +587,14 @@ export default function SetsView() {
           }
           if (
             downloadThumbnails &&
-            (!result.thumbnailReady || result.thumbnailKey !== thumbnailKey)
+            (!result.thumbnailReady ||
+              result.thumbnailKey !== thumbnailKeyFor(set))
           ) {
             setActiveDownload({ key, title: set.title, stage: 'thumbnail' });
             // eslint-disable-next-line no-await-in-loop
             await generateThumbnail(set, result.file);
             result.thumbnailReady = true;
-            result.thumbnailKey = thumbnailKey;
+            result.thumbnailKey = thumbnailKeyFor(set);
           }
           result.error = undefined;
           completed += 1;
@@ -905,7 +924,13 @@ export default function SetsView() {
                     Apply to clip before adding it back to the batch.
                   </p>
                 )}
-                {thumbnailControls}
+                <ThumbnailFields
+                  set={inspected}
+                  draft={draft}
+                  style={thumbnailStyle}
+                  onChange={updateDraft}
+                  disabled={locked}
+                />
                 <nav className="review-queue" aria-label="Batch queue">
                   <h3>
                     Batch queue

@@ -802,6 +802,34 @@ p {
   outline: 1px solid var(--line);
   outline-offset: -1px;
 }
+.thumbnail-fields {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+.thumbnail-fields h3 {
+  font-size: 14px;
+}
+.thumbnail-fields .thumbnail-preview {
+  border-radius: 4px;
+  outline: 1px solid var(--line);
+  outline-offset: -1px;
+}
+.thumbnail-fields-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.thumbnail-fields-swap {
+  justify-self: start;
+}
+.thumbnail-fields-portrait {
+  width: 24px;
+  height: 24px;
+  margin-right: 8px;
+  border-radius: 4px;
+  object-fit: cover;
+}
 .thumbnail-head {
   display: flex;
   align-items: center;

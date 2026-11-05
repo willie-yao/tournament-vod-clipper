@@ -10,6 +10,11 @@ export interface ClipDraft {
   start: string;
   end: string;
   title: string;
+  player1: string;
+  player2: string;
+  character1: string;
+  character2: string;
+  roundText: string;
 }
 
 export function draftFor(set: VODMetadata): ClipDraft {
@@ -17,16 +22,25 @@ export function draftFor(set: VODMetadata): ClipDraft {
     start: formatClipTime(set.startTime),
     end: formatClipTime(set.endTime),
     title: set.title,
+    player1: set.player1,
+    player2: set.player2,
+    character1: set.character1,
+    character2: set.character2,
+    roundText: set.roundText || '',
   };
 }
 
 export function draftChanged(set: VODMetadata, draft: ClipDraft) {
   const saved = draftFor(set);
-  return (
-    saved.start !== draft.start ||
-    saved.end !== draft.end ||
-    saved.title !== draft.title
+  return (Object.keys(saved) as (keyof ClipDraft)[]).some(
+    (key) => saved[key] !== draft[key]
   );
+}
+
+export function thumbnailDraftError(draft: ClipDraft) {
+  return draft.player1.trim() && draft.player2.trim()
+    ? null
+    : 'Enter both player names for the thumbnail.';
 }
 
 export function draftError(draft: ClipDraft, duration?: number) {
