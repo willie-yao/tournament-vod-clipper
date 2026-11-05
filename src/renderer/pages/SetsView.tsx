@@ -1238,7 +1238,10 @@ export default function SetsView() {
                         </button>
                         <div className="card-meta">
                           <div className="card-kicker">
-                            <span className="card-round">
+                            <span
+                              className="card-round"
+                              title={set.roundText || undefined}
+                            >
                               {set.roundText || 'Match'}
                             </span>
                             <span className="card-length">

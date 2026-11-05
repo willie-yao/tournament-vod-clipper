@@ -564,6 +564,8 @@ p {
   min-height: 0;
 }
 .match-card {
+  display: flex;
+  flex-direction: column;
   border: 1px solid #454c56;
   border-radius: 4px;
   background: #252a30;
@@ -623,7 +625,10 @@ p {
   text-align: center;
 }
 .card-meta {
+  flex: 1;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto 1fr;
   gap: 9px;
   padding: 11px 12px 12px;
 }
@@ -637,12 +642,14 @@ p {
   text-transform: uppercase;
 }
 .card-round {
+  min-width: 0;
   color: var(--amber);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .card-length {
+  flex-shrink: 0;
   color: var(--muted);
 }
 .card-meta .inspect-button {
@@ -683,6 +690,7 @@ p {
   font-size: 11px;
 }
 .card-foot {
+  align-self: end;
   display: flex;
   align-items: center;
   justify-content: space-between;
