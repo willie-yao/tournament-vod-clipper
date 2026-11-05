@@ -515,6 +515,9 @@ const YTUploadView = () => {
                   className="run-row"
                   style={{ '--row': Math.min(index, 12) } as CSSProperties}
                 >
+                  <span className="run-index mono" aria-hidden="true">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
                   <TextField
                     fullWidth
                     label={`Title: ${item.videoName}`}
@@ -531,7 +534,7 @@ const YTUploadView = () => {
                     }}
                   />
                   <ol
-                    className="run-stages"
+                    className="run-track"
                     aria-label={`Upload steps for ${item.videoName}`}
                   >
                     {stagesFor(item).map((step) => (
