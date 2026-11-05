@@ -1048,6 +1048,7 @@ export default function SetsView() {
                   <label
                     className="search-field"
                     htmlFor={`${controlId}-search`}
+                    data-filled={Boolean(search)}
                   >
                     <SearchIcon />
                     <input
@@ -1057,6 +1058,9 @@ export default function SetsView() {
                       value={search}
                       disabled={locked}
                       onChange={(event) => setSearch(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') setSearch('');
+                      }}
                     />
                   </label>
                 </div>
