@@ -665,7 +665,7 @@ export default function SetsView() {
             setSummary('');
           }}
         />
-        Create thumbnails for the batch
+        Generate thumbnails
       </label>
       {inspected && <ThumbnailPreview set={inspected} style={thumbnailStyle} />}
     </section>
@@ -1455,7 +1455,7 @@ export default function SetsView() {
                       setDownloadThumbnails(event.target.checked)
                     }
                   />
-                  Create thumbnails for the batch
+                  Generate thumbnails
                 </label>
               </div>
               <div className="settings-workbench">

@@ -1587,7 +1587,8 @@ html {
   line-height: 1.6;
   margin-top: 20px;
 }
-.include-clip input {
+/* Outranks the checkbox margin reset below. */
+.include-clip input[type='checkbox'] {
   margin-top: calc((1lh - 15px) / 2);
 }
 input[type='checkbox'] {

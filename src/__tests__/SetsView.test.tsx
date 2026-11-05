@@ -164,7 +164,7 @@ it('keeps one footer count summary without thumbnail mode copy', () => {
   ).not.toBeInTheDocument();
   fireEvent.click(
     screen.getByRole('checkbox', {
-      name: 'Create thumbnails for the batch',
+      name: 'Generate thumbnails',
     })
   );
   expect(
@@ -855,7 +855,7 @@ it('can opt out of failed thumbnails without losing confirmed video progress', a
     '0 of 1 selected clips ready. Review failed items and retry.'
   );
   fireEvent.click(
-    screen.getByRole('checkbox', { name: 'Create thumbnails for the batch' })
+    screen.getByRole('checkbox', { name: 'Generate thumbnails' })
   );
   fireEvent.click(downloadButton());
   await screen.findByText('1 of 1 selected clips ready.');
@@ -1153,7 +1153,7 @@ describe('per-clip thumbnail fields', () => {
     renderSets();
     expect(screen.getByText('Batch thumbnails')).toBeVisible();
     expect(
-      screen.getByRole('checkbox', { name: 'Create thumbnails for the batch' })
+      screen.getByRole('checkbox', { name: 'Generate thumbnails' })
     ).toBeVisible();
     openReview();
     expect(screen.queryByText('Batch thumbnails')).not.toBeInTheDocument();
