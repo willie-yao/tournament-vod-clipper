@@ -4,6 +4,7 @@ import { Alert, Button, Dialog, IconButton } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import TuneIcon from '@mui/icons-material/Tune';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import SearchIcon from '@mui/icons-material/Search';
@@ -599,7 +600,17 @@ export default function SetsView() {
 
   const thumbnailControls = (
     <section className="thumbnail-section">
-      <h3>Batch thumbnails</h3>
+      <div className="thumbnail-head">
+        <h3>Batch thumbnails</h3>
+        <IconButton
+          aria-label="Thumbnail & output options"
+          title="Thumbnail & output options"
+          disabled={locked}
+          onClick={() => setOptionsOpen(true)}
+        >
+          <TuneIcon />
+        </IconButton>
+      </div>
       <label className="include-clip" htmlFor={`${controlId}-thumbnails`}>
         <input
           id={`${controlId}-thumbnails`}
@@ -614,9 +625,6 @@ export default function SetsView() {
         Create thumbnails for the batch
       </label>
       {inspected && <ThumbnailPreview set={inspected} style={thumbnailStyle} />}
-      <Button disabled={locked} onClick={() => setOptionsOpen(true)}>
-        Thumbnail & output options
-      </Button>
     </section>
   );
 
@@ -670,7 +678,9 @@ export default function SetsView() {
                   <ChevronLeftIcon />
                 </IconButton>
                 <span className="review-count mono">
-                  <b>{inspectedIndex + 1}</b> / {sets.length}
+                  <span>
+                    <b>{inspectedIndex + 1}</b> / {sets.length}
+                  </span>
                 </span>
                 <IconButton
                   aria-label="Next"

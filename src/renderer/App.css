@@ -286,7 +286,7 @@ p {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
 }
 .range-track {
@@ -330,7 +330,7 @@ p {
   gap: 3px;
 }
 .batch-toolbar .MuiButton-root {
-  font-size: 11px;
+  font-size: 13px;
   min-width: 0;
   padding: 5px 9px;
   color: #c2c8d0;
@@ -358,7 +358,7 @@ p {
   color: #ebedf0;
   width: 140px;
   min-width: 60px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .search-field input::placeholder {
   color: var(--muted);
@@ -377,11 +377,11 @@ p {
   min-width: 720px;
   table-layout: fixed;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 14px;
 }
 .match-table th {
   text-align: left;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
   background: #24282d;
   font-weight: 500;
@@ -443,7 +443,7 @@ p {
 .match-title {
   display: block;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 400;
   line-height: 1.5;
   margin-top: 4px;
@@ -453,13 +453,13 @@ p {
 }
 .match-range {
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 13px;
 }
 .clip-status {
   display: inline-flex;
   gap: 5px;
   align-items: flex-start;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.5;
   color: #a5d4b4;
   max-width: 200px;
@@ -551,7 +551,7 @@ p {
   max-width: 100%;
 }
 .card-range {
-  font-size: 10px;
+  font-size: 12px;
   margin: 10px 0;
 }
 .card-bottom {
@@ -562,7 +562,7 @@ p {
 }
 .card-bottom .MuiButton-root {
   min-width: 0;
-  font-size: 11px;
+  font-size: 12px;
   padding: 0;
 }
 .inspector {
@@ -576,7 +576,7 @@ p {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
 }
 .inspector > h2 {
@@ -789,9 +789,46 @@ p {
   border-top: 1px solid var(--line);
   margin: 22px 0;
 }
-.thumbnail-section > h3 {
-  font-size: 13px;
-  margin: 20px 0 12px;
+.thumbnail-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+.thumbnail-section > .include-clip {
+  margin: 0;
+}
+.thumbnail-section .thumbnail-preview {
+  border-radius: 4px;
+  outline: 1px solid var(--line);
+  outline-offset: -1px;
+}
+.thumbnail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.thumbnail-head h3 {
+  font-size: 14px;
+}
+.thumbnail-head .MuiIconButton-root {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--muted);
+}
+.thumbnail-head .MuiIconButton-root:hover:not(:disabled) {
+  border-color: var(--amber);
+  background: rgba(231, 188, 120, 0.1);
+  color: var(--amber);
+}
+.thumbnail-head .MuiIconButton-root:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+.thumbnail-head .MuiSvgIcon-root {
+  font-size: 18px;
 }
 .batch-footer {
   position: relative;
@@ -918,7 +955,7 @@ html {
   gap: 10px;
 }
 .batch-actions .MuiButton-root {
-  font-size: 12px;
+  font-size: 13px;
   white-space: nowrap;
 }
 .batch-actions .MuiButton-contained {
@@ -947,7 +984,7 @@ html {
 }
 .review-heading p {
   margin-top: 6px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
 }
 .review-heading .MuiIconButton-root {
@@ -990,7 +1027,7 @@ html {
   min-width: 72px;
   padding: 0 12px;
   border-inline: 1px solid var(--line);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
 }
 .review-count b {
@@ -1002,6 +1039,38 @@ html {
   grid-template-columns: minmax(420px, 1fr) clamp(320px, 30vw, 440px);
   flex: 1;
   min-height: 0;
+}
+/* Match review text is read at a distance, so it runs a step larger. */
+:is(.desk, .review-layout) .field {
+  font-size: 12px;
+}
+:is(.desk, .review-layout) .field input {
+  font-size: 14px;
+}
+:is(.desk, .review-layout) .field > span,
+:is(.desk, .review-layout) .boundary-delta {
+  font-size: 12px;
+}
+:is(.desk, .review-layout) .boundary-delta {
+  min-height: 16px;
+  line-height: 16px;
+}
+:is(.desk, .review-layout) .help,
+:is(.desk, .review-layout) .help-disclosure,
+:is(.desk, .review-layout) .include-clip {
+  font-size: 13px;
+}
+:is(.desk, .review-layout) .trim-labels,
+:is(.desk, .review-layout) .trim-domain,
+:is(.desk, .review-layout) .trim-legend,
+:is(.desk, .review-layout) .trim-handle .handle-value {
+  font-size: 12px;
+}
+:is(.desk, .review-layout) .trim-labels h3 {
+  font-size: 13px;
+}
+.batch-footer .help {
+  font-size: 12px;
 }
 .review-main {
   container: review-main / inline-size;
@@ -1028,12 +1097,12 @@ html {
   display: flex;
   align-items: center;
   gap: 14px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
 }
 .review-scrubber .playhead {
   color: #f0c98e;
-  font-size: 15px;
+  font-size: 17px;
 }
 .review-scrubber input[type='range'] {
   flex: 1;
@@ -1086,7 +1155,7 @@ html {
 .review-transport .field > input {
   height: 36px;
   padding-block: 0;
-  font-size: 13px;
+  font-size: 15px;
 }
 .review-transport .field > .boundary-delta {
   grid-row: 3;
@@ -1138,7 +1207,7 @@ html {
   gap: 2px;
   padding: 0 10px 0 6px;
   color: #ebedf0;
-  font-size: 11px;
+  font-size: 13px;
 }
 .transport-controls .transport-step:last-child {
   padding: 0 6px 0 10px;
@@ -1237,11 +1306,11 @@ html {
   justify-content: space-between;
   align-items: baseline;
   margin: 0 0 8px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .review-queue h3 span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
 }
 .review-queue ul {
@@ -1265,7 +1334,7 @@ html {
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   text-align: left;
   cursor: pointer;
 }
@@ -1306,16 +1375,10 @@ html {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .review-inspector .help {
   margin: 0;
-}
-.review-inspector .thumbnail-section > h3 {
-  margin-top: 0;
-}
-.review-inspector .thumbnail-section .include-clip {
-  margin-top: 0;
 }
 .include-clip {
   display: flex;
@@ -1326,7 +1389,7 @@ html {
   margin-top: 20px;
 }
 .include-clip input {
-  margin-top: 4px;
+  margin-top: calc((1lh - 15px) / 2);
 }
 input[type='checkbox'] {
   width: 15px;
