@@ -585,10 +585,42 @@ p {
   margin: 16px 0 7px;
 }
 .inspector .review-action {
-  margin: 12px 0 0;
+  margin: 9px 0 0;
 }
 .inspector > .clip-status + .clip-fields {
-  margin-top: 18px;
+  margin-top: 24px;
+}
+/* Batch inspector spacing runs on a 6px step. */
+.desk > .inspector {
+  padding: 24px 18px;
+}
+.desk > .inspector > .inspector-label {
+  margin-bottom: 12px;
+}
+.desk > .inspector > h2 {
+  margin: 0 0 6px;
+}
+.desk > .inspector > .help {
+  margin-bottom: 12px;
+}
+.desk > .inspector > .clip-status {
+  display: flex;
+  max-width: none;
+}
+.desk > .inspector .field {
+  gap: 6px;
+}
+.desk > .inspector .time-fields .field {
+  position: relative;
+}
+.desk > .inspector .time-fields .boundary-delta {
+  position: absolute;
+  top: calc(100% + 1px);
+  left: 0;
+  min-height: 0;
+}
+.desk > .inspector > .MuiButton-root:not(.review-action) {
+  margin-top: 24px;
 }
 .clip-fields {
   display: flex;
@@ -787,12 +819,11 @@ p {
 .section-rule {
   border: 0;
   border-top: 1px solid var(--line);
-  margin: 22px 0;
+  margin: 24px 0;
 }
 .thumbnail-section {
   display: grid;
   gap: 12px;
-  margin-top: 24px;
 }
 .thumbnail-section > .include-clip {
   margin: 0;
@@ -1157,9 +1188,6 @@ html {
 }
 .batch-notices {
   flex-shrink: 0;
-}
-.inspector .clip-fields + .MuiButton-root {
-  margin-top: 16px;
 }
 .review-heading {
   flex-shrink: 0;
