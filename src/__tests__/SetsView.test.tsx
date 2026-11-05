@@ -1116,6 +1116,21 @@ describe('batch kept across pages', () => {
   });
 });
 
+it('jumps between clips from the pager queue menu', () => {
+  renderSets([vodMetadata(), second()]);
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Review clip & timestamps →' })
+  );
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Batch queue, clip 1 of 2' })
+  );
+  fireEvent.click(screen.getByRole('menuitem', { name: /Player C/ }));
+  expect(
+    screen.getByRole('button', { name: 'Batch queue, clip 2 of 2' })
+  ).toBeInTheDocument();
+  expect(screen.getByLabelText('Video title')).toHaveValue('Second clip');
+});
+
 describe('per-clip thumbnail fields', () => {
   const openReview = () =>
     fireEvent.click(

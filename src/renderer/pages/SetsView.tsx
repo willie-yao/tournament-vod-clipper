@@ -41,6 +41,7 @@ import {
 } from '../common/thumbnailDrawing';
 import ThumbnailPreview from '../components/ThumbnailPreview';
 import ThumbnailFields from '../components/ThumbnailFields';
+import QueueMenu from '../components/QueueMenu';
 import ClipFields from '../components/ClipFields';
 import ClipRange from '../components/ClipRange';
 import VodPlayer, { PlayerHandle, PlayerState } from '../components/VodPlayer';
@@ -82,7 +83,6 @@ interface FieldColors {
 // Edits closer together than this count as one undo step.
 const COLOR_EDIT_GAP_MS = 800;
 const COLOR_HISTORY_LIMIT = 50;
-const QUEUE_SIZE = 5;
 const SEEK_STEP = 10;
 const APPLIED_MESSAGE = 'Changes applied. Batch selection is unchanged.';
 
@@ -182,10 +182,6 @@ export default function SetsView() {
   const locked = busy || choosingOutput;
   const inspectedIndex = sets.findIndex((set) => set.id === inspectedId);
   const inspected = sets[inspectedIndex];
-  const queueStart = Math.max(
-    0,
-    Math.min(inspectedIndex - 2, sets.length - QUEUE_SIZE)
-  );
   const draft = inspected && (drafts[inspected.id] || draftFor(inspected));
   const currentError =
     draft && (draftError(draft, duration) || thumbnailDraftError(draft));
@@ -696,11 +692,12 @@ export default function SetsView() {
                 >
                   <ChevronLeftIcon />
                 </IconButton>
-                <span className="review-count mono">
-                  <span>
-                    <b>{inspectedIndex + 1}</b> / {sets.length}
-                  </span>
-                </span>
+                <QueueMenu
+                  sets={sets}
+                  currentId={inspected.id}
+                  disabled={locked}
+                  onSelect={inspect}
+                />
                 <IconButton
                   aria-label="Next"
                   title={
@@ -931,44 +928,6 @@ export default function SetsView() {
                   onChange={updateDraft}
                   disabled={locked}
                 />
-                <nav className="review-queue" aria-label="Batch queue">
-                  <h3>
-                    Batch queue
-                    <span className="mono">
-                      {inspectedIndex + 1} / {sets.length}
-                    </span>
-                  </h3>
-                  <ul>
-                    {sets
-                      .slice(queueStart, queueStart + QUEUE_SIZE)
-                      .map((set) => (
-                        <li key={set.id}>
-                          <button
-                            type="button"
-                            className="queue-row"
-                            aria-current={
-                              set.id === inspected.id ? 'true' : undefined
-                            }
-                            disabled={locked}
-                            onClick={() => inspect(set.id)}
-                          >
-                            <span
-                              className="queue-dot"
-                              data-included={set.download || undefined}
-                              aria-hidden="true"
-                            />
-                            <span className="queue-name">
-                              {matchName(set)}
-                              <span className="sr-only">
-                                {set.download ? ', included' : ', not included'}
-                              </span>
-                            </span>
-                            <span className="queue-round">{set.roundText}</span>
-                          </button>
-                        </li>
-                      ))}
-                  </ul>
-                </nav>
               </aside>
             </div>
           ) : (

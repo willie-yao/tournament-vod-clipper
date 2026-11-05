@@ -1,12 +1,9 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { Alert, Autocomplete, Button, TextField } from '@mui/material';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { ClipDraft, thumbnailDraftError } from '../common/clipDraft';
 import { ThumbnailStyle } from '../common/thumbnailDrawing';
-import {
-  getThumbnailPortrait,
-  THUMBNAIL_CHARACTERS,
-} from '../common/thumbnailPortraits';
+import { THUMBNAIL_CHARACTERS } from '../common/thumbnailPortraits';
 import { VODMetadata } from '../common/tournamentSets';
 import ThumbnailPreview from './ThumbnailPreview';
 
@@ -26,6 +23,7 @@ export default function ThumbnailFields({
   disabled,
 }: Props) {
   const headingId = useId();
+  const [openPicker, setOpenPicker] = useState<1 | 2>();
   const error = thumbnailDraftError(draft);
   const title = draft.title.toLowerCase();
   const namesChanged =
@@ -64,22 +62,13 @@ export default function ThumbnailFields({
           value={draft[character]}
           inputValue={draft[character]}
           disabled={disabled}
-          onInputChange={(_, value) =>
-            onChange({ ...draft, [character]: value })
-          }
-          renderOption={(props, option) => (
-            // eslint-disable-next-line react/jsx-props-no-spreading
-            <li {...props}>
-              {getThumbnailPortrait(option)?.source && (
-                <img
-                  className="thumbnail-fields-portrait"
-                  src={getThumbnailPortrait(option)?.source}
-                  alt=""
-                />
-              )}
-              {option}
-            </li>
-          )}
+          open={openPicker === n && Boolean(draft[character].trim())}
+          onClose={() => setOpenPicker(undefined)}
+          onInputChange={(_, value, reason) => {
+            // The list only opens once the operator types.
+            if (reason === 'input') setOpenPicker(n);
+            onChange({ ...draft, [character]: value });
+          }}
           renderInput={(params) => (
             // eslint-disable-next-line react/jsx-props-no-spreading
             <TextField {...params} label={`${label} character`} />
@@ -90,7 +79,17 @@ export default function ThumbnailFields({
   };
   return (
     <section className="thumbnail-fields" aria-labelledby={headingId}>
-      <h3 id={headingId}>Thumbnail</h3>
+      <div className="thumbnail-fields-head">
+        <h3 id={headingId}>Thumbnail</h3>
+        <Button
+          size="small"
+          startIcon={<SwapHorizIcon />}
+          disabled={disabled}
+          onClick={swap}
+        >
+          Swap sides
+        </Button>
+      </div>
       <ThumbnailPreview
         set={{
           ...set,
@@ -103,15 +102,6 @@ export default function ThumbnailFields({
         style={style}
       />
       {side(1, 'Left')}
-      <Button
-        className="thumbnail-fields-swap"
-        variant="outlined"
-        startIcon={<SwapHorizIcon />}
-        disabled={disabled}
-        onClick={swap}
-      >
-        Swap sides
-      </Button>
       {side(2, 'Right')}
       <TextField
         size="small"

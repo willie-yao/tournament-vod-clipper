@@ -1,6 +1,9 @@
 /** @jest-environment node */
 import { readFileSync } from 'fs';
-import { getThumbnailPortrait } from '../renderer/common/thumbnailPortraits';
+import {
+  getThumbnailPortrait,
+  THUMBNAIL_CHARACTERS,
+} from '../renderer/common/thumbnailPortraits';
 import { thumbnailPortraitPlacement } from '../renderer/common/thumbnailDrawing';
 
 jest.mock('../renderer/common/thumbnailPortraits', () => {
@@ -19,7 +22,11 @@ jest.mock('../renderer/common/thumbnailPortraits', () => {
       fs
         .readdirSync(assets)
         .filter((name) => name.endsWith('.png'))
-        .map((name) => `./${name}`),
+        // Webpack lists each module under a relative and a full path.
+        .flatMap((name) => [
+          `./${name}`,
+          `src/renderer/components/characters/${name}`,
+        ]),
   });
   const metadata = {};
   const compiled = typescript.transpileModule(fs.readFileSync(source, 'utf8'), {
@@ -99,3 +106,10 @@ it.each([
     expect(Math.abs((eyes[0].y + eyes[1].y) / 2 - foxEye)).toBeLessThan(5);
   }
 );
+
+it('lists each bundled character once by its display name', () => {
+  expect(THUMBNAIL_CHARACTERS.filter((name) => name === 'Mii Brawler')).toEqual(
+    ['Mii Brawler']
+  );
+  expect(THUMBNAIL_CHARACTERS.some((name) => name.includes('/'))).toBe(false);
+});

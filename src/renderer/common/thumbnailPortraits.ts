@@ -16,10 +16,10 @@ const normalize = (name: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]/gi, '')
     .toLowerCase();
-export const THUMBNAIL_CHARACTERS = images
-  .keys()
-  .map((key) => key.slice(2, -4))
-  .sort((a, b) => a.localeCompare(b));
+// Webpack lists each image under both a relative and a full path.
+export const THUMBNAIL_CHARACTERS = Array.from(
+  new Set(images.keys().map((key) => key.replace(/^.*\//, '').slice(0, -4)))
+).sort((a, b) => a.localeCompare(b));
 const names = new Map(
   images.keys().map((key) => [normalize(key.slice(2, -4)), key])
 );
