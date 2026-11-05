@@ -638,7 +638,7 @@ p {
   justify-content: space-between;
   gap: 8px;
   font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 .card-round {
