@@ -110,7 +110,7 @@ const downloadButton = () =>
     name: /Download \d+ clips|Retry incomplete clips/,
   });
 const nextButton = () =>
-  screen.getByRole('button', { name: 'Continue to Upload' });
+  screen.queryByRole('button', { name: 'Continue to Upload' });
 const changeTime = (label: 'In time' | 'Out time', value: string) =>
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 
@@ -562,7 +562,7 @@ it('waits for thumbnail writes, prevents duplicate submission and gates continua
   fireEvent.click(download);
   expect(api.downloadVideo).toHaveBeenCalledTimes(1);
   expect(download).toBeDisabled();
-  expect(nextButton()).toBeDisabled();
+  expect(nextButton()).toBeNull();
   await act(async () =>
     releaseVideo({ folderName: 'Tournament', videoName: 'first.mp4' })
   );
@@ -570,7 +570,7 @@ it('waits for thumbnail writes, prevents duplicate submission and gates continua
   expect(api.downloadVideo).toHaveBeenCalledTimes(1);
   expect(screen.getAllByText('Saving thumbnail...').length).toBeGreaterThan(0);
   expect(screen.getByText('0 of 2 ready · 1 clip files saved')).toBeVisible();
-  expect(nextButton()).toBeDisabled();
+  expect(nextButton()).toBeNull();
   expect(
     screen.getByRole('button', { name: 'Inspect Second clip' })
   ).toBeDisabled();
@@ -583,7 +583,9 @@ it('waits for thumbnail writes, prevents duplicate submission and gates continua
   await screen.findByText('2 of 2 selected clips ready.');
   expect(api.downloadVideo).toHaveBeenCalledTimes(2);
   expect(nextButton()).toBeEnabled();
-  expect(downloadButton()).toBeDisabled();
+  expect(
+    screen.queryByRole('button', { name: /Download \d+ clips/ })
+  ).toBeNull();
 });
 
 it('reports partial failure and retries only missing downloads after switching layouts', async () => {
@@ -594,7 +596,7 @@ it('reports partial failure and retries only missing downloads after switching l
   await screen.findByText(
     '1 of 2 selected clips ready. Review failed items and retry.'
   );
-  expect(nextButton()).toBeDisabled();
+  expect(nextButton()).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Thumbnails' }));
   expect(screen.getAllByText('test download failed').length).toBeGreaterThan(0);
   fireEvent.click(downloadButton());
@@ -898,8 +900,8 @@ it('locks downloads and navigation while a new output root is being validated, t
   fireEvent.click(screen.getByText('Output folder'));
   expect(screen.getByText('/chosen/output')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-  await waitFor(() => expect(nextButton()).toBeDisabled());
-  expect(downloadButton()).toBeEnabled();
+  await waitFor(() => expect(downloadButton()).toBeEnabled());
+  expect(nextButton()).toBeNull();
 });
 
 it('keeps both field colors in the selected settings layout and invalidates old thumbnail readiness', async () => {
@@ -921,7 +923,8 @@ it('keeps both field colors in the selected settings layout and invalidates old 
     target: { value: '#336699' },
   });
   fireEvent.click(dialog.getByRole('button', { name: 'Done' }));
-  await waitFor(() => expect(nextButton()).toBeDisabled());
+  await waitFor(() => expect(downloadButton()).toBeEnabled());
+  expect(nextButton()).toBeNull();
   expect(selection()).toBeChecked();
   fireEvent.click(downloadButton());
   await screen.findByText('1 of 1 selected clips ready.');
@@ -939,7 +942,8 @@ it('keeps both field colors in the selected settings layout and invalidates old 
     target: { value: '#405060' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-  await waitFor(() => expect(nextButton()).toBeDisabled());
+  await waitFor(() => expect(downloadButton()).toBeEnabled());
+  expect(nextButton()).toBeNull();
 });
 
 function openColorSettings() {
@@ -1066,7 +1070,7 @@ describe('batch kept across pages', () => {
     fireEvent.click(choose);
     await screen.findByText('/chosen/output');
     fireEvent.click(matchReview());
-    expect(nextButton()).toBeDisabled();
+    expect(nextButton()).toBeNull();
     expect(downloadButton()).toHaveTextContent('Download 1 clips');
   });
 

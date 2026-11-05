@@ -1019,11 +1019,6 @@ p {
 .match-card[data-run-state='error'] {
   border-color: #f1a69c;
 }
-.batch-actions .MuiButton-root.output-ready {
-  background: #c2d7bf;
-  border-color: #c2d7bf;
-  color: #17241b;
-}
 html {
   view-transition-name: none;
 }
@@ -1059,18 +1054,103 @@ html {
   font-weight: 600;
   margin-bottom: 6px;
 }
+@property --batch-done {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
 .batch-actions {
   margin-left: auto;
   display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.batch-tool {
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: color 160ms, border-color 160ms, background-color 160ms;
+}
+.batch-tool .MuiSvgIcon-root {
+  font-size: 20px;
+}
+.batch-tool:hover:not(:disabled) {
+  color: #ebedf0;
+  border-color: #5a616b;
+  background: #2f3439;
+}
+.batch-tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.batch-tool:focus-visible,
+.batch-command:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+.batch-command {
+  width: 18rem;
+  height: 50px;
+  display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 8px 0 16px;
+  border: 0;
+  background: var(--amber);
+  color: #17191c;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 280ms;
 }
-.batch-actions .MuiButton-root {
-  font-size: 13px;
+.batch-command[data-ready='true'] {
+  background: #c2d7bf;
+  color: #17241b;
+}
+.batch-command:disabled {
+  background: #3a3f46;
+  color: var(--muted);
+  cursor: default;
+}
+.batch-command[data-busy='true'] {
+  background: linear-gradient(
+    90deg,
+    var(--amber) calc(var(--batch-done) * 100%),
+    #4a4234 0
+  );
+  color: #17191c;
+  transition: --batch-done 420ms;
+}
+.batch-command-label {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.1;
   white-space: nowrap;
+  transition: opacity 220ms, transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
-.batch-actions .MuiButton-contained {
-  padding: 10px 16px;
+@starting-style {
+  .batch-command-label {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.batch-command-go {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(23 25 28 / 0.12);
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.batch-command:hover:not(:disabled) .batch-command-go {
+  transform: translateX(3px);
 }
 .batch-notices > .MuiAlert-root {
   border-radius: 0;
