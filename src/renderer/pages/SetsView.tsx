@@ -14,7 +14,6 @@ import CheckIcon from '@mui/icons-material/Check';
 import UndoIcon from '@mui/icons-material/Undo';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import DownloadIcon from '@mui/icons-material/Download';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -47,6 +46,7 @@ import ThumbnailFields from '../components/ThumbnailFields';
 import QueueMenu from '../components/QueueMenu';
 import ClipFields from '../components/ClipFields';
 import ClipRange from '../components/ClipRange';
+import DownloadGlyph from '../components/DownloadGlyph';
 import VodPlayer, { PlayerHandle, PlayerState } from '../components/VodPlayer';
 
 export interface SetsState {
@@ -1423,7 +1423,7 @@ export default function SetsView() {
                         {downloadLabel}
                       </span>
                       <span className="batch-command-go">
-                        <DownloadIcon />
+                        <DownloadGlyph />
                       </span>
                     </button>
                   )}

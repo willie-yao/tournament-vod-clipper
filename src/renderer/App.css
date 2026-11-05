@@ -1180,8 +1180,18 @@ html {
   background: rgb(23 25 28 / 0.12);
   transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
-.batch-command:hover:not(:disabled) .batch-command-go {
+.batch-command[data-ready='true']:hover:not(:disabled) .batch-command-go {
   transform: translateX(3px);
+}
+.download-arrow {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.batch-command:hover:not(:disabled) .download-arrow {
+  transform: translateY(2px);
+}
+.batch-command:active:not(:disabled) .download-arrow {
+  transform: translateY(3px);
+  transition-duration: 80ms;
 }
 .batch-notices > .MuiAlert-root {
   border-radius: 0;
