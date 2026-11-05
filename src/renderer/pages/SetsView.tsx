@@ -525,38 +525,58 @@ export default function SetsView() {
   const backToBatch = () => {
     changeWorkspace({ review: false });
   };
-  const status = (set: VODMetadata) => {
+  const statusInfo = (set: VODMetadata) => {
     const result = results[resultKey(set)];
     const failure = result?.error;
-    const pending = drafts[set.id] && draftChanged(set, drafts[set.id]);
+    const pending = pendingDraft(set);
     const warning = issue(set);
     const phase = runPhase(set);
-    const active =
-      phase === 'video' || phase === 'thumbnail' || phase === 'queued';
     let text = ready(set) ? 'Downloaded' : 'Ready';
-    let severity = '';
-    let indicator = <CheckIcon />;
+    let tone: 'idle' | 'done' | 'warn' | 'error' | 'active' = ready(set)
+      ? 'done'
+      : 'idle';
     if (phase === 'queued') text = 'Queued';
     if (warning || pending) {
       text = pending ? 'Unapplied changes' : warning || text;
-      severity = 'warn';
-      indicator = <WarningAmberIcon />;
+      tone = 'warn';
     }
     if (failure) {
       text = result.file ? `Clip saved; thumbnail failed: ${failure}` : failure;
-      severity = 'error';
-      indicator = <WarningAmberIcon />;
+      tone = 'error';
     }
-    if (active) {
+    if (phase === 'video' || phase === 'thumbnail' || phase === 'queued') {
       if (phase !== 'queued')
         text =
           phase === 'video' ? 'Downloading clip...' : 'Saving thumbnail...';
-      severity = 'warn';
-      indicator = <span className="run-marker" aria-hidden="true" />;
+      tone = 'active';
     }
+    return { text, tone };
+  };
+  const status = (set: VODMetadata) => {
+    const { text, tone } = statusInfo(set);
+    let indicator = <CheckIcon />;
+    if (tone === 'warn' || tone === 'error') indicator = <WarningAmberIcon />;
+    if (tone === 'active')
+      indicator = <span className="run-marker" aria-hidden="true" />;
+    const severity = {
+      idle: '',
+      done: '',
+      warn: 'warn',
+      error: 'error',
+      active: 'warn',
+    }[tone];
     return (
       <span className={`clip-status ${severity}`}>
         {indicator}
+        {text}
+      </span>
+    );
+  };
+  const statusLamp = (set: VODMetadata) => {
+    const { text, tone } = statusInfo(set);
+    return (
+      <span className="cut-lamp" data-tone={tone}>
+        <i aria-hidden="true" />
         {text}
       </span>
     );
@@ -1171,7 +1191,7 @@ export default function SetsView() {
                                   )
                                 : '-'}
                             </td>
-                            <td>{status(set)}</td>
+                            <td>{statusLamp(set)}</td>
                           </tr>
                         ))}
                       </tbody>
