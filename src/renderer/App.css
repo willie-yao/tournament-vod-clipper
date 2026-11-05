@@ -520,8 +520,7 @@ p {
 }
 .cut-lamp[data-tone='done'] > i {
   background: #a5d4b4;
-  box-shadow: 0 0 0 3px rgb(165 212 180 / 0.18),
-    0 0 9px rgb(165 212 180 / 0.55);
+  box-shadow: 0 0 0 3px rgb(165 212 180 / 0.18), 0 0 9px rgb(165 212 180 / 0.55);
 }
 .cut-lamp[data-tone='warn'],
 .cut-lamp[data-tone='active'] {
@@ -2195,10 +2194,10 @@ summary:focus-visible {
 .publish-settings {
   display: flex;
   flex-direction: column;
-  gap: 21px;
+  gap: 18px;
   padding: 24px;
   border-right: 1px solid var(--line);
-  background: #25292e;
+  background: #212529;
   overflow-y: auto;
 }
 .publish-settings h1 {
@@ -2234,50 +2233,62 @@ summary:focus-visible {
 }
 .publish-steps {
   display: grid;
+  gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
+  counter-reset: step;
 }
 .publish-step {
-  position: relative;
+  counter-increment: step;
   display: grid;
-  gap: 10px;
-  padding: 0 0 28px 26px;
+  gap: 12px;
+  padding: 0 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #272c31;
+  overflow: hidden;
+  transition: border-color 0.3s;
 }
-.publish-step::before {
-  content: '';
-  position: absolute;
-  top: 3px;
-  left: 0;
-  z-index: 1;
-  width: 10px;
-  height: 10px;
-  border: 1.5px solid #5a626d;
-  border-radius: 50%;
-  background: #25292e;
-  transition: background-color 0.3s, border-color 0.3s;
+.publish-step > :not(.publish-step-title) {
+  margin: 0 14px;
 }
-.publish-step[data-ready]::before {
-  border-color: var(--amber);
-  background: var(--amber);
-}
-.publish-step:not(:last-child)::after {
-  content: '';
-  position: absolute;
-  top: 16px;
-  bottom: 2px;
-  left: 5px;
-  width: 1.5px;
-  background: var(--line);
-}
-.publish-step[data-ready]:not(:last-child)::after {
-  background: color-mix(in srgb, var(--amber) 60%, var(--line));
+.publish-step[data-ready] {
+  border-color: color-mix(in srgb, #a5d4b4 32%, var(--line));
 }
 .publish-step-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--line);
+  background: #2d3238;
   font-size: 12px;
   font-weight: 600;
   line-height: 16px;
+  letter-spacing: 0.02em;
   color: #ebedf0;
+}
+.publish-step-title::before {
+  content: counter(step, decimal-leading-zero);
+  font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+}
+.publish-step-title::after {
+  content: 'To do';
+  margin-left: auto;
+  padding: 3px 7px;
+  border-radius: 10px;
+  background: #3a3f46;
+  color: var(--muted);
+  font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.publish-step[data-ready] .publish-step-title::after {
+  content: 'Ready';
+  background: rgba(165, 212, 180, 0.15);
+  color: #a5d4b4;
 }
 .publish-step:not([data-ready]) .publish-step-title {
   color: var(--muted);
@@ -2293,25 +2304,63 @@ summary:focus-visible {
 .publish-step .output-folder > .MuiButton-root,
 .publish-step .connection-actions .MuiButton-root,
 .publish-step .upload-folder-row > .MuiButton-root {
-  width: 156px;
-  min-height: 40px;
-  padding: 0 12px;
-  border: 1px solid color-mix(in srgb, var(--amber) 50%, var(--line));
-  background: transparent;
-  color: var(--amber);
+  min-height: 38px;
+  gap: 2px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #31373e;
+  color: #ebedf0;
   font-size: 12px;
+  font-weight: 600;
+}
+.publish-step .output-folder > .MuiButton-root .MuiSvgIcon-root,
+.publish-step .connection-actions .MuiButton-root .MuiSvgIcon-root,
+.publish-step .upload-folder-row > .MuiButton-root .MuiSvgIcon-root {
+  font-size: 17px;
+  color: var(--amber);
 }
 .publish-step .output-folder > .MuiButton-root:hover:not(:disabled),
 .publish-step .connection-actions .MuiButton-root:hover:not(:disabled),
 .publish-step .upload-folder-row > .MuiButton-root:hover:not(:disabled) {
-  border-color: var(--amber);
-  background: rgba(231, 188, 120, 0.1);
+  border-color: #5a616b;
+  background: #3a4048;
 }
 .publish-step .output-folder > .MuiButton-root:disabled,
 .publish-step .connection-actions .MuiButton-root:disabled,
 .publish-step .upload-folder-row > .MuiButton-root:disabled {
-  border-color: var(--line);
+  background: transparent;
   color: var(--muted);
+}
+.publish-step .output-folder > .MuiButton-root:disabled .MuiSvgIcon-root,
+.publish-step .connection-actions .MuiButton-root:disabled .MuiSvgIcon-root,
+.publish-step .upload-folder-row > .MuiButton-root:disabled .MuiSvgIcon-root {
+  color: inherit;
+}
+.publish-settings .MuiOutlinedInput-root {
+  border-radius: 6px;
+  background: #1d2125;
+}
+.publish-settings .MuiOutlinedInput-notchedOutline {
+  border-color: transparent;
+}
+.publish-settings
+  .MuiOutlinedInput-root:hover:not(.Mui-disabled)
+  .MuiOutlinedInput-notchedOutline {
+  border-color: #4a5059;
+}
+.publish-settings .MuiOutlinedInput-root.Mui-focused {
+  box-shadow: 0 0 0 3px rgba(231, 188, 120, 0.14);
+}
+.publish-settings
+  .MuiOutlinedInput-root.Mui-focused
+  .MuiOutlinedInput-notchedOutline {
+  border: 1px solid var(--amber);
+}
+.publish-settings .visibility-switch .MuiFormGroup-root {
+  border-color: transparent;
+  border-radius: 6px;
+  background: #1d2125;
 }
 .publish-settings .output-folder > .MuiAlert-root {
   grid-column: 1 / -1;
@@ -2437,7 +2486,18 @@ summary:focus-visible {
   margin-bottom: 8px;
 }
 .upload-action {
-  min-height: 44px;
+  min-height: 48px;
+}
+.publish-settings .upload-action {
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.upload-action .MuiSvgIcon-root {
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.upload-action:hover:not(:disabled) .MuiSvgIcon-root {
+  transform: translateY(-2px);
 }
 .run-sheet {
   display: flex;
