@@ -351,9 +351,14 @@ p {
   border: 1px solid var(--line);
   border-radius: 3px;
   padding: 5px 7px;
+  transition: border-color 160ms;
+}
+.search-field:focus-within {
+  border-color: var(--amber);
 }
 .search-field input {
   border: 0;
+  outline: none;
   background: transparent;
   color: #ebedf0;
   width: 140px;
