@@ -804,7 +804,7 @@ p {
 }
 .thumbnail-fields {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   margin-top: 24px;
 }
 .thumbnail-fields h3 {
@@ -815,21 +815,103 @@ p {
   outline: 1px solid var(--line);
   outline-offset: -1px;
 }
-.thumbnail-fields-row {
+.versus {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-.thumbnail-fields-head {
-  display: flex;
+  grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
 }
-.thumbnail-fields-head .MuiButton-root {
-  min-height: 0;
-  padding: 2px 6px;
+.versus-card {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--field) 55%, var(--line));
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--field) 18%, #1f2327);
+}
+.versus-side {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.versus-side i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--field);
+}
+.versus-card input {
+  width: 100%;
+  min-width: 0;
+  padding: 2px 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: #ebedf0;
+  font: inherit;
+}
+.versus-card input:hover:not(:disabled) {
+  border-bottom-color: var(--line);
+}
+.versus-card input:focus {
+  outline: none;
+  border-bottom-color: var(--amber);
+}
+.versus-card .versus-name {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.versus-card .versus-character {
+  font-size: 13px;
+  color: var(--muted);
+}
+.versus-swap {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #25292e;
+  color: var(--amber);
+  cursor: pointer;
+}
+.versus-swap:hover:not(:disabled) {
+  border-color: var(--amber);
+  background: rgba(231, 188, 120, 0.12);
+}
+.versus-swap:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+.versus-swap .MuiSvgIcon-root {
+  font-size: 18px;
+}
+.versus-round {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
   font-size: 12px;
+  color: var(--muted);
+}
+.versus-round input {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #1e2125;
+  color: #ebedf0;
+  font: inherit;
+  font-size: 13px;
+}
+.versus-round input:focus {
+  outline: none;
+  border-color: var(--amber);
 }
 .thumbnail-head {
   display: flex;

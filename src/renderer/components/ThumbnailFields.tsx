@@ -1,5 +1,5 @@
-import { useId, useState } from 'react';
-import { Alert, Autocomplete, Button, TextField } from '@mui/material';
+import { CSSProperties, useId } from 'react';
+import { Alert } from '@mui/material';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { ClipDraft, thumbnailDraftError } from '../common/clipDraft';
 import { ThumbnailStyle } from '../common/thumbnailDrawing';
@@ -23,7 +23,7 @@ export default function ThumbnailFields({
   disabled,
 }: Props) {
   const headingId = useId();
-  const [openPicker, setOpenPicker] = useState<1 | 2>();
+  const charactersId = `${headingId}-characters`;
   const error = thumbnailDraftError(draft);
   const title = draft.title.toLowerCase();
   const namesChanged =
@@ -41,55 +41,43 @@ export default function ThumbnailFields({
       character1: draft.character2,
       character2: draft.character1,
     });
-  const side = (n: 1 | 2, label: string) => {
+  const card = (n: 1 | 2, label: string, color: string) => {
     const player = `player${n}` as const;
     const character = `character${n}` as const;
     return (
-      <div className="thumbnail-fields-row">
-        <TextField
-          size="small"
-          label={`${label} player`}
+      <div
+        className="versus-card"
+        style={{ '--field': color } as CSSProperties}
+      >
+        <span className="versus-side">
+          <i aria-hidden="true" />
+          {label}
+        </span>
+        <input
+          className="versus-name"
+          aria-label={`${label} player`}
           value={draft[player]}
           disabled={disabled}
           onChange={(event) =>
             onChange({ ...draft, [player]: event.target.value })
           }
         />
-        <Autocomplete
-          freeSolo
-          size="small"
-          options={THUMBNAIL_CHARACTERS}
+        <input
+          className="versus-character"
+          aria-label={`${label} character`}
+          list={charactersId}
           value={draft[character]}
-          inputValue={draft[character]}
           disabled={disabled}
-          open={openPicker === n && Boolean(draft[character].trim())}
-          onClose={() => setOpenPicker(undefined)}
-          onInputChange={(_, value, reason) => {
-            // The list only opens once the operator types.
-            if (reason === 'input') setOpenPicker(n);
-            onChange({ ...draft, [character]: value });
-          }}
-          renderInput={(params) => (
-            // eslint-disable-next-line react/jsx-props-no-spreading
-            <TextField {...params} label={`${label} character`} />
-          )}
+          onChange={(event) =>
+            onChange({ ...draft, [character]: event.target.value })
+          }
         />
       </div>
     );
   };
   return (
     <section className="thumbnail-fields" aria-labelledby={headingId}>
-      <div className="thumbnail-fields-head">
-        <h3 id={headingId}>Thumbnail</h3>
-        <Button
-          size="small"
-          startIcon={<SwapHorizIcon />}
-          disabled={disabled}
-          onClick={swap}
-        >
-          Swap sides
-        </Button>
-      </div>
+      <h3 id={headingId}>Thumbnail</h3>
       <ThumbnailPreview
         set={{
           ...set,
@@ -101,17 +89,38 @@ export default function ThumbnailFields({
         }}
         style={style}
       />
-      {side(1, 'Left')}
-      {side(2, 'Right')}
-      <TextField
-        size="small"
-        label="Round"
-        value={draft.roundText}
-        disabled={disabled}
-        onChange={(event) =>
-          onChange({ ...draft, roundText: event.target.value })
-        }
-      />
+      <div className="versus">
+        {card(1, 'Left', style.color)}
+        <button
+          type="button"
+          className="versus-swap"
+          aria-label="Swap sides"
+          title="Swap sides"
+          disabled={disabled}
+          onClick={swap}
+        >
+          <SwapHorizIcon />
+        </button>
+        {card(2, 'Right', style.rightColor)}
+      </div>
+      <label className="versus-round" htmlFor={`${headingId}-round`}>
+        Round
+        <input
+          id={`${headingId}-round`}
+          value={draft.roundText}
+          disabled={disabled}
+          onChange={(event) =>
+            onChange({ ...draft, roundText: event.target.value })
+          }
+        />
+      </label>
+      <datalist id={charactersId}>
+        {THUMBNAIL_CHARACTERS.map((name) => (
+          <option key={name} value={name}>
+            {name}
+          </option>
+        ))}
+      </datalist>
       {error && <Alert severity="warning">{error}</Alert>}
       {titleStale && (
         <p className="help">
