@@ -102,6 +102,13 @@ function matchName(set: VODMetadata) {
   return `${set.player1} vs ${set.player2}`;
 }
 
+// Abbreviates long bracket round words for narrow labels.
+function shortRound(round: string | undefined) {
+  return round
+    ?.replace(/quarter[- ]?finals?/i, 'QF')
+    .replace(/semi[- ]?finals?/i, 'SF');
+}
+
 export default function SetsView() {
   const { state }: { state: SetsState | null } = useLocation();
   const navigate = useNavigate();
@@ -1242,7 +1249,7 @@ export default function SetsView() {
                               className="card-round"
                               title={set.roundText || undefined}
                             >
-                              {set.roundText || 'Match'}
+                              {shortRound(set.roundText) || 'Match'}
                             </span>
                             <span className="card-length">
                               {clipLength(set)}
