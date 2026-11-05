@@ -628,7 +628,7 @@ p {
   flex: 1;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto auto 1fr;
+  grid-template-rows: auto 1fr auto auto;
   gap: 9px;
   padding: 11px 12px 12px;
 }
@@ -653,6 +653,7 @@ p {
   color: var(--muted);
 }
 .card-meta .inspect-button {
+  align-self: start;
   font-size: 15px;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -690,7 +691,6 @@ p {
   font-size: 11px;
 }
 .card-foot {
-  align-self: end;
   display: flex;
   align-items: center;
   justify-content: space-between;
