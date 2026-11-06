@@ -216,6 +216,7 @@
       "node_modules",
       "package.json"
     ],
+    "beforeBuild": ".erb/scripts/before-build.js",
     "afterSign": ".erb/scripts/notarize.js",
     "beforePack": ".erb/scripts/native-tools.js",
     "mac": {
