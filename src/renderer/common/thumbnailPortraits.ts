@@ -9,7 +9,8 @@ declare const require: NodeRequire & {
   };
 };
 
-const images = require.context('../components/characters', false, /\.png$/);
+const images = require.context('../components/characters', false, /\.webp$/);
+const nameOf = (key: string) => key.replace(/^.*\//, '').replace(/\.webp$/, '');
 const normalize = (name: string) =>
   name
     .normalize('NFKD')
@@ -18,10 +19,13 @@ const normalize = (name: string) =>
     .toLowerCase();
 // Webpack lists each image under both a relative and a full path.
 export const THUMBNAIL_CHARACTERS = Array.from(
-  new Set(images.keys().map((key) => key.replace(/^.*\//, '').slice(0, -4)))
+  new Set(images.keys().map(nameOf))
 ).sort((a, b) => a.localeCompare(b));
 const names = new Map(
-  images.keys().map((key) => [normalize(key.slice(2, -4)), key])
+  images
+    .keys()
+    .filter((key) => key.startsWith('./'))
+    .map((key) => [normalize(nameOf(key)), key])
 );
 const aliases: Record<string, string> = {
   simon: 'simonbelmont',
@@ -133,5 +137,5 @@ export function getThumbnailPortrait(
   const key = names.get(canonical);
   if (!key) return null;
   const [eyeX, eyeY, width] = focalPoints[canonical] || [0.5, 0.2];
-  return { name: key.slice(2, -4), source: images(key), eyeX, eyeY, width };
+  return { name: nameOf(key), source: images(key), eyeX, eyeY, width };
 }

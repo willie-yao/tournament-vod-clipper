@@ -21,7 +21,7 @@ jest.mock('../renderer/common/thumbnailPortraits', () => {
     keys: () =>
       fs
         .readdirSync(assets)
-        .filter((name) => name.endsWith('.png'))
+        .filter((name) => name.endsWith('.webp'))
         // Webpack lists each module under a relative and a full path.
         .flatMap((name) => [
           `./${name}`,
@@ -41,11 +41,14 @@ jest.mock('../renderer/common/thumbnailPortraits', () => {
   return metadata;
 });
 
+// Landmarks below are in the original artwork's pixels.
+const ORIGINAL_WIDTH = { Ness: 884, Link: 1980, Fox: 1496 };
+
 function dimensions(source: string) {
-  const png = readFileSync(source);
+  const webp = readFileSync(source);
   return {
-    naturalWidth: png.readUInt32BE(16),
-    naturalHeight: png.readUInt32BE(20),
+    naturalWidth: webp.readUIntLE(24, 3) + 1,
+    naturalHeight: webp.readUIntLE(27, 3) + 1,
   };
 }
 
@@ -54,7 +57,7 @@ it('keeps the actual Ness mouth and chin above the nameplate', () => {
   if (!portrait) throw new Error('The bundled Ness portrait is missing.');
   const image = dimensions(portrait.source);
   const placement = thumbnailPortraitPlacement(portrait, image, 290, false);
-  const scale = placement.width / image.naturalWidth;
+  const scale = placement.width / ORIGINAL_WIDTH.Ness;
   expect(placement.y + 470 * scale).toBeLessThan(506);
   expect(placement.y + 550 * scale).toBeLessThan(526);
 });
@@ -71,18 +74,18 @@ it.each([
     if (!link || !fox)
       throw new Error('The bundled portrait metadata is missing.');
     const image = dimensions(link.source);
-    expect(image).toEqual({ naturalWidth: 1980, naturalHeight: 1744 });
+    expect(image).toEqual({ naturalWidth: 1550, naturalHeight: 1365 });
     const placement = thumbnailPortraitPlacement(link, image, center, mirrored);
-    const scale = placement.width / image.naturalWidth;
+    const scale = placement.width / ORIGINAL_WIDTH.Link;
 
-    // Independent landmarks from the bundled PNG, not from its focal preset.
+    // Independent landmarks from the artwork, not from its focal preset.
     const eyes = [
       { x: 1058, y: 646 },
       { x: 1178, y: 686 },
     ].map((point) => ({
       x:
         placement.x +
-        (mirrored ? image.naturalWidth - point.x : point.x) * scale,
+        (mirrored ? ORIGINAL_WIDTH.Link - point.x : point.x) * scale,
       y: placement.y + point.y * scale,
     }));
     eyes.forEach((point) => {
@@ -102,7 +105,7 @@ it.each([
       center === 290 ? 990 : 290,
       false
     );
-    const foxEye = opposing.y + (440 * opposing.width) / foxImage.naturalWidth;
+    const foxEye = opposing.y + (440 * opposing.width) / ORIGINAL_WIDTH.Fox;
     expect(Math.abs((eyes[0].y + eyes[1].y) / 2 - foxEye)).toBeLessThan(5);
   }
 );
