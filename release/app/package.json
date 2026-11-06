@@ -1,7 +1,7 @@
 {
   "name": "tournament-vod-clipper",
   "productName": "Tournament VOD Clipper",
-  "version": "0.2.0",
+  "version": "0.2.0-beta.1",
   "private": true,
   "description": "Clip tournament Twitch VODs using start.gg match timestamps",
   "license": "MIT",
