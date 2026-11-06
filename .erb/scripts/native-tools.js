@@ -6,6 +6,11 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 
 const execute = promisify(execFile);
+// Windows' bsdtar reads zips; Git's GNU tar on PATH does not.
+const tar =
+  process.platform === 'win32'
+    ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe')
+    : 'tar';
 const root = path.resolve(__dirname, '../..');
 const ytdlp = 'https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26';
 const ffmpegMac =
@@ -149,7 +154,7 @@ async function setupNativeTools(target) {
     const archive = await archiveFor(artifact);
     const bytes = artifact.entry
       ? (
-          await execute('tar', ['-xOf', archive, artifact.entry], {
+          await execute(tar, ['-xOf', archive, artifact.entry], {
             encoding: 'buffer',
             maxBuffer: maxBytes,
             timeout: 120000,
