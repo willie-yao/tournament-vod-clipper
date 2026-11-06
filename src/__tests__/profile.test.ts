@@ -35,7 +35,7 @@ it('uses built preload output for an unpackaged production launch, but the DLL i
     );
     process.env.NODE_ENV = 'development';
     expect(resolvePreloadPath('/project/src/main', false)).toBe(
-      path.join('/project', '.erb/dll/preload.js')
+      path.resolve('/project', '.erb/dll/preload.js')
     );
     expect(resolvePreloadPath('/resources/app/dist/main', true)).toBe(
       path.join('/resources/app/dist/main', 'preload.js')

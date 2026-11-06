@@ -32,7 +32,7 @@ it('resolves source, built and packaged native directories without relying on cw
       built: true,
       appPath: '/project/release/app',
     })
-  ).toBe(path.join('/project', 'native', 'mac-arm64'));
+  ).toBe(path.resolve('/project', 'native', 'mac-arm64'));
   expect(nativeToolDirectory({ ...context, packaged: true })).toBe(
     path.join('/resources', 'bin')
   );
