@@ -10,6 +10,10 @@ import {
   Radio,
 } from '@mui/material';
 import { CSSProperties, useState, useEffect, useRef } from 'react';
+import SyncIcon from '@mui/icons-material/Sync';
+import LinkOffIcon from '@mui/icons-material/LinkOff';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
 import { useLocation } from 'react-router-dom';
 import AppShell from '../common/AppShell';
 import OutputFolder from '../common/OutputFolder';
@@ -325,6 +329,7 @@ const YTUploadView = () => {
                           connection.state === 'not-configured'
                         }
                         variant="outlined"
+                        startIcon={<SyncIcon />}
                         onClick={login}
                       >
                         {connection?.state === 'connected' ||
@@ -338,7 +343,11 @@ const YTUploadView = () => {
                           'reconnect-required',
                           'storage-error',
                         ].includes(connection.state) && (
-                          <Button disabled={locked} onClick={disconnect}>
+                          <Button
+                            disabled={locked}
+                            startIcon={<LinkOffIcon />}
+                            onClick={disconnect}
+                          >
                             Disconnect
                           </Button>
                         )}
@@ -383,6 +392,7 @@ const YTUploadView = () => {
                 </TextField>
                 <Button
                   disabled={locked || !selectedFolder}
+                  startIcon={<FolderOpenIcon />}
                   onClick={async () => {
                     try {
                       await window.electron.ipcRenderer.openFolder(
@@ -472,6 +482,7 @@ const YTUploadView = () => {
                   )
                 }
                 variant="contained"
+                endIcon={<FileUploadIcon />}
                 onClick={upload}
               >
                 {session?.items.some((item) => item.videoId || item.error)
@@ -515,6 +526,9 @@ const YTUploadView = () => {
                   className="run-row"
                   style={{ '--row': Math.min(index, 12) } as CSSProperties}
                 >
+                  <span className="run-index mono" aria-hidden="true">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
                   <TextField
                     fullWidth
                     label={`Title: ${item.videoName}`}
@@ -531,7 +545,7 @@ const YTUploadView = () => {
                     }}
                   />
                   <ol
-                    className="run-stages"
+                    className="run-track"
                     aria-label={`Upload steps for ${item.videoName}`}
                   >
                     {stagesFor(item).map((step) => (

@@ -149,6 +149,11 @@ it('copies the observed playhead to elapsed boundaries and seeks edited boundari
       start: '00:00:10',
       end: '25:01:00',
       title: 'Match',
+      player1: 'Player A',
+      player2: 'Player B',
+      character1: '',
+      character2: '',
+      roundText: '',
     });
     return (
       <>

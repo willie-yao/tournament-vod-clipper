@@ -1,9 +1,10 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { CSSProperties, useEffect, useId, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Alert, Button, Dialog, IconButton } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import TuneIcon from '@mui/icons-material/Tune';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import SearchIcon from '@mui/icons-material/Search';
@@ -13,6 +14,9 @@ import CheckIcon from '@mui/icons-material/Check';
 import UndoIcon from '@mui/icons-material/Undo';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import ArrowOutwardIcon from '@mui/icons-material/ArrowOutward';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { MuiColorInput } from 'mui-color-input';
 import { VODMetadata } from '../common/tournamentSets';
@@ -21,6 +25,7 @@ import {
   draftFor,
   draftChanged,
   draftError,
+  thumbnailDraftError,
 } from '../common/clipDraft';
 import {
   formatClipTime,
@@ -38,8 +43,11 @@ import {
   exportThumbnail,
 } from '../common/thumbnailDrawing';
 import ThumbnailPreview from '../components/ThumbnailPreview';
+import ThumbnailFields from '../components/ThumbnailFields';
+import QueueMenu from '../components/QueueMenu';
 import ClipFields from '../components/ClipFields';
 import ClipRange from '../components/ClipRange';
+import DownloadGlyph from '../components/DownloadGlyph';
 import VodPlayer, { PlayerHandle, PlayerState } from '../components/VodPlayer';
 
 export interface SetsState {
@@ -79,7 +87,6 @@ interface FieldColors {
 // Edits closer together than this count as one undo step.
 const COLOR_EDIT_GAP_MS = 800;
 const COLOR_HISTORY_LIMIT = 50;
-const QUEUE_SIZE = 5;
 const SEEK_STEP = 10;
 const APPLIED_MESSAGE = 'Changes applied. Batch selection is unchanged.';
 
@@ -93,6 +100,13 @@ function correctionFor(set: VODMetadata) {
 
 function matchName(set: VODMetadata) {
   return `${set.player1} vs ${set.player2}`;
+}
+
+// Abbreviates long bracket round words for narrow labels.
+function shortRound(round: string | undefined) {
+  return round
+    ?.replace(/quarter[- ]?finals?/i, 'QF')
+    .replace(/semi[- ]?finals?/i, 'SF');
 }
 
 export default function SetsView() {
@@ -179,12 +193,9 @@ export default function SetsView() {
   const locked = busy || choosingOutput;
   const inspectedIndex = sets.findIndex((set) => set.id === inspectedId);
   const inspected = sets[inspectedIndex];
-  const queueStart = Math.max(
-    0,
-    Math.min(inspectedIndex - 2, sets.length - QUEUE_SIZE)
-  );
   const draft = inspected && (drafts[inspected.id] || draftFor(inspected));
-  const currentError = draft && draftError(draft, duration);
+  const currentError =
+    draft && (draftError(draft, duration) || thumbnailDraftError(draft));
   const dirty = inspected && draft && draftChanged(inspected, draft);
   const thumbnailStyle = {
     color: thumbnailColor,
@@ -228,6 +239,15 @@ export default function SetsView() {
     setThumbnailColor(previous.left);
     setThumbnailRightColor(previous.right);
   };
+  const thumbnailKeyFor = (set: VODMetadata) =>
+    JSON.stringify([
+      thumbnailKey,
+      set.player1,
+      set.player2,
+      set.character1,
+      set.character2,
+      set.roundText || '',
+    ]);
   const resultKey = (set: VODMetadata) =>
     JSON.stringify([set.id, set.title, set.startTime, set.endTime]);
   const issue = (set: VODMetadata) =>
@@ -248,7 +268,8 @@ export default function SetsView() {
     return Boolean(
       result?.file &&
         (!downloadThumbnails ||
-          (result.thumbnailReady && result.thumbnailKey === thumbnailKey)) &&
+          (result.thumbnailReady &&
+            result.thumbnailKey === thumbnailKeyFor(set))) &&
         !result.error
     );
   };
@@ -304,6 +325,31 @@ export default function SetsView() {
     downloadLabel = 'Retry incomplete clips';
   }
   if (busy) downloadLabel = 'Downloading...';
+  const openVodFolder = async () => {
+    if (!state) return;
+    try {
+      await window.electron.ipcRenderer.openFolder(state.tournamentName);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+    }
+  };
+  const continueToUpload = () => {
+    const files = selected
+      .map((set) => results[resultKey(set)].file)
+      .filter((file): file is VideoFile => Boolean(file));
+    if (files.length !== selected.length) {
+      setError(
+        'Some clips are not ready. Retry incomplete clips before continuing.'
+      );
+      return;
+    }
+    navigate('/YTUploadView', {
+      state: {
+        folderName: files[0]?.folderName,
+        videoNames: files.map((file) => file.videoName),
+      },
+    });
+  };
   const selectedDuration = selected.reduce(
     (total, set) =>
       total + Math.max(0, (set.endTime || 0) - (set.startTime || 0)),
@@ -466,6 +512,11 @@ export default function SetsView() {
               startTime,
               endTime,
               title: draft.title.trim(),
+              player1: draft.player1.trim(),
+              player2: draft.player2.trim(),
+              character1: draft.character1.trim(),
+              character2: draft.character2.trim(),
+              roundText: draft.roundText.trim(),
               needsCorrection: null,
             }
           : set
@@ -482,38 +533,62 @@ export default function SetsView() {
   const backToBatch = () => {
     changeWorkspace({ review: false });
   };
-  const status = (set: VODMetadata) => {
+  const statusInfo = (set: VODMetadata) => {
     const result = results[resultKey(set)];
     const failure = result?.error;
-    const pending = drafts[set.id] && draftChanged(set, drafts[set.id]);
+    const pending = pendingDraft(set);
     const warning = issue(set);
     const phase = runPhase(set);
-    const active =
-      phase === 'video' || phase === 'thumbnail' || phase === 'queued';
     let text = ready(set) ? 'Downloaded' : 'Ready';
-    let severity = '';
-    let indicator = <CheckIcon />;
+    let tone: 'idle' | 'done' | 'warn' | 'error' | 'active' = ready(set)
+      ? 'done'
+      : 'idle';
     if (phase === 'queued') text = 'Queued';
     if (warning || pending) {
       text = pending ? 'Unapplied changes' : warning || text;
-      severity = 'warn';
-      indicator = <WarningAmberIcon />;
+      tone = 'warn';
     }
     if (failure) {
       text = result.file ? `Clip saved; thumbnail failed: ${failure}` : failure;
-      severity = 'error';
-      indicator = <WarningAmberIcon />;
+      tone = 'error';
     }
-    if (active) {
+    if (phase === 'video' || phase === 'thumbnail' || phase === 'queued') {
       if (phase !== 'queued')
         text =
           phase === 'video' ? 'Downloading clip...' : 'Saving thumbnail...';
-      severity = 'warn';
-      indicator = <span className="run-marker" aria-hidden="true" />;
+      tone = 'active';
     }
+    return { text, tone };
+  };
+  const status = (set: VODMetadata) => {
+    const { text, tone } = statusInfo(set);
+    let indicator = <CheckIcon />;
+    if (tone === 'warn' || tone === 'error') indicator = <WarningAmberIcon />;
+    if (tone === 'active')
+      indicator = <span className="run-marker" aria-hidden="true" />;
+    const severity = {
+      idle: '',
+      done: '',
+      warn: 'warn',
+      error: 'error',
+      active: 'warn',
+    }[tone];
     return (
       <span className={`clip-status ${severity}`}>
         {indicator}
+        {text}
+      </span>
+    );
+  };
+  const clipLength = (set: VODMetadata) =>
+    issue(set)
+      ? '-'
+      : formatClipTime((set.endTime || 0) - (set.startTime || 0));
+  const statusLamp = (set: VODMetadata) => {
+    const { text, tone } = statusInfo(set);
+    return (
+      <span className="cut-lamp" data-tone={tone}>
+        <i aria-hidden="true" />
         {text}
       </span>
     );
@@ -568,13 +643,14 @@ export default function SetsView() {
           }
           if (
             downloadThumbnails &&
-            (!result.thumbnailReady || result.thumbnailKey !== thumbnailKey)
+            (!result.thumbnailReady ||
+              result.thumbnailKey !== thumbnailKeyFor(set))
           ) {
             setActiveDownload({ key, title: set.title, stage: 'thumbnail' });
             // eslint-disable-next-line no-await-in-loop
             await generateThumbnail(set, result.file);
             result.thumbnailReady = true;
-            result.thumbnailKey = thumbnailKey;
+            result.thumbnailKey = thumbnailKeyFor(set);
           }
           result.error = undefined;
           completed += 1;
@@ -599,7 +675,17 @@ export default function SetsView() {
 
   const thumbnailControls = (
     <section className="thumbnail-section">
-      <h3>Batch thumbnails</h3>
+      <div className="thumbnail-head">
+        <h3>Batch thumbnails</h3>
+        <IconButton
+          aria-label="Thumbnail & output options"
+          title="Thumbnail & output options"
+          disabled={locked}
+          onClick={() => setOptionsOpen(true)}
+        >
+          <TuneIcon />
+        </IconButton>
+      </div>
       <label className="include-clip" htmlFor={`${controlId}-thumbnails`}>
         <input
           id={`${controlId}-thumbnails`}
@@ -611,12 +697,9 @@ export default function SetsView() {
             setSummary('');
           }}
         />
-        Create thumbnails for the batch
+        Generate thumbnails
       </label>
       {inspected && <ThumbnailPreview set={inspected} style={thumbnailStyle} />}
-      <Button disabled={locked} onClick={() => setOptionsOpen(true)}>
-        Thumbnail & output options
-      </Button>
     </section>
   );
 
@@ -669,9 +752,12 @@ export default function SetsView() {
                 >
                   <ChevronLeftIcon />
                 </IconButton>
-                <span className="review-count mono">
-                  <b>{inspectedIndex + 1}</b> / {sets.length}
-                </span>
+                <QueueMenu
+                  sets={sets}
+                  currentId={inspected.id}
+                  disabled={locked}
+                  onSelect={inspect}
+                />
                 <IconButton
                   aria-label="Next"
                   title={
@@ -895,45 +981,13 @@ export default function SetsView() {
                     Apply to clip before adding it back to the batch.
                   </p>
                 )}
-                {thumbnailControls}
-                <nav className="review-queue" aria-label="Batch queue">
-                  <h3>
-                    Batch queue
-                    <span className="mono">
-                      {inspectedIndex + 1} / {sets.length}
-                    </span>
-                  </h3>
-                  <ul>
-                    {sets
-                      .slice(queueStart, queueStart + QUEUE_SIZE)
-                      .map((set) => (
-                        <li key={set.id}>
-                          <button
-                            type="button"
-                            className="queue-row"
-                            aria-current={
-                              set.id === inspected.id ? 'true' : undefined
-                            }
-                            disabled={locked}
-                            onClick={() => inspect(set.id)}
-                          >
-                            <span
-                              className="queue-dot"
-                              data-included={set.download || undefined}
-                              aria-hidden="true"
-                            />
-                            <span className="queue-name">
-                              {matchName(set)}
-                              <span className="sr-only">
-                                {set.download ? ', included' : ', not included'}
-                              </span>
-                            </span>
-                            <span className="queue-round">{set.roundText}</span>
-                          </button>
-                        </li>
-                      ))}
-                  </ul>
-                </nav>
+                <ThumbnailFields
+                  set={inspected}
+                  draft={draft}
+                  style={thumbnailStyle}
+                  onChange={updateDraft}
+                  disabled={locked}
+                />
               </aside>
             </div>
           ) : (
@@ -1026,6 +1080,7 @@ export default function SetsView() {
                   <label
                     className="search-field"
                     htmlFor={`${controlId}-search`}
+                    data-filled={Boolean(search)}
                   >
                     <SearchIcon />
                     <input
@@ -1035,6 +1090,9 @@ export default function SetsView() {
                       value={search}
                       disabled={locked}
                       onChange={(event) => setSearch(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') setSearch('');
+                      }}
                     />
                   </label>
                 </div>
@@ -1139,13 +1197,9 @@ export default function SetsView() {
                               {formatClipTime(set.endTime) || 'Missing Out'}
                             </td>
                             <td className="mono length-column">
-                              {!issue(set)
-                                ? formatClipTime(
-                                    (set.endTime || 0) - (set.startTime || 0)
-                                  )
-                                : '-'}
+                              {clipLength(set)}
                             </td>
-                            <td>{status(set)}</td>
+                            <td>{statusLamp(set)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1190,9 +1244,21 @@ export default function SetsView() {
                           <ThumbnailPreview set={set} style={thumbnailStyle} />
                         </button>
                         <div className="card-meta">
+                          <div className="card-kicker">
+                            <span
+                              className="card-round"
+                              title={set.roundText || undefined}
+                            >
+                              {shortRound(set.roundText) || 'Match'}
+                            </span>
+                            <span className="card-length">
+                              {clipLength(set)}
+                            </span>
+                          </div>
                           <button
                             type="button"
                             className="inspect-button"
+                            title={set.title}
                             aria-label={`${
                               inspectedId === set.id ? 'Review' : 'Inspect'
                             } match ${set.title}`}
@@ -1202,17 +1268,43 @@ export default function SetsView() {
                             onClick={() => activateMatch(set.id)}
                           >
                             {matchName(set)}
-                            <span className="match-title" title={set.title}>
-                              {set.title}
-                            </span>
                           </button>
-                          <div className="card-range mono">
-                            {formatClipTime(set.startTime) || 'Missing In'} →{' '}
-                            {formatClipTime(set.endTime) || 'Missing Out'}
+                          <div className="card-timeline">
+                            {set.startTime !== null && set.endTime !== null && (
+                              <div className="card-track" aria-hidden="true">
+                                <span
+                                  style={{
+                                    left: `${
+                                      (set.startTime / rangeExtent) * 100
+                                    }%`,
+                                    width: `${
+                                      (Math.max(
+                                        0,
+                                        set.endTime - set.startTime
+                                      ) /
+                                        rangeExtent) *
+                                      100
+                                    }%`,
+                                  }}
+                                />
+                              </div>
+                            )}
+                            <div className="card-times mono">
+                              <span>
+                                {formatClipTime(set.startTime) || 'Missing In'}
+                              </span>
+                              <span>
+                                {formatClipTime(set.endTime) || 'Missing Out'}
+                              </span>
+                            </div>
                           </div>
-                          <div className="card-bottom">
-                            {status(set)}
-                            <Button
+                          <div className="card-foot">
+                            {statusLamp(set)}
+                            <button
+                              type="button"
+                              className="card-go"
+                              aria-label={`Review ${matchName(set)}`}
+                              title="Review clip"
                               disabled={locked}
                               onClick={() =>
                                 changeWorkspace({
@@ -1221,8 +1313,8 @@ export default function SetsView() {
                                 })
                               }
                             >
-                              Review ↗
-                            </Button>
+                              <ArrowOutwardIcon />
+                            </button>
                           </div>
                         </div>
                       </article>
@@ -1320,11 +1412,18 @@ export default function SetsView() {
             <div className="batch-actions">
               {review ? (
                 <>
-                  <Button variant="outlined" onClick={backToBatch}>
-                    Back to batch
-                  </Button>
-                  <Button
-                    variant="contained"
+                  <button
+                    type="button"
+                    className="batch-tool"
+                    aria-label="Back to batch"
+                    title="Back to batch"
+                    onClick={backToBatch}
+                  >
+                    <ArrowBackIcon />
+                  </button>
+                  <button
+                    type="button"
+                    className="batch-command"
                     disabled={
                       locked ||
                       Boolean(currentError) ||
@@ -1332,67 +1431,72 @@ export default function SetsView() {
                     }
                     onClick={apply}
                   >
-                    Apply to clip
-                  </Button>
+                    <span className="batch-command-label">Apply to clip</span>
+                    <span className="batch-command-go">
+                      <CheckIcon />
+                    </span>
+                  </button>
                 </>
               ) : (
                 <>
-                  <Button
-                    variant="outlined"
+                  <button
+                    type="button"
+                    className="batch-tool"
+                    aria-label="Output options"
+                    title="Output options"
                     disabled={locked}
                     onClick={() => setOptionsOpen(true)}
                   >
-                    Output options
-                  </Button>
-                  <Button
+                    <TuneIcon />
+                  </button>
+                  <button
+                    type="button"
+                    className="batch-tool"
+                    aria-label="Open VOD Folder"
+                    title="Open VOD Folder"
                     disabled={locked || !allReady}
-                    onClick={async () => {
-                      try {
-                        await window.electron.ipcRenderer.openFolder(
-                          state.tournamentName
-                        );
-                      } catch (failure) {
-                        setError(
-                          failure instanceof Error
-                            ? failure.message
-                            : String(failure)
-                        );
+                    onClick={openVodFolder}
+                  >
+                    <FolderOpenIcon />
+                  </button>
+                  {allReady ? (
+                    <button
+                      type="button"
+                      className="batch-command"
+                      data-ready="true"
+                      disabled={locked}
+                      onClick={continueToUpload}
+                    >
+                      <span key="upload" className="batch-command-label">
+                        Continue to Upload
+                      </span>
+                      <span className="batch-command-go">
+                        <ArrowForwardIcon />
+                      </span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="batch-command"
+                      data-busy={busy}
+                      disabled={!enableDownload}
+                      onClick={download}
+                      style={
+                        {
+                          '--batch-done': selected.length
+                            ? readyCount / selected.length
+                            : 0,
+                        } as CSSProperties
                       }
-                    }}
-                  >
-                    Open VOD Folder
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    className={!locked && allReady ? 'output-ready' : undefined}
-                    disabled={locked || !allReady}
-                    onClick={() => {
-                      const files = selected
-                        .map((set) => results[resultKey(set)].file)
-                        .filter((file): file is VideoFile => Boolean(file));
-                      if (files.length !== selected.length) {
-                        setError(
-                          'Some clips are not ready. Retry incomplete clips before continuing.'
-                        );
-                        return;
-                      }
-                      navigate('/YTUploadView', {
-                        state: {
-                          folderName: files[0]?.folderName,
-                          videoNames: files.map((file) => file.videoName),
-                        },
-                      });
-                    }}
-                  >
-                    Continue to Upload
-                  </Button>
-                  <Button
-                    variant="contained"
-                    disabled={!enableDownload}
-                    onClick={download}
-                  >
-                    {downloadLabel} →
-                  </Button>
+                    >
+                      <span key="download" className="batch-command-label">
+                        {downloadLabel}
+                      </span>
+                      <span className="batch-command-go">
+                        <DownloadGlyph />
+                      </span>
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -1421,7 +1525,7 @@ export default function SetsView() {
                       setDownloadThumbnails(event.target.checked)
                     }
                   />
-                  Create thumbnails for the batch
+                  Generate thumbnails
                 </label>
               </div>
               <div className="settings-workbench">

@@ -26,6 +26,10 @@ jest.mock(
     ({ title }: { title: string }) =>
       <div id={title} />
 );
+jest.mock('../renderer/common/thumbnailPortraits', () => ({
+  THUMBNAIL_CHARACTERS: ['Fox', 'Marth', 'Sonic'],
+  getThumbnailPortrait: () => null,
+}));
 jest.mock('../renderer/common/thumbnailDrawing', () => ({
   DEFAULT_THUMBNAIL_COLOR: '#223d55',
   DEFAULT_THUMBNAIL_RIGHT_COLOR: '#8b4c37',
@@ -106,7 +110,7 @@ const downloadButton = () =>
     name: /Download \d+ clips|Retry incomplete clips/,
   });
 const nextButton = () =>
-  screen.getByRole('button', { name: 'Continue to Upload' });
+  screen.queryByRole('button', { name: 'Continue to Upload' });
 const changeTime = (label: 'In time' | 'Out time', value: string) =>
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 
@@ -160,7 +164,7 @@ it('keeps one footer count summary without thumbnail mode copy', () => {
   ).not.toBeInTheDocument();
   fireEvent.click(
     screen.getByRole('checkbox', {
-      name: 'Create thumbnails for the batch',
+      name: 'Generate thumbnails',
     })
   );
   expect(
@@ -372,9 +376,12 @@ it.each([
     expect(selection('Second clip')).toBeChecked();
     changeTime('In time', '00:01:15');
     fireEvent.click(
-      entry === 'thumbnail'
-        ? screen.getByRole('button', { name: 'Review Second clip' })
-        : screen.getByText('Second clip')
+      screen.getByRole('button', {
+        name:
+          view === 'Thumbnails' && entry === 'title'
+            ? 'Review match Second clip'
+            : 'Review Second clip',
+      })
     );
     expect(
       screen.getByRole('button', {
@@ -558,7 +565,7 @@ it('waits for thumbnail writes, prevents duplicate submission and gates continua
   fireEvent.click(download);
   expect(api.downloadVideo).toHaveBeenCalledTimes(1);
   expect(download).toBeDisabled();
-  expect(nextButton()).toBeDisabled();
+  expect(nextButton()).toBeNull();
   await act(async () =>
     releaseVideo({ folderName: 'Tournament', videoName: 'first.mp4' })
   );
@@ -566,7 +573,7 @@ it('waits for thumbnail writes, prevents duplicate submission and gates continua
   expect(api.downloadVideo).toHaveBeenCalledTimes(1);
   expect(screen.getAllByText('Saving thumbnail...').length).toBeGreaterThan(0);
   expect(screen.getByText('0 of 2 ready · 1 clip files saved')).toBeVisible();
-  expect(nextButton()).toBeDisabled();
+  expect(nextButton()).toBeNull();
   expect(
     screen.getByRole('button', { name: 'Inspect Second clip' })
   ).toBeDisabled();
@@ -579,7 +586,9 @@ it('waits for thumbnail writes, prevents duplicate submission and gates continua
   await screen.findByText('2 of 2 selected clips ready.');
   expect(api.downloadVideo).toHaveBeenCalledTimes(2);
   expect(nextButton()).toBeEnabled();
-  expect(downloadButton()).toBeDisabled();
+  expect(
+    screen.queryByRole('button', { name: /Download \d+ clips/ })
+  ).toBeNull();
 });
 
 it('reports partial failure and retries only missing downloads after switching layouts', async () => {
@@ -590,7 +599,7 @@ it('reports partial failure and retries only missing downloads after switching l
   await screen.findByText(
     '1 of 2 selected clips ready. Review failed items and retry.'
   );
-  expect(nextButton()).toBeDisabled();
+  expect(nextButton()).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Thumbnails' }));
   expect(screen.getAllByText('test download failed').length).toBeGreaterThan(0);
   fireEvent.click(downloadButton());
@@ -849,7 +858,7 @@ it('can opt out of failed thumbnails without losing confirmed video progress', a
     '0 of 1 selected clips ready. Review failed items and retry.'
   );
   fireEvent.click(
-    screen.getByRole('checkbox', { name: 'Create thumbnails for the batch' })
+    screen.getByRole('checkbox', { name: 'Generate thumbnails' })
   );
   fireEvent.click(downloadButton());
   await screen.findByText('1 of 1 selected clips ready.');
@@ -894,8 +903,8 @@ it('locks downloads and navigation while a new output root is being validated, t
   fireEvent.click(screen.getByText('Output folder'));
   expect(screen.getByText('/chosen/output')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-  await waitFor(() => expect(nextButton()).toBeDisabled());
-  expect(downloadButton()).toBeEnabled();
+  await waitFor(() => expect(downloadButton()).toBeEnabled());
+  expect(nextButton()).toBeNull();
 });
 
 it('keeps both field colors in the selected settings layout and invalidates old thumbnail readiness', async () => {
@@ -917,7 +926,8 @@ it('keeps both field colors in the selected settings layout and invalidates old 
     target: { value: '#336699' },
   });
   fireEvent.click(dialog.getByRole('button', { name: 'Done' }));
-  await waitFor(() => expect(nextButton()).toBeDisabled());
+  await waitFor(() => expect(downloadButton()).toBeEnabled());
+  expect(nextButton()).toBeNull();
   expect(selection()).toBeChecked();
   fireEvent.click(downloadButton());
   await screen.findByText('1 of 1 selected clips ready.');
@@ -935,7 +945,8 @@ it('keeps both field colors in the selected settings layout and invalidates old 
     target: { value: '#405060' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-  await waitFor(() => expect(nextButton()).toBeDisabled());
+  await waitFor(() => expect(downloadButton()).toBeEnabled());
+  expect(nextButton()).toBeNull();
 });
 
 function openColorSettings() {
@@ -1062,7 +1073,7 @@ describe('batch kept across pages', () => {
     fireEvent.click(choose);
     await screen.findByText('/chosen/output');
     fireEvent.click(matchReview());
-    expect(nextButton()).toBeDisabled();
+    expect(nextButton()).toBeNull();
     expect(downloadButton()).toHaveTextContent('Download 1 clips');
   });
 
@@ -1109,5 +1120,141 @@ describe('batch kept across pages', () => {
       </MemoryRouter>
     );
     expect(matchReview()).toBeEnabled();
+  });
+});
+
+it('jumps between clips from the pager queue menu', () => {
+  renderSets([vodMetadata(), second()]);
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Review clip & timestamps →' })
+  );
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Batch queue, clip 1 of 2' })
+  );
+  fireEvent.click(screen.getByRole('menuitem', { name: /Player C/ }));
+  expect(
+    screen.getByRole('button', { name: 'Batch queue, clip 2 of 2' })
+  ).toBeInTheDocument();
+  expect(screen.getByLabelText('Video title')).toHaveValue('Second clip');
+});
+
+describe('per-clip thumbnail fields', () => {
+  const openReview = () =>
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Review clip & timestamps →' })
+    );
+  const apply = () => screen.getByRole('button', { name: 'Apply to clip' });
+  const type = (label: string, value: string) =>
+    fireEvent.change(
+      /character/.test(label)
+        ? screen.getByRole('combobox', { name: label })
+        : screen.getByLabelText(label),
+      { target: { value } }
+    );
+
+  it('shows clip thumbnail fields in review and batch controls in the batch view', () => {
+    renderSets();
+    expect(screen.getByText('Batch thumbnails')).toBeVisible();
+    expect(
+      screen.getByRole('checkbox', { name: 'Generate thumbnails' })
+    ).toBeVisible();
+    openReview();
+    expect(screen.queryByText('Batch thumbnails')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Thumbnail' })).toBeVisible();
+    ['Left player', 'Right player', 'Round'].forEach((label) =>
+      expect(screen.getByLabelText(label)).toBeVisible()
+    );
+    expect(
+      screen.getByRole('combobox', { name: 'Left character' })
+    ).toBeVisible();
+    expect(
+      screen.getByRole('combobox', { name: 'Right character' })
+    ).toBeVisible();
+  });
+
+  it('keeps edits as a draft until Apply and previews them live', () => {
+    const set = vodMetadata();
+    renderSets();
+    openReview();
+    expect(apply()).toBeDisabled();
+    type('Left player', 'New Left');
+    type('Right character', 'Fox');
+    type('Round', 'Grand Finals');
+    expect(apply()).toBeEnabled();
+    expect(
+      screen.getByLabelText(`Thumbnail for New Left vs ${set.player2}`)
+    ).toBeVisible();
+    fireEvent.click(apply());
+    expect(apply()).toBeDisabled();
+    expect(screen.getByLabelText('Left player')).toHaveValue('New Left');
+    expect(
+      screen.getByRole('combobox', { name: 'Right character' })
+    ).toHaveValue('Fox');
+    expect(screen.getByLabelText('Round')).toHaveValue('Grand Finals');
+    fireEvent.click(screen.getByRole('button', { name: 'Back to batch' }));
+    expect(
+      screen.getAllByLabelText(`Thumbnail for New Left vs ${set.player2}`)
+        .length
+    ).toBeGreaterThan(0);
+  });
+
+  it('swaps names and characters', () => {
+    renderSets();
+    openReview();
+    type('Left player', 'Alpha');
+    type('Right player', 'Beta');
+    type('Left character', 'Fox');
+    type('Right character', 'Marth');
+    fireEvent.click(screen.getByRole('button', { name: 'Swap sides' }));
+    expect(screen.getByLabelText('Left player')).toHaveValue('Beta');
+    expect(screen.getByLabelText('Right player')).toHaveValue('Alpha');
+    expect(
+      screen.getByRole('combobox', { name: 'Left character' })
+    ).toHaveValue('Marth');
+    expect(
+      screen.getByRole('combobox', { name: 'Right character' })
+    ).toHaveValue('Fox');
+  });
+
+  it('blocks Apply when a name is cleared', () => {
+    renderSets();
+    openReview();
+    type('Left player', ' ');
+    expect(
+      screen.getByText('Enter both player names for the thumbnail.')
+    ).toBeVisible();
+    expect(apply()).toBeDisabled();
+  });
+
+  it('hints when the title no longer contains the draft names', () => {
+    renderSets();
+    openReview();
+    const hint = 'The video title still uses the previous player names.';
+    expect(screen.queryByText(hint)).not.toBeInTheDocument();
+    type('Left player', 'Someone Else');
+    expect(screen.getByText(hint)).toBeVisible();
+    type('Video title', 'Someone Else vs Player B');
+    expect(screen.queryByText(hint)).not.toBeInTheDocument();
+  });
+
+  it('re-saves only the thumbnail after an applied thumbnail edit', async () => {
+    const api = downloadAPI();
+    renderSets();
+    fireEvent.click(downloadButton());
+    await screen.findByText('1 of 1 selected clips ready.');
+    expect(api.saveThumbnail).toHaveBeenCalledTimes(1);
+    openReview();
+    type('Left character', 'Fox');
+    fireEvent.click(apply());
+    fireEvent.click(screen.getByRole('button', { name: 'Back to batch' }));
+    await waitFor(() => expect(downloadButton()).toBeEnabled());
+    fireEvent.click(downloadButton());
+    await screen.findByText('1 of 1 selected clips ready.');
+    expect(api.downloadVideo).toHaveBeenCalledTimes(1);
+    expect(api.saveThumbnail).toHaveBeenCalledTimes(2);
+    expect(exportThumbnail).toHaveBeenLastCalledWith(
+      expect.objectContaining({ character1: 'Fox' }),
+      expect.anything()
+    );
   });
 });

@@ -27,6 +27,10 @@ jest.mock('@apollo/client', () => ({
   createHttpLink: jest.fn(),
 }));
 jest.mock('../renderer/components/ThumbnailGenerator', () => () => null);
+jest.mock('../renderer/common/thumbnailPortraits', () => ({
+  THUMBNAIL_CHARACTERS: ['Fox', 'Marth', 'Sonic'],
+  getThumbnailPortrait: () => null,
+}));
 jest.mock('../renderer/common/thumbnailDrawing', () => ({
   DEFAULT_THUMBNAIL_COLOR: '#223d55',
   DEFAULT_THUMBNAIL_RIGHT_COLOR: '#8b4c37',
