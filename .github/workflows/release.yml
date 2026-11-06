@@ -58,6 +58,8 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           args=(${{ matrix.platform }})
+          # Unset secrets are empty strings, which electron-builder reads as paths.
+          [ -n "$CSC_LINK" ] || unset CSC_LINK CSC_KEY_PASSWORD
           if [ "$RUNNER_OS" = macOS ] && [ -z "$CSC_LINK" ]; then
             echo "::warning::No signing certificate; building an ad-hoc signed macOS app."
             export CSC_IDENTITY_AUTO_DISCOVERY=false
