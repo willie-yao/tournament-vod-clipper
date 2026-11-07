@@ -480,7 +480,11 @@ describe('event lookup', () => {
     ).toBeVisible();
 
     fireEvent.change(event, { target: { value: 'genesis' } });
-    expect(await screen.findByText('Searching start.gg...')).toBeVisible();
+    expect(screen.getByText('Searching start.gg...')).toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: /Weekly Singles/ })
+    ).toBeVisible();
+    expect(event).not.toHaveAccessibleDescription();
     fireEvent.click(
       await screen.findByRole('option', { name: /Ultimate Singles/ })
     );

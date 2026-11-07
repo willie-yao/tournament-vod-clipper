@@ -1,5 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
-import { Autocomplete, TextField } from '@mui/material';
+import {
+  Children,
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+import { Autocomplete, Paper, PaperProps, TextField } from '@mui/material';
 import { useApolloClient } from '@apollo/client';
 import {
   GET_TOURNAMENT_EVENTS,
@@ -38,6 +45,39 @@ interface EventOption {
 type Lookup = { key: string; status: 'loading' | 'done' | 'error' };
 
 const SEARCH_DELAY_MS = 350;
+
+const PopupStatus = createContext({ busy: '', message: '', stale: false });
+
+/** Results popup with an in-place loading bar and status row. */
+const EventPopup = ({ children, className, ...props }: PaperProps) => {
+  const { busy, message, stale } = useContext(PopupStatus);
+  const hasList = Children.toArray(children).length > 0;
+  if (!busy && !message && !hasList) return null;
+  return (
+    <Paper
+      // eslint-disable-next-line react/jsx-props-no-spreading
+      {...props}
+      className={`${className ?? ''} event-popup${stale ? ' is-stale' : ''}`}
+      aria-busy={!!busy}
+    >
+      {!hasList && (
+        <p className="event-popup-message">
+          {busy && (
+            <span className="splice-scan" aria-hidden="true">
+              <span className="splice-scan-draft" />
+            </span>
+          )}
+          {busy || message}
+        </p>
+      )}
+      {children}
+      {busy && hasList && (
+        <span className="event-popup-scan" aria-hidden="true" />
+      )}
+    </Paper>
+  );
+};
+
 const dateFormat = new Intl.DateTimeFormat(undefined, {
   month: 'short',
   day: 'numeric',
@@ -93,6 +133,7 @@ const EventField = ({
   const [results, setResults] = useState<
     (Lookup & { options: EventOption[] }) | null
   >(null);
+  const shownOptions = useRef<EventOption[]>([]);
 
   // Decide whether the input is a link, a tournament to expand or a search.
   const canSearch = !!apiKey;
@@ -185,9 +226,10 @@ const EventField = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focused, lookupKey, client]);
 
-  // Pick the options and status line for the current input.
+  // Pick the options and popup status for the current input.
   let options: EventOption[] = [];
-  let status = '';
+  let busy = '';
+  let message = '';
   if (kind === 'recent' && recents?.key === apiKey) {
     const needle = trimmed.toLowerCase();
     options = recents.options.filter(
@@ -196,84 +238,95 @@ const EventField = ({
         option.group.toLowerCase().includes(needle) ||
         option.name.toLowerCase().includes(needle)
     );
-    if (recents.status === 'loading') status = 'Loading your tournaments...';
+    if (recents.status === 'loading') busy = 'Loading your tournaments...';
     else if (recents.status === 'error')
-      status =
+      message =
         'Could not load your tournaments. Search by name or paste an event link.';
     else if (!recents.options.length)
-      status = 'No recent tournaments. Search by name or paste an event link.';
-  } else if (lookupKey && results?.key === lookupKey) {
-    options = results.options;
-    if (results.status === 'loading') status = 'Searching start.gg...';
-    else if (results.status === 'error')
-      status = 'Search failed. Paste the event link instead.';
+      message = 'No recent tournaments. Search by name or paste an event link.';
     else if (!options.length)
-      status =
+      message = 'Type 3 or more letters to search all of start.gg.';
+  } else if (lookupKey && results?.key !== lookupKey) {
+    busy = 'Searching start.gg...';
+  } else if (lookupKey && results) {
+    options = results.options;
+    if (results.status === 'loading') busy = 'Searching start.gg...';
+    else if (results.status === 'error')
+      message = 'Search failed. Paste the event link instead.';
+    else if (!options.length)
+      message =
         kind === 'tournament'
           ? 'No events found for this tournament.'
           : 'No tournaments match.';
   }
+  // Keep the last results in place while the next lookup loads.
+  const stale = !!busy && !options.length && !!shownOptions.current.length;
+  if (stale) options = shownOptions.current;
+  else if (kind !== 'none') shownOptions.current = options;
   const picked =
     selected && selected.slug === normalizeEventSlug(value)
       ? `${selected.tournament} · ${selected.name}`
       : '';
-  let helperText = picked || undefined;
-  if (focused && status) helperText = status;
-  else if (error) helperText = error;
 
   return (
-    <Autocomplete
-      freeSolo
-      openOnFocus
-      disabled={disabled}
-      options={options}
-      filterOptions={(all) => all}
-      groupBy={(option) => option.group}
-      getOptionLabel={(option) =>
-        typeof option === 'string' ? option : option.slug
-      }
-      isOptionEqualToValue={(option, other) => option.slug === other.slug}
-      value={null}
-      inputValue={value}
-      onInputChange={(_event, next) => onChange(next)}
-      onChange={(_event, option) => {
-        if (option && typeof option !== 'string') {
-          setSelected(option);
-          onChange(option.slug);
+    <PopupStatus.Provider value={{ busy, message, stale }}>
+      <Autocomplete
+        freeSolo
+        openOnFocus
+        disabled={disabled}
+        options={options}
+        PaperComponent={EventPopup}
+        filterOptions={(all) => all}
+        groupBy={(option) => option.group}
+        getOptionLabel={(option) =>
+          typeof option === 'string' ? option : option.slug
         }
-      }}
-      renderOption={(props, option) => (
-        // MUI supplies the option's listbox props.
-        // eslint-disable-next-line react/jsx-props-no-spreading
-        <li {...props} key={option.slug}>
-          <span className="event-option">
-            <span>{option.name}</span>
-            {option.game && <span className="muted">{option.game}</span>}
-          </span>
-        </li>
-      )}
-      renderInput={(params) => (
-        <TextField
-          // eslint-disable-next-line react/jsx-props-no-spreading
-          {...params}
-          className="textfield"
-          label="Start.gg event"
-          required
-          error={!!error && !(focused && status)}
-          placeholder={
-            canSearch
-              ? 'Search tournaments or paste an event link'
-              : 'Paste a start.gg event link'
+        isOptionEqualToValue={(option, other) => option.slug === other.slug}
+        value={null}
+        inputValue={value}
+        onInputChange={(_event, next) => onChange(next)}
+        onChange={(_event, option) => {
+          if (option && typeof option !== 'string') {
+            setSelected(option);
+            onChange(option.slug);
           }
-          helperText={helperText}
-          onFocus={() => setFocused(true)}
-          onBlur={() => {
-            setFocused(false);
-            onBlur();
-          }}
-        />
-      )}
-    />
+        }}
+        renderOption={(props, option) => (
+          // MUI supplies the option's listbox props.
+          // eslint-disable-next-line react/jsx-props-no-spreading
+          <li {...props} key={option.slug}>
+            <span className="event-option">
+              <span>{option.name}</span>
+              {option.game && <span className="muted">{option.game}</span>}
+            </span>
+          </li>
+        )}
+        renderInput={(params) => (
+          <TextField
+            // eslint-disable-next-line react/jsx-props-no-spreading
+            {...params}
+            className="textfield"
+            label="Start.gg event"
+            required
+            error={!!error}
+            placeholder={
+              canSearch
+                ? 'Search tournaments or paste an event link'
+                : 'Paste a start.gg event link'
+            }
+            helperText={error || picked || undefined}
+            onFocus={() => setFocused(true)}
+            onBlur={() => {
+              setFocused(false);
+              onBlur();
+            }}
+          />
+        )}
+      />
+      <span className="sr-only" role="status">
+        {focused ? busy || message : ''}
+      </span>
+    </PopupStatus.Provider>
   );
 };
 
