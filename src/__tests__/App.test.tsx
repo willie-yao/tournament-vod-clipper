@@ -122,7 +122,7 @@ describe('App settings and retrieval', () => {
       screen.getByLabelText('Start.gg event', { exact: false }),
       screen.getByLabelText('VOD Link', { exact: false }),
       screen.getByLabelText('Stream Station', { exact: false }),
-      screen.getByRole('button', { name: 'Choose Output Folder' }),
+      screen.getByRole('button', { name: /Change output folder/ }),
       screen.getByRole('button', { name: 'Retrieve Sets' }),
     ];
     controls.slice(1).forEach((control, index) => {
@@ -146,7 +146,7 @@ describe('App settings and retrieval', () => {
     });
     ipcRenderer.chooseOutputDirectory.mockReturnValueOnce(pending);
     render(<App />);
-    const choose = screen.getByRole('button', { name: 'Choose Output Folder' });
+    const choose = screen.getByRole('button', { name: /Change output folder/ });
     const retrieve = screen.getByRole('button', { name: 'Retrieve Sets' });
     await waitFor(() => expect(choose).toBeEnabled());
     await waitFor(() => expect(retrieve).toBeEnabled());
@@ -271,7 +271,7 @@ describe('App settings and retrieval', () => {
     ).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Source' })).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: 'Choose Output Folder' })
+      screen.getByRole('button', { name: /Change output folder/ })
     ).toBeDisabled();
     expect(operations).toHaveLength(0);
     await act(async () => release());

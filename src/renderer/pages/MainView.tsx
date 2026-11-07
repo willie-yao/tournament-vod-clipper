@@ -14,8 +14,8 @@ import {
   formatSetMetadata,
 } from '../common/tournamentSets';
 import AppShell from '../common/AppShell';
-import OutputFolder from '../common/OutputFolder';
 import EventField from '../components/EventField';
+import OutputStrip from '../components/OutputStrip';
 import { normalizeEventSlug, normalizeVodUrl } from '../common/sourceInput';
 import startggRequest from '../common/startggRequest';
 import {
@@ -472,7 +472,7 @@ const VideoSearch = ({
       </div>
     );
   const outputFolder = (
-    <OutputFolder
+    <OutputStrip
       disabled={waiting || savingKey}
       onChoosingChange={onChoosingOutput}
     />
