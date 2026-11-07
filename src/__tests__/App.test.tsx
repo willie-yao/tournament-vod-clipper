@@ -14,6 +14,9 @@ import { releaseHeldBatch } from '../renderer/common/heldBatch';
 import {
   GET_ALL_CHARACTERS,
   GET_SETS_AT_STREAM_STATION,
+  GET_TOURNAMENTS_BY_ID,
+  GET_YOUR_TOURNAMENTS,
+  SEARCH_TOURNAMENT_NAMES,
 } from '../renderer/common/StartggQueries';
 import {
   RETRIEVAL_TIMEOUT_MS,
@@ -42,6 +45,26 @@ const request = {
   query: GET_SETS_AT_STREAM_STATION,
   variables: { eventId: slug, page: 1 },
 };
+
+function tournamentNode(id: string, name: string, events: string[][]) {
+  return {
+    __typename: 'Tournament',
+    id,
+    name,
+    startAt: 1767225600,
+    events: events.map(([eventId, eventName, eventSlug]) => ({
+      __typename: 'Event',
+      id: eventId,
+      name: eventName,
+      slug: eventSlug,
+      videogame: {
+        __typename: 'Videogame',
+        id: '1386',
+        displayName: 'Super Smash Bros. Ultimate',
+      },
+    })),
+  };
+}
 
 function setup(secret = '', mocks: MockedResponse[] = []) {
   Object.defineProperty(window, 'crypto', {
@@ -96,7 +119,7 @@ describe('App settings and retrieval', () => {
     const controls = [
       key,
       screen.getByRole('button', { name: 'Save API Key' }),
-      screen.getByLabelText('Start.GG Event Slug', { exact: false }),
+      screen.getByLabelText('Start.gg event', { exact: false }),
       screen.getByLabelText('VOD Link', { exact: false }),
       screen.getByLabelText('Stream Station', { exact: false }),
       screen.getByRole('button', { name: 'Choose Output Folder' }),
@@ -165,13 +188,17 @@ describe('App settings and retrieval', () => {
     expect(
       screen.getByRole('button', { name: 'Output & YouTube' })
     ).toBeEnabled();
-    expect(screen.getByText('start.gg developer settings')).not.toBeVisible();
-    fireEvent.click(screen.getByText('API key help'));
+    expect(
+      screen.getByLabelText('Start.gg API key', { exact: false })
+    ).toHaveFocus();
     expect(
       screen.getByRole('link', { name: 'start.gg developer settings' })
     ).toHaveAttribute('href', 'https://start.gg/admin/profile/developer');
+    expect(screen.getByText('start.gg developer settings')).toBeVisible();
     fireEvent.click(screen.getByText('Source format examples'));
-    expect(screen.getByText('tournament/name/event/name')).toBeVisible();
+    expect(
+      screen.getByText('start.gg/tournament/name/event/name')
+    ).toBeVisible();
   });
 
   it('saves a key through secure storage and preserves it and search values after remount', async () => {
@@ -185,16 +212,26 @@ describe('App settings and retrieval', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save API Key' }));
     await screen.findByText('API key saved.');
     expect(store.setSecret).toHaveBeenCalledWith('apikey', 'test-key');
+    expect(screen.getByText('API key saved')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Change' })).toHaveFocus();
+    expect(
+      screen.queryByLabelText('Start.gg API key', { exact: false })
+    ).not.toBeInTheDocument();
     view.unmount();
 
     render(<App />);
-    await waitFor(() =>
-      expect(
-        screen.getByLabelText('Start.gg API key', { exact: false })
-      ).toHaveValue('test-key')
-    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Change' }));
     expect(
-      screen.getByLabelText('Start.GG Event Slug', { exact: false })
+      screen.getByLabelText('Start.gg API key', { exact: false })
+    ).toHaveValue('test-key');
+    expect(
+      screen.getByLabelText('Start.gg API key', { exact: false })
+    ).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Save API Key' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('button', { name: 'Change' })).toHaveFocus();
+    expect(
+      screen.getByLabelText('Start.gg event', { exact: false })
     ).toHaveValue(slug);
     expect(screen.getByLabelText('VOD Link', { exact: false })).toHaveValue(
       'https://www.twitch.tv/videos/123'
@@ -211,6 +248,7 @@ describe('App settings and retrieval', () => {
     render(<App />);
     const retrieve = screen.getByRole('button', { name: 'Retrieve Sets' });
     await waitFor(() => expect(retrieve).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Change' }));
     fireEvent.change(
       screen.getByLabelText('Start.gg API key', { exact: false }),
       {
@@ -248,17 +286,31 @@ describe('App settings and retrieval', () => {
         screen.getByRole('button', { name: 'Retrieve Sets' })
       ).toBeEnabled()
     );
-    fireEvent.change(
-      screen.getByLabelText('Start.GG Event Slug', { exact: false }),
-      {
-        target: { value: 'invalid-slug' },
-      }
-    );
-    fireEvent.change(screen.getByLabelText('VOD Link', { exact: false }), {
-      target: { value: 'not-a-url' },
-    });
-    expect(screen.getByText('Use tournament/name/event/name.')).toBeVisible();
-    expect(screen.getByText('Enter a valid HTTP or HTTPS URL.')).toBeVisible();
+    const event = screen.getByLabelText('Start.gg event', { exact: false });
+    const vod = screen.getByLabelText('VOD Link', { exact: false });
+    fireEvent.change(event, { target: { value: 'tournament/only' } });
+    fireEvent.change(vod, { target: { value: 'https://youtu.be/abc' } });
+    expect(event).not.toHaveAttribute('aria-invalid', 'true');
+    expect(vod).toHaveAttribute('aria-invalid', 'false');
+    expect(
+      screen.getByRole('button', { name: 'Retrieve Sets' })
+    ).toBeDisabled();
+    fireEvent.blur(event);
+    fireEvent.blur(vod);
+    expect(
+      screen.getByText('Paste a start.gg event link or pick a search result.')
+    ).toBeVisible();
+    fireEvent.focus(event);
+    expect(
+      screen.queryByText('Paste a start.gg event link or pick a search result.')
+    ).not.toBeInTheDocument();
+    expect(event).toHaveAttribute('aria-invalid', 'false');
+    fireEvent.blur(event);
+    expect(
+      screen.getByText(
+        'Use a Twitch VOD link such as twitch.tv/videos/123456789.'
+      )
+    ).toBeVisible();
     expect(
       screen.getByText('Correct the highlighted source fields.')
     ).toBeVisible();
@@ -297,10 +349,12 @@ describe('App settings and retrieval', () => {
     const retrieve = screen.getByRole('button', { name: 'Retrieve Sets' });
     await waitFor(() => expect(retrieve).toBeEnabled());
     fireEvent.click(retrieve);
-    await screen.findByText(
+    const failure = await screen.findByRole('alert');
+    expect(failure).toHaveTextContent(
       'Error retrieving sets: Could not retrieve start.gg data. Check your API key, event slug and connection, then retry.'
     );
     await waitFor(() => expect(retrieve).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Change' }));
     fireEvent.change(
       screen.getByLabelText('Start.gg API key', { exact: false }),
       { target: { value: 'second-test-key' } }
@@ -340,6 +394,150 @@ describe('App settings and retrieval', () => {
   });
 });
 
+describe('event lookup', () => {
+  it('accepts pasted start.gg and Twitch links and retrieves canonical values', async () => {
+    const { store, ipcRenderer } = setup('test-key', [
+      { request, result: { data: setsResponse([tournamentSet()]) } },
+    ]);
+    render(<App />);
+    const retrieve = screen.getByRole('button', { name: 'Retrieve Sets' });
+    await waitFor(() => expect(retrieve).toBeEnabled());
+    const event = screen.getByLabelText('Start.gg event', { exact: false });
+    const vod = screen.getByLabelText('VOD Link', { exact: false });
+    fireEvent.change(event, {
+      target: {
+        value: 'https://www.start.gg/tournament/test/event/singles/overview',
+      },
+    });
+    fireEvent.change(vod, { target: { value: 'twitch.tv/videos/123?t=5m' } });
+    expect(retrieve).toBeEnabled();
+    fireEvent.blur(event);
+    fireEvent.blur(vod);
+    expect(event).toHaveValue(slug);
+    expect(vod).toHaveValue('https://www.twitch.tv/videos/123');
+    fireEvent.click(retrieve);
+    await waitFor(() =>
+      expect(ipcRenderer.retrieveVideoInformation).toHaveBeenCalledWith({
+        vodUrl: 'https://www.twitch.tv/videos/123',
+        requestId: expect.any(String),
+      })
+    );
+    expect(store.set).toHaveBeenCalledWith('eventId', slug);
+    expect(store.set).toHaveBeenCalledWith(
+      'vodUrl',
+      'https://www.twitch.tv/videos/123'
+    );
+  });
+
+  it('lists your tournaments on focus and searches start.gg by name', async () => {
+    const genesis = 'tournament/genesis-11/event/ultimate-singles';
+    const { store } = setup('test-key', [
+      {
+        request: { query: GET_YOUR_TOURNAMENTS },
+        result: {
+          data: {
+            currentUser: {
+              __typename: 'User',
+              id: 'user',
+              tournaments: {
+                __typename: 'TournamentConnection',
+                nodes: [
+                  tournamentNode('t1', 'Weekly 12', [
+                    ['e1', 'Weekly Singles', slug],
+                  ]),
+                ],
+              },
+            },
+            organizing: { __typename: 'TournamentConnection', nodes: [] },
+          },
+        },
+      },
+      {
+        request: {
+          query: SEARCH_TOURNAMENT_NAMES,
+          variables: { name: 'genesis' },
+        },
+        result: {
+          data: {
+            scored: {
+              __typename: 'TournamentConnection',
+              nodes: [
+                {
+                  __typename: 'Tournament',
+                  id: 't2',
+                  name: 'Genesis 11',
+                  startAt: 1767225600,
+                },
+              ],
+            },
+            recent: {
+              __typename: 'TournamentConnection',
+              nodes: [
+                {
+                  __typename: 'Tournament',
+                  id: 't3',
+                  name: 'Neutral Grounds',
+                  startAt: 1767312000,
+                },
+              ],
+            },
+          },
+        },
+      },
+      {
+        request: {
+          query: GET_TOURNAMENTS_BY_ID,
+          variables: { ids: ['t2'], perPage: 1 },
+        },
+        result: {
+          data: {
+            tournaments: {
+              __typename: 'TournamentConnection',
+              nodes: [
+                tournamentNode('t2', 'Genesis 11', [
+                  ['e2', 'Ultimate Singles', genesis],
+                  ['e3', 'Ultimate Doubles', `${genesis}-doubles`],
+                ]),
+              ],
+            },
+          },
+        },
+      },
+      {
+        request: {
+          query: GET_SETS_AT_STREAM_STATION,
+          variables: { eventId: genesis, page: 1 },
+        },
+        result: { data: setsResponse([]) },
+      },
+    ]);
+    render(<App />);
+    const retrieve = screen.getByRole('button', { name: 'Retrieve Sets' });
+    await waitFor(() => expect(retrieve).toBeEnabled());
+    const event = screen.getByLabelText('Start.gg event', { exact: false });
+    fireEvent.change(event, { target: { value: '' } });
+    fireEvent.focus(event);
+    expect(
+      await screen.findByRole('option', { name: /Weekly Singles/ })
+    ).toBeVisible();
+
+    fireEvent.change(event, { target: { value: 'genesis' } });
+    expect(screen.getByText('Searching start.gg...')).toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: /Weekly Singles/ })
+    ).toBeVisible();
+    expect(event).not.toHaveAccessibleDescription();
+    fireEvent.click(
+      await screen.findByRole('option', { name: /Ultimate Singles/ })
+    );
+    expect(event).toHaveValue(genesis);
+    expect(screen.getByText('Genesis 11 · Ultimate Singles')).toBeVisible();
+    fireEvent.click(retrieve);
+    await screen.findByText('No sets found');
+    expect(store.set).toHaveBeenCalledWith('eventId', genesis);
+  });
+});
+
 describe('retrieval cancellation and deadlines', () => {
   afterEach(() => {
     jest.useRealTimers();
@@ -362,9 +560,13 @@ describe('retrieval cancellation and deadlines', () => {
     await act(async () => {
       jest.advanceTimersByTime(STARTGG_REQUEST_TIMEOUT_MS);
     });
-    expect(
-      screen.getByText(/start.gg did not respond within 30 seconds/)
-    ).toBeVisible();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /start.gg did not respond within 30 seconds/
+    );
+    await act(async () => {
+      jest.advanceTimersByTime(10_000);
+    });
+    expect(screen.getByRole('alert')).toBeVisible();
     expect(operations[0].getContext().fetchOptions.signal.aborted).toBe(true);
     expect(retrieve).toBeEnabled();
     expect(screen.getByLabelText('VOD Link', { exact: false })).toHaveValue(

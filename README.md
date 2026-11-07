@@ -64,10 +64,11 @@ This tool clips VODs automatically by retrieving timestamps of when matches are 
 
 ### Retrieving streamed sets
 
-- Create a personal API token in your [start.gg developer settings](https://start.gg/admin/profile/developer), enter it in `Start.gg API key`, and click `Save API Key`. The key is encrypted with your operating system's secure storage and kept across restarts. Saved search fields are preserved too.
-- First, you need to enter the Start.GG event slug. You can find this in the URL of the event page. For example, the slug for the event `microspacing-69` is:
+- Create a personal API token in your [start.gg developer settings](https://start.gg/admin/profile/developer), enter it in `Start.gg API key`, and click `Save API Key`. The key is encrypted with your operating system's secure storage and kept across restarts. Once saved, the section collapses to `API key saved`; click `Change` to replace or remove it. Saved search fields are preserved too.
+- First, choose the event in `Start.gg event`. Focus the field to pick from tournaments you recently organized or competed in, type at least three letters to search tournaments by name, or paste a tournament link to list its events. You can also paste an event link or slug directly, such as:
+  - https://www.start.gg/tournament/microspacing-69/event/singles-de
   - tournament/microspacing-69/event/singles-de
-- Then, enter the VOD url for the stream in the `VOD Link` field. This can only be a Twitch link at the moment. For example:
+- Then, enter the Twitch VOD link for the stream in the `VOD Link` field. Links without `https://` are accepted. For example:
   - https://www.twitch.tv/videos/123456789
 - To retrieve only the streamed sets, enter the name of the twitch channel assigned to stream in the `Stream Station` field. You can also enter a station number.
 - Finally, click `Retrieve Sets` to load Match review. Each start.gg page or character lookup has a 30-second limit, VOD metadata has a 60-second limit, and the complete retrieval has a five-minute limit. These limits allow multiple pages without leaving a stalled request waiting indefinitely; results are not silently truncated. `Cancel retrieval` stops pending retrieval work and lets you retry. Navigation, reload, window close and app quit also cancel work that is no longer needed. Timeouts leave your source fields intact and show an actionable error. These limits do not apply to clip downloads or YouTube uploads.

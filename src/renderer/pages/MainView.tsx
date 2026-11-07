@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Button, TextField, MenuItem } from '@mui/material';
+import { Alert, Button, TextField, MenuItem } from '@mui/material';
 import { useApolloClient } from '@apollo/client';
 import { useNavigate } from 'react-router-dom';
 import SnackbarPopup from 'renderer/common/SnackbarPopup';
@@ -15,6 +15,8 @@ import {
 } from '../common/tournamentSets';
 import AppShell from '../common/AppShell';
 import OutputFolder from '../common/OutputFolder';
+import EventField from '../components/EventField';
+import { normalizeEventSlug, normalizeVodUrl } from '../common/sourceInput';
 import startggRequest from '../common/startggRequest';
 import {
   createRetrievalScope,
@@ -26,15 +28,6 @@ import {
 
 interface CharactersResponse {
   videogame: { characters: { id: number; name: string }[] | null } | null;
-}
-
-function isValidURL(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'https:' || url.protocol === 'http:';
-  } catch {
-    return false;
-  }
 }
 
 interface SearchProps {
@@ -59,8 +52,15 @@ const VideoSearch = ({
   const [station, setStation] = useState(() =>
     String(window.electron.store.get('station') || '')
   );
+  // Restored values show their errors immediately; edits wait for blur.
+  const [eventTouched, setEventTouched] = useState(() => eventId !== '');
+  const [vodTouched, setVodTouched] = useState(() => vodUrl !== '');
   const [apiKey, setApiKey] = useState('');
   const [keyDraft, setKeyDraft] = useState('');
+  const [editingKey, setEditingKey] = useState(false);
+  const keyField = useRef<HTMLInputElement>(null);
+  const changeKeyButton = useRef<HTMLButtonElement>(null);
+  const pendingFocus = useRef<'key' | 'change' | null>(null);
   const [settingsReady, setSettingsReady] = useState(false);
   const [savingKey, setSavingKey] = useState(false);
   const [waiting, setWaiting] = useState(false);
@@ -70,14 +70,16 @@ const VideoSearch = ({
   } | null>(null);
   const [titleFormat, setTitleFormat] =
     useState<TitleFormat>(PLAYERS_FIRST_TITLE);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [errorOpen, setErrorOpen] = useState(false);
+  const [keyError, setKeyError] = useState('');
+  const [retrievalError, setRetrievalError] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
   const [infoOpen, setInfoOpen] = useState(false);
-  const urlError = vodUrl !== '' && !isValidURL(vodUrl.trim());
-  const slugError =
-    eventId !== '' &&
-    !/^tournament\/[\w-]+\/event\/[\w-]+$/.test(eventId.trim());
+  const eventSlug = normalizeEventSlug(eventId);
+  const vodLink = normalizeVodUrl(vodUrl);
+  const slugInvalid = eventId.trim() !== '' && !eventSlug;
+  const urlInvalid = vodUrl.trim() !== '' && !vodLink;
+  const slugError = eventTouched && slugInvalid;
+  const urlError = vodTouched && urlInvalid;
   const disabled =
     !settingsReady ||
     savingKey ||
@@ -85,11 +87,9 @@ const VideoSearch = ({
     waiting ||
     !apiKey ||
     keyDraft.trim() !== apiKey ||
-    !eventId.trim() ||
-    !vodUrl.trim() ||
-    !station.trim() ||
-    urlError ||
-    slugError;
+    !eventSlug ||
+    !vodLink ||
+    !station.trim();
   let blockedReason = '';
   if (!settingsReady) blockedReason = 'Loading saved settings...';
   else if (!apiKey) blockedReason = 'Save a start.gg API key to retrieve sets.';
@@ -98,7 +98,11 @@ const VideoSearch = ({
   else if (urlError || slugError)
     blockedReason = 'Correct the highlighted source fields.';
   else if (!eventId.trim() || !vodUrl.trim() || !station.trim())
-    blockedReason = 'Enter the event slug, VOD link and stream station.';
+    blockedReason = 'Enter the event, VOD link and stream station.';
+  else if (slugInvalid)
+    blockedReason = 'Pick an event from the search or paste its start.gg link.';
+  else if (urlInvalid)
+    blockedReason = 'Use a Twitch VOD link such as twitch.tv/videos/123456789.';
 
   useEffect(
     () => onBusyChange(waiting || savingKey),
@@ -126,15 +130,15 @@ const VideoSearch = ({
         if (active) {
           setApiKey(key);
           setKeyDraft(key);
+          if (!key) pendingFocus.current = 'key';
         }
       } catch (error) {
         if (active) {
-          setErrorMessage(
+          setKeyError(
             `Error loading settings: ${
               error instanceof Error ? error.message : String(error)
             }`
           );
-          setErrorOpen(true);
         }
       } finally {
         if (active) setSettingsReady(true);
@@ -146,29 +150,45 @@ const VideoSearch = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (pendingFocus.current === 'key') keyField.current?.focus();
+    else if (pendingFocus.current === 'change')
+      changeKeyButton.current?.focus();
+    pendingFocus.current = null;
+  });
+
   const saveKey = async () => {
     setSavingKey(true);
+    setKeyError('');
     try {
       const key = keyDraft.trim();
       await window.electron.store.setSecret('apikey', key);
       setApiKey(key);
       setKeyDraft(key);
+      setEditingKey(false);
+      pendingFocus.current = key ? 'change' : 'key';
       setInfoMessage(key ? 'API key saved.' : 'API key removed.');
       setInfoOpen(true);
     } catch (error) {
-      setErrorMessage(
+      setKeyError(
         `Error saving API key: ${
           error instanceof Error ? error.message : String(error)
         }`
       );
-      setErrorOpen(true);
     } finally {
       setSavingKey(false);
     }
   };
 
+  const editKey = (editing: boolean) => {
+    setKeyDraft(apiKey);
+    setKeyError('');
+    setEditingKey(editing);
+    pendingFocus.current = editing ? 'key' : 'change';
+  };
+
   const retrieveSets = async () => {
-    if (disabled || activeRetrieval.current) return;
+    if (disabled || !eventSlug || !vodLink || activeRetrieval.current) return;
     const scope = createRetrievalScope(
       RETRIEVAL_TIMEOUT_MS,
       'Retrieval exceeded five minutes. Check your connection and retry.'
@@ -179,14 +199,16 @@ const VideoSearch = ({
     const cancelMetadata = () =>
       window.electron.ipcRenderer.cancelRetrieveVideoInformation(requestId);
     setWaiting(true);
-    setErrorOpen(false);
+    setRetrievalError('');
+    setEventId(eventSlug);
+    setVodUrl(vodLink);
     try {
-      window.electron.store.set('eventId', eventId.trim());
+      window.electron.store.set('eventId', eventSlug);
       window.electron.store.set('station', station.trim());
-      window.electron.store.set('vodUrl', vodUrl.trim());
+      window.electron.store.set('vodUrl', vodLink);
       const result = await retrieveTournamentSets(
         client,
-        eventId.trim(),
+        eventSlug,
         station.trim(),
         scope.signal
       );
@@ -223,7 +245,7 @@ const VideoSearch = ({
         try {
           const response = await withRetrievalAbort(metadataScope.signal, () =>
             window.electron.ipcRenderer.retrieveVideoInformation({
-              vodUrl: vodUrl.trim(),
+              vodUrl: vodLink,
               requestId,
             })
           );
@@ -248,23 +270,22 @@ const VideoSearch = ({
       navigate('/SetsView', {
         state: {
           sets,
-          vodUrl: vodUrl.trim(),
+          vodUrl: vodLink,
           tournamentName: result.tournamentName,
           skippedSets: result.skippedSets,
-          eventId: eventId.trim(),
+          eventId: eventSlug,
           station: station.trim(),
         },
       });
     } catch (error) {
       if (activeRetrieval.current !== active) return;
-      setErrorMessage(
+      setRetrievalError(
         `Error retrieving sets: ${
           error instanceof RetrievalError
             ? error.message
             : 'Retrieval failed. Check your source settings and connection, then retry.'
         }`
       );
-      setErrorOpen(true);
     } finally {
       scope.dispose();
       if (activeRetrieval.current === active) {
@@ -276,17 +297,24 @@ const VideoSearch = ({
 
   const sourceFields = (
     <>
-      <TextField
-        error={slugError}
-        className="textfield"
-        label="Start.GG Event Slug"
-        required
-        variant="outlined"
+      <EventField
         value={eventId}
-        onChange={(event) => setEventId(event.target.value)}
+        onChange={(value) => {
+          setEventId(value);
+          setEventTouched(false);
+          setRetrievalError('');
+        }}
+        onBlur={() => {
+          if (eventSlug && eventSlug !== eventId) setEventId(eventSlug);
+          setEventTouched(true);
+        }}
+        error={
+          slugError
+            ? 'Paste a start.gg event link or pick a search result.'
+            : undefined
+        }
         disabled={waiting || choosingOutput}
-        placeholder="tournament/name/event/name"
-        helperText={slugError ? 'Use tournament/name/event/name.' : undefined}
+        apiKey={keyDraft.trim() === apiKey ? apiKey : ''}
       />
       <TextField
         error={urlError}
@@ -295,10 +323,22 @@ const VideoSearch = ({
         required
         variant="outlined"
         value={vodUrl}
-        onChange={(event) => setVodUrl(event.target.value)}
+        onChange={(event) => {
+          setVodUrl(event.target.value);
+          setVodTouched(false);
+          setRetrievalError('');
+        }}
+        onBlur={() => {
+          if (vodLink && vodLink !== vodUrl) setVodUrl(vodLink);
+          setVodTouched(true);
+        }}
         disabled={waiting || choosingOutput}
         placeholder="https://www.twitch.tv/videos/123456789"
-        helperText={urlError ? 'Enter a valid HTTP or HTTPS URL.' : undefined}
+        helperText={
+          urlError
+            ? 'Use a Twitch VOD link such as twitch.tv/videos/123456789.'
+            : undefined
+        }
       />
       <TextField
         className="textfield"
@@ -306,7 +346,10 @@ const VideoSearch = ({
         required
         variant="outlined"
         value={station}
-        onChange={(event) => setStation(event.target.value)}
+        onChange={(event) => {
+          setStation(event.target.value);
+          setRetrievalError('');
+        }}
         disabled={waiting || choosingOutput}
         placeholder="Twitch channel name or station number"
       />
@@ -330,10 +373,11 @@ const VideoSearch = ({
       <details className="help-disclosure">
         <summary>Source format examples</summary>
         <p>
-          Use the start.gg event slug, such as{' '}
-          <code>tournament/name/event/name</code>, and the Twitch VOD URL, such
-          as <code>https://www.twitch.tv/videos/123456789</code>. Stream Station
-          accepts a Twitch channel name or station number.
+          Search tournaments by name once an API key is saved, or paste a
+          start.gg event link such as{' '}
+          <code>start.gg/tournament/name/event/name</code>. The VOD link is a
+          Twitch video such as <code>twitch.tv/videos/123456789</code>. Stream
+          Station accepts a Twitch channel name or station number.
         </p>
       </details>
     </>
@@ -350,6 +394,9 @@ const VideoSearch = ({
       >
         {waiting ? 'Retrieving sets...' : 'Retrieve Sets'}
       </Button>
+      {retrievalError && !waiting && (
+        <Alert severity="error">{retrievalError}</Alert>
+      )}
       {blockedReason && !waiting && (
         <p className="help" id="source-requirements" role="status">
           {blockedReason}
@@ -368,47 +415,62 @@ const VideoSearch = ({
       )}
     </>
   );
-  const accessFields = (
-    <>
-      <TextField
-        required
-        type="password"
-        label="Start.gg API key"
-        variant="outlined"
-        value={keyDraft}
-        onChange={(event) => setKeyDraft(event.target.value)}
-        disabled={!settingsReady || savingKey || waiting || choosingOutput}
-      />
-      <Button
-        variant="outlined"
-        disabled={
-          !settingsReady ||
-          savingKey ||
-          waiting ||
-          choosingOutput ||
-          keyDraft.trim() === apiKey
-        }
-        onClick={saveKey}
-      >
-        {savingKey ? 'Saving API key...' : 'Save API Key'}
-      </Button>
-      <details className="help-disclosure">
-        <summary>API key help</summary>
-        <p>
-          Create a personal token in your{' '}
-          <a
-            href="https://start.gg/admin/profile/developer"
-            target="_blank"
-            rel="noreferrer"
+  const keyBusy = !settingsReady || savingKey || waiting || choosingOutput;
+  const accessFields =
+    apiKey && !editingKey ? (
+      <div className="key-saved">
+        <p>API key saved</p>
+        <Button
+          ref={changeKeyButton}
+          disabled={keyBusy}
+          onClick={() => editKey(true)}
+        >
+          Change
+        </Button>
+      </div>
+    ) : (
+      <div className="source-access-fields">
+        <TextField
+          required
+          type="password"
+          label="Start.gg API key"
+          variant="outlined"
+          value={keyDraft}
+          inputRef={keyField}
+          onChange={(event) => setKeyDraft(event.target.value)}
+          disabled={keyBusy}
+        />
+        <div className="key-actions">
+          <Button
+            variant="outlined"
+            disabled={keyBusy || keyDraft.trim() === apiKey}
+            onClick={saveKey}
           >
-            start.gg developer settings
-          </a>
-          . Save it here before retrieving sets. The key is encrypted on this
-          device.
-        </p>
-      </details>
-    </>
-  );
+            {savingKey ? 'Saving API key...' : 'Save API Key'}
+          </Button>
+          {apiKey && (
+            <Button disabled={savingKey} onClick={() => editKey(false)}>
+              Cancel
+            </Button>
+          )}
+        </div>
+        <details className="help-disclosure" open={!apiKey}>
+          <summary>API key help</summary>
+          <p>
+            Create a personal token in your{' '}
+            <a
+              href="https://start.gg/admin/profile/developer"
+              target="_blank"
+              rel="noreferrer"
+            >
+              start.gg developer settings
+            </a>
+            . Save it here before retrieving sets. The key is encrypted on this
+            device.
+          </p>
+        </details>
+      </div>
+    );
   const outputFolder = (
     <OutputFolder
       disabled={waiting || savingKey}
@@ -418,11 +480,11 @@ const VideoSearch = ({
 
   return (
     <div className="source-form">
-      {SnackbarPopup(errorMessage, 'error', errorOpen, setErrorOpen)}
       {SnackbarPopup(infoMessage, 'info', infoOpen, setInfoOpen)}
       <section className="source-access" aria-label="Start.gg access">
         <h2>Start.gg access</h2>
-        <div className="source-access-fields">{accessFields}</div>
+        {accessFields}
+        {keyError && <Alert severity="error">{keyError}</Alert>}
       </section>
       <section className="source-inputs" aria-label="Tournament source">
         <h2>Match source</h2>
