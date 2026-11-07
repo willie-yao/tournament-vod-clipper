@@ -143,3 +143,73 @@ export const GET_ALL_CHARACTERS = gql`
     }
   }
 `;
+
+const TOURNAMENT_EVENTS = gql`
+  fragment TournamentEvents on Tournament {
+    id
+    name
+    startAt
+    events {
+      id
+      name
+      slug
+      videogame {
+        id
+        displayName
+      }
+    }
+  }
+`;
+
+export const GET_YOUR_TOURNAMENTS = gql`
+  query YourTournaments {
+    currentUser {
+      id
+      tournaments(query: { page: 1, perPage: 6, sortBy: "startAt desc" }) {
+        nodes {
+          ...TournamentEvents
+        }
+      }
+    }
+    organizing: tournaments(
+      query: {
+        page: 1
+        perPage: 6
+        sortBy: "startAt desc"
+        filter: { isCurrentUserAdmin: true }
+      }
+    ) {
+      nodes {
+        ...TournamentEvents
+      }
+    }
+  }
+  ${TOURNAMENT_EVENTS}
+`;
+
+export const SEARCH_TOURNAMENTS = gql`
+  query SearchTournaments($name: String!) {
+    tournaments(
+      query: {
+        page: 1
+        perPage: 8
+        sortBy: "startAt desc"
+        filter: { name: $name }
+      }
+    ) {
+      nodes {
+        ...TournamentEvents
+      }
+    }
+  }
+  ${TOURNAMENT_EVENTS}
+`;
+
+export const GET_TOURNAMENT_EVENTS = gql`
+  query TournamentEventsBySlug($slug: String!) {
+    tournament(slug: $slug) {
+      ...TournamentEvents
+    }
+  }
+  ${TOURNAMENT_EVENTS}
+`;

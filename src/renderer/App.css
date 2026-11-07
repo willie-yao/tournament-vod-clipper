@@ -2140,8 +2140,43 @@ summary:focus-visible {
   width: 100%;
   padding: 10px 20px;
 }
-.source-access-fields > .MuiButton-root {
-  align-self: flex-start;
+.key-actions {
+  display: flex;
+  gap: 8px;
+}
+.key-saved {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.key-saved p {
+  font-size: 13px;
+}
+.source-form .help {
+  font-size: 13px;
+}
+.source-form .MuiFormHelperText-root {
+  font-size: 12px;
+}
+.source-access > .MuiAlert-root,
+.source-submit > .MuiAlert-root {
+  align-self: stretch;
+}
+.source-fields
+  .MuiAutocomplete-root
+  .MuiOutlinedInput-root.MuiInputBase-sizeSmall
+  .MuiAutocomplete-input {
+  padding-left: 8px;
+}
+.event-option {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+.event-option > .muted {
+  flex-shrink: 0;
+  font-size: 12px;
 }
 .loading-sets {
   align-self: stretch;
