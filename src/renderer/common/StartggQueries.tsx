@@ -187,16 +187,44 @@ export const GET_YOUR_TOURNAMENTS = gql`
   ${TOURNAMENT_EVENTS}
 `;
 
-export const SEARCH_TOURNAMENTS = gql`
-  query SearchTournaments($name: String!) {
-    tournaments(
+// start.gg matches any word of the name, so pull relevance-ranked and newest
+// matches for the client to rank.
+export const SEARCH_TOURNAMENT_NAMES = gql`
+  query SearchTournamentNames($name: String!) {
+    scored: tournaments(
       query: {
         page: 1
-        perPage: 8
+        perPage: 50
+        sortBy: "startAt desc"
+        filter: { name: $name, sortByScore: true }
+      }
+    ) {
+      nodes {
+        id
+        name
+        startAt
+      }
+    }
+    recent: tournaments(
+      query: {
+        page: 1
+        perPage: 50
         sortBy: "startAt desc"
         filter: { name: $name }
       }
     ) {
+      nodes {
+        id
+        name
+        startAt
+      }
+    }
+  }
+`;
+
+export const GET_TOURNAMENTS_BY_ID = gql`
+  query TournamentsById($ids: [ID], $perPage: Int!) {
+    tournaments(query: { page: 1, perPage: $perPage, filter: { ids: $ids } }) {
       nodes {
         ...TournamentEvents
       }

@@ -39,3 +39,35 @@ export function normalizeVodUrl(input: string) {
   const id = twitchVideoId(value);
   return id ? `https://www.twitch.tv/videos/${id}` : null;
 }
+
+const words = (value: string) =>
+  value
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
+
+/**
+ * Order name-search hits: tournaments containing every query word, newest
+ * first, or the closest partial matches when none contain them all.
+ */
+export function rankByName<T extends { name: string; startAt: number | null }>(
+  query: string,
+  tournaments: T[]
+) {
+  const wanted = words(query);
+  const scored = tournaments.map((tournament) => {
+    const name = words(tournament.name).join(' ');
+    return {
+      tournament,
+      hits: wanted.filter((word) => name.includes(word)).length,
+    };
+  });
+  const complete = scored.filter(({ hits }) => hits === wanted.length);
+  return (complete.length ? complete : scored.filter(({ hits }) => hits))
+    .sort(
+      (a, b) =>
+        b.hits - a.hits ||
+        (b.tournament.startAt ?? 0) - (a.tournament.startAt ?? 0)
+    )
+    .map(({ tournament }) => tournament);
+}

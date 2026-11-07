@@ -11,12 +11,14 @@ import { useApolloClient } from '@apollo/client';
 import {
   GET_TOURNAMENT_EVENTS,
   GET_YOUR_TOURNAMENTS,
-  SEARCH_TOURNAMENTS,
+  GET_TOURNAMENTS_BY_ID,
+  SEARCH_TOURNAMENT_NAMES,
 } from '../common/StartggQueries';
 import startggRequest from '../common/startggRequest';
 import {
   isStartggReference,
   normalizeEventSlug,
+  rankByName,
   tournamentSlug,
 } from '../common/sourceInput';
 
@@ -45,6 +47,7 @@ interface EventOption {
 type Lookup = { key: string; status: 'loading' | 'done' | 'error' };
 
 const SEARCH_DELAY_MS = 350;
+const SEARCH_LIMIT = 8;
 
 const PopupStatus = createContext({ busy: '', message: '', stale: false });
 
@@ -84,25 +87,28 @@ const dateFormat = new Intl.DateTimeFormat(undefined, {
   year: 'numeric',
 });
 
+function newestFirst<T extends { startAt: number | null }>(tournaments: T[]) {
+  return [...tournaments].sort((a, b) => (b.startAt ?? 0) - (a.startAt ?? 0));
+}
+
+/** Flatten tournaments, in the given order, into grouped event options. */
 function eventOptions(tournaments: (TournamentNode | null | undefined)[]) {
   const unique = new Map<string, TournamentNode>();
   tournaments.forEach((t) => {
     if (t && !unique.has(t.id)) unique.set(t.id, t);
   });
-  return [...unique.values()]
-    .sort((a, b) => (b.startAt ?? 0) - (a.startAt ?? 0))
-    .flatMap((tournament) => {
-      const group = tournament.startAt
-        ? `${tournament.name} · ${dateFormat.format(tournament.startAt * 1000)}`
-        : tournament.name;
-      return (tournament.events ?? []).map((event) => ({
-        slug: event.slug,
-        name: event.name,
-        game: event.videogame?.displayName ?? '',
-        tournament: tournament.name,
-        group,
-      }));
-    });
+  return [...unique.values()].flatMap((tournament) => {
+    const group = tournament.startAt
+      ? `${tournament.name} · ${dateFormat.format(tournament.startAt * 1000)}`
+      : tournament.name;
+    return (tournament.events ?? []).map((event) => ({
+      slug: event.slug,
+      name: event.name,
+      game: event.videogame?.displayName ?? '',
+      tournament: tournament.name,
+      group,
+    }));
+  });
 }
 
 interface Props {
@@ -168,10 +174,12 @@ const EventField = ({
         setRecents({
           key: load.key,
           status: 'done',
-          options: eventOptions([
-            ...(data.organizing?.nodes ?? []),
-            ...(data.currentUser?.tournaments?.nodes ?? []),
-          ]),
+          options: eventOptions(
+            newestFirst([
+              ...(data.organizing?.nodes ?? []),
+              ...(data.currentUser?.tournaments?.nodes ?? []),
+            ])
+          ),
         });
       } catch {
         if (recentsLoad.current !== load) return;
@@ -202,14 +210,40 @@ const EventField = ({
           );
           options = eventOptions([data.tournament]);
         } else {
-          const { data } = await startggRequest<{
-            tournaments: { nodes: TournamentNode[] } | null;
+          // Rank name matches here, then load events for the best few.
+          type Hit = Pick<TournamentNode, 'id' | 'name' | 'startAt'>;
+          const { data: hits } = await startggRequest<{
+            scored: { nodes: Hit[] } | null;
+            recent: { nodes: Hit[] } | null;
           }>(
             client,
-            { query: SEARCH_TOURNAMENTS, variables: { name: trimmed } },
+            { query: SEARCH_TOURNAMENT_NAMES, variables: { name: trimmed } },
             controller.signal
           );
-          options = eventOptions(data.tournaments?.nodes ?? []);
+          const ids = rankByName(trimmed, [
+            ...(hits.scored?.nodes ?? []),
+            ...(hits.recent?.nodes ?? []),
+          ])
+            .map(({ id }) => id)
+            .filter((id, index, all) => all.indexOf(id) === index)
+            .slice(0, SEARCH_LIMIT);
+          let found: TournamentNode[] = [];
+          if (ids.length) {
+            const { data } = await startggRequest<{
+              tournaments: { nodes: TournamentNode[] } | null;
+            }>(
+              client,
+              {
+                query: GET_TOURNAMENTS_BY_ID,
+                variables: { ids, perPage: ids.length },
+              },
+              controller.signal
+            );
+            found = data.tournaments?.nodes ?? [];
+          }
+          options = eventOptions(
+            ids.map((id) => found.find((t) => t.id === id))
+          );
         }
         if (!controller.signal.aborted)
           setResults({ key: lookupKey, status: 'done', options });
@@ -308,13 +342,13 @@ const EventField = ({
             className="textfield"
             label="Start.gg event"
             required
-            error={!!error}
+            error={!!error && !focused}
             placeholder={
               canSearch
                 ? 'Search tournaments or paste an event link'
                 : 'Paste a start.gg event link'
             }
-            helperText={error || picked || undefined}
+            helperText={(!focused && error) || picked || undefined}
             onFocus={() => setFocused(true)}
             onBlur={() => {
               setFocused(false);

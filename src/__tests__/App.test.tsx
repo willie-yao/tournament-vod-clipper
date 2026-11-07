@@ -14,8 +14,9 @@ import { releaseHeldBatch } from '../renderer/common/heldBatch';
 import {
   GET_ALL_CHARACTERS,
   GET_SETS_AT_STREAM_STATION,
+  GET_TOURNAMENTS_BY_ID,
   GET_YOUR_TOURNAMENTS,
-  SEARCH_TOURNAMENTS,
+  SEARCH_TOURNAMENT_NAMES,
 } from '../renderer/common/StartggQueries';
 import {
   RETRIEVAL_TIMEOUT_MS,
@@ -299,6 +300,12 @@ describe('App settings and retrieval', () => {
     expect(
       screen.getByText('Paste a start.gg event link or pick a search result.')
     ).toBeVisible();
+    fireEvent.focus(event);
+    expect(
+      screen.queryByText('Paste a start.gg event link or pick a search result.')
+    ).not.toBeInTheDocument();
+    expect(event).toHaveAttribute('aria-invalid', 'false');
+    fireEvent.blur(event);
     expect(
       screen.getByText(
         'Use a Twitch VOD link such as twitch.tv/videos/123456789.'
@@ -446,7 +453,42 @@ describe('event lookup', () => {
         },
       },
       {
-        request: { query: SEARCH_TOURNAMENTS, variables: { name: 'genesis' } },
+        request: {
+          query: SEARCH_TOURNAMENT_NAMES,
+          variables: { name: 'genesis' },
+        },
+        result: {
+          data: {
+            scored: {
+              __typename: 'TournamentConnection',
+              nodes: [
+                {
+                  __typename: 'Tournament',
+                  id: 't2',
+                  name: 'Genesis 11',
+                  startAt: 1767225600,
+                },
+              ],
+            },
+            recent: {
+              __typename: 'TournamentConnection',
+              nodes: [
+                {
+                  __typename: 'Tournament',
+                  id: 't3',
+                  name: 'Neutral Grounds',
+                  startAt: 1767312000,
+                },
+              ],
+            },
+          },
+        },
+      },
+      {
+        request: {
+          query: GET_TOURNAMENTS_BY_ID,
+          variables: { ids: ['t2'], perPage: 1 },
+        },
         result: {
           data: {
             tournaments: {

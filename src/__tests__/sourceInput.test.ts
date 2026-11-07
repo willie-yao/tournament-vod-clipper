@@ -2,6 +2,7 @@ import {
   isStartggReference,
   normalizeEventSlug,
   normalizeVodUrl,
+  rankByName,
   tournamentSlug,
 } from '../renderer/common/sourceInput';
 
@@ -94,5 +95,39 @@ describe('normalizeVodUrl', () => {
     'ftp://twitch.tv/videos/1',
   ])('rejects %s', (input) => {
     expect(normalizeVodUrl(input)).toBeNull();
+  });
+});
+
+describe('rankByName', () => {
+  const t = (name: string, startAt: number) => ({ name, startAt });
+
+  it('keeps tournaments with every word, newest first', () => {
+    expect(
+      rankByName('split neutral', [
+        t('Neutral Grounds #14', 50),
+        t('Split Neutral #76', 30),
+        t('Split Decision', 45),
+        t('Split Neutral #77 - Pengu-Win’s Send Off Bracket', 40),
+      ]).map(({ name }) => name)
+    ).toEqual([
+      'Split Neutral #77 - Pengu-Win’s Send Off Bracket',
+      'Split Neutral #76',
+    ]);
+  });
+
+  it('matches across punctuation and case', () => {
+    expect(
+      rankByName('PENGU-WIN', [t('Split Neutral #57 - Pengu-Win’s Bash', 1)])
+    ).toHaveLength(1);
+  });
+
+  it('falls back to the closest partial matches', () => {
+    expect(
+      rankByName('split neutral weekly', [
+        t('Neutral Grounds', 3),
+        t('Split Neutral #1', 1),
+        t('Unrelated', 5),
+      ]).map(({ name }) => name)
+    ).toEqual(['Split Neutral #1', 'Neutral Grounds']);
   });
 });
