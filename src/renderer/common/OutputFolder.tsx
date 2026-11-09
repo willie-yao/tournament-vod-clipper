@@ -8,7 +8,13 @@ interface Props {
   onChoosingChange?: (choosing: boolean) => void;
 }
 
-const OutputFolder = ({ disabled, onChange, onChoosingChange }: Props) => {
+interface Options {
+  onChange?: () => void;
+  onChoosingChange?: (choosing: boolean) => void;
+}
+
+/** Load the output root and choose a new one through the native picker. */
+export function useOutputDirectory({ onChange, onChoosingChange }: Options) {
   const [directory, setDirectory] = useState('');
   const [error, setError] = useState('');
   const [choosing, setChoosing] = useState(false);
@@ -30,6 +36,7 @@ const OutputFolder = ({ disabled, onChange, onChoosingChange }: Props) => {
     load();
   }, []);
 
+  /** Resolves to the chosen folder, or null when nothing changed. */
   const choose = async () => {
     setChoosing(true);
     onChoosingChange?.(true);
@@ -42,13 +49,24 @@ const OutputFolder = ({ disabled, onChange, onChoosingChange }: Props) => {
         forgetHeldDownloads();
         onChange?.();
       }
+      return selected;
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
+      return null;
     } finally {
       setChoosing(false);
       onChoosingChange?.(false);
     }
   };
+
+  return { directory, error, choosing, loading, choose };
+}
+
+const OutputFolder = ({ disabled, onChange, onChoosingChange }: Props) => {
+  const { directory, error, choosing, loading, choose } = useOutputDirectory({
+    onChange,
+    onChoosingChange,
+  });
 
   return (
     <Box className="output-folder">
@@ -69,7 +87,12 @@ const OutputFolder = ({ disabled, onChange, onChoosingChange }: Props) => {
           </p>
         </div>
       </details>
-      <Button disabled={disabled || choosing || loading} onClick={choose}>
+      <Button
+        disabled={disabled || choosing || loading}
+        onClick={() => {
+          choose();
+        }}
+      >
         Choose Output Folder
       </Button>
       {error && <Alert severity="error">{error}</Alert>}

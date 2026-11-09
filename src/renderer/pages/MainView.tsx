@@ -14,8 +14,8 @@ import {
   formatSetMetadata,
 } from '../common/tournamentSets';
 import AppShell from '../common/AppShell';
-import OutputFolder from '../common/OutputFolder';
 import EventField from '../components/EventField';
+import OutputStrip from '../components/OutputStrip';
 import { normalizeEventSlug, normalizeVodUrl } from '../common/sourceInput';
 import startggRequest from '../common/startggRequest';
 import {
@@ -29,6 +29,33 @@ import {
 interface CharactersResponse {
   videogame: { characters: { id: number; name: string }[] | null } | null;
 }
+
+/** Section heading with a one-line summary of what the section has set. */
+const Slate = ({ title, status }: { title: string; status: string }) => {
+  const previous = useRef(status);
+  const [wipe, setWipe] = useState(false);
+  useEffect(() => {
+    // Replacing a value wipes the new one in; first values just appear.
+    if (previous.current && status && previous.current !== status)
+      setWipe(true);
+    previous.current = status;
+  }, [status]);
+  return (
+    <header className="source-slate">
+      <h2>{title}</h2>
+      {status && (
+        <span
+          className={`source-slate-status${wipe ? ' is-wipe' : ''}`}
+          key={status}
+          title={status}
+          onAnimationEnd={() => setWipe(false)}
+        >
+          {status}
+        </span>
+      )}
+    </header>
+  );
+};
 
 interface SearchProps {
   choosingOutput: boolean;
@@ -58,6 +85,10 @@ const VideoSearch = ({
   const [apiKey, setApiKey] = useState('');
   const [keyDraft, setKeyDraft] = useState('');
   const [editingKey, setEditingKey] = useState(false);
+  const [eventPick, setEventPick] = useState<{
+    slug: string;
+    label: string;
+  } | null>(null);
   const keyField = useRef<HTMLInputElement>(null);
   const changeKeyButton = useRef<HTMLButtonElement>(null);
   const pendingFocus = useRef<'key' | 'change' | null>(null);
@@ -97,12 +128,21 @@ const VideoSearch = ({
     blockedReason = 'Save API key changes before retrieving sets.';
   else if (urlError || slugError)
     blockedReason = 'Correct the highlighted source fields.';
-  else if (!eventId.trim() || !vodUrl.trim() || !station.trim())
-    blockedReason = 'Enter the event, VOD link and stream station.';
   else if (slugInvalid)
     blockedReason = 'Pick an event from the search or paste its start.gg link.';
   else if (urlInvalid)
     blockedReason = 'Use a Twitch VOD link such as twitch.tv/videos/123456789.';
+
+  let accessStatus = '';
+  if (settingsReady && keyDraft.trim() !== apiKey)
+    accessStatus = 'Unsaved change';
+  else if (settingsReady && apiKey) accessStatus = 'Key saved';
+  let sourceStatus = '';
+  if (eventSlug)
+    sourceStatus =
+      eventPick?.slug === eventSlug
+        ? eventPick.label
+        : eventSlug.replace(/^tournament\//, '').replace('/event/', ' · ');
 
   useEffect(
     () => onBusyChange(waiting || savingKey),
@@ -315,6 +355,7 @@ const VideoSearch = ({
         }
         disabled={waiting || choosingOutput}
         apiKey={keyDraft.trim() === apiKey ? apiKey : ''}
+        onPick={(slug, label) => setEventPick({ slug, label })}
       />
       <TextField
         error={urlError}
@@ -419,7 +460,7 @@ const VideoSearch = ({
   const accessFields =
     apiKey && !editingKey ? (
       <div className="key-saved">
-        <p>API key saved</p>
+        <p>Encrypted on this device</p>
         <Button
           ref={changeKeyButton}
           disabled={keyBusy}
@@ -472,7 +513,7 @@ const VideoSearch = ({
       </div>
     );
   const outputFolder = (
-    <OutputFolder
+    <OutputStrip
       disabled={waiting || savingKey}
       onChoosingChange={onChoosingOutput}
     />
@@ -482,16 +523,16 @@ const VideoSearch = ({
     <div className="source-form">
       {SnackbarPopup(infoMessage, 'info', infoOpen, setInfoOpen)}
       <section className="source-access" aria-label="Start.gg access">
-        <h2>Start.gg access</h2>
+        <Slate title="Start.gg access" status={accessStatus} />
         {accessFields}
         {keyError && <Alert severity="error">{keyError}</Alert>}
       </section>
       <section className="source-inputs" aria-label="Tournament source">
-        <h2>Match source</h2>
+        <Slate title="Match source" status={sourceStatus} />
         <div className="source-fields">{sourceFields}</div>
       </section>
       <aside className="source-settings" aria-label="Source settings">
-        <h2>Output</h2>
+        <Slate title="Output" status="" />
         {outputFolder}
       </aside>
       <div className="source-submit">{sourceAction}</div>
