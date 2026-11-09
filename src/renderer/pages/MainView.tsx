@@ -97,8 +97,6 @@ const VideoSearch = ({
     blockedReason = 'Save API key changes before retrieving sets.';
   else if (urlError || slugError)
     blockedReason = 'Correct the highlighted source fields.';
-  else if (!eventId.trim() || !vodUrl.trim() || !station.trim())
-    blockedReason = 'Enter the event, VOD link and stream station.';
   else if (slugInvalid)
     blockedReason = 'Pick an event from the search or paste its start.gg link.';
   else if (urlInvalid)
