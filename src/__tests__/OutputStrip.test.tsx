@@ -79,3 +79,16 @@ it('keeps the current path without a splice when the picker is cancelled', async
   expect(strip.querySelector('[data-splice]')).toBeNull();
   expect(strip).toHaveAccessibleName('Change output folder, currently clips');
 });
+
+it('reports whether the output folder is writable', async () => {
+  const api = setup(null);
+  const status = jest.fn();
+  const view = render(<OutputStrip onStatusChange={status} />);
+  await waitFor(() => expect(status).toHaveBeenLastCalledWith('Writable'));
+  view.unmount();
+  api.createFolder.mockRejectedValueOnce(new Error('test read-only'));
+  status.mockClear();
+  render(<OutputStrip onStatusChange={status} />);
+  await waitFor(() => expect(status).toHaveBeenLastCalledWith('Not writable'));
+  expect(status).not.toHaveBeenCalledWith('Writable');
+});

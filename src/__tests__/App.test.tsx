@@ -212,7 +212,8 @@ describe('App settings and retrieval', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save API Key' }));
     await screen.findByText('API key saved.');
     expect(store.setSecret).toHaveBeenCalledWith('apikey', 'test-key');
-    expect(screen.getByText('API key saved')).toBeVisible();
+    expect(screen.getByText('Key saved')).toBeVisible();
+    expect(screen.getByText('Encrypted on this device')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Change' })).toHaveFocus();
     expect(
       screen.queryByLabelText('Start.gg API key', { exact: false })
@@ -233,6 +234,7 @@ describe('App settings and retrieval', () => {
     expect(
       screen.getByLabelText('Start.gg event', { exact: false })
     ).toHaveValue(slug);
+    expect(screen.getByText('test · singles')).toBeVisible();
     expect(screen.getByLabelText('VOD Link', { exact: false })).toHaveValue(
       'https://www.twitch.tv/videos/123'
     );

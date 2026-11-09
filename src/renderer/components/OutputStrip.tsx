@@ -1,4 +1,4 @@
-import { AnimationEvent, useId, useState } from 'react';
+import { AnimationEvent, useEffect, useId, useState } from 'react';
 import { Alert } from '@mui/material';
 import { useOutputDirectory } from '../common/OutputFolder';
 
@@ -59,13 +59,18 @@ PathLine.defaultProps = { cut: false, from: undefined };
 interface Props {
   disabled?: boolean;
   onChoosingChange?: (choosing: boolean) => void;
+  /** Called with a short folder state for headings: Writable or Not writable. */
+  onStatusChange?: (status: string) => void;
 }
 
 /** Output folder as one clickable path that splices in a newly chosen folder. */
-const OutputStrip = ({ disabled, onChoosingChange }: Props) => {
+const OutputStrip = ({ disabled, onChoosingChange, onStatusChange }: Props) => {
   const { directory, error, choosing, loading, choose } = useOutputDirectory({
     onChoosingChange,
   });
+  let status = '';
+  if (!loading) status = error ? 'Not writable' : 'Writable';
+  useEffect(() => onStatusChange?.(status), [status, onStatusChange]);
   const [splice, setSplice] = useState<{ from: string; id: number } | null>(
     null
   );
@@ -122,6 +127,10 @@ const OutputStrip = ({ disabled, onChoosingChange }: Props) => {
   );
 };
 
-OutputStrip.defaultProps = { disabled: false, onChoosingChange: undefined };
+OutputStrip.defaultProps = {
+  disabled: false,
+  onChoosingChange: undefined,
+  onStatusChange: undefined,
+};
 
 export default OutputStrip;

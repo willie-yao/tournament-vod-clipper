@@ -17,7 +17,6 @@ import {
 import startggRequest from '../common/startggRequest';
 import {
   isStartggReference,
-  normalizeEventSlug,
   rankByName,
   tournamentSlug,
 } from '../common/sourceInput';
@@ -119,6 +118,8 @@ interface Props {
   disabled: boolean;
   /** Saved API key; search is off without one and results reset when it changes. */
   apiKey: string;
+  /** Called with the event slug and a readable name when a result is picked. */
+  onPick?: (slug: string, label: string) => void;
 }
 
 const EventField = ({
@@ -128,10 +129,10 @@ const EventField = ({
   error,
   disabled,
   apiKey,
+  onPick,
 }: Props) => {
   const client = useApolloClient();
   const [focused, setFocused] = useState(false);
-  const [selected, setSelected] = useState<EventOption | null>(null);
   const [recents, setRecents] = useState<
     (Lookup & { options: EventOption[] }) | null
   >(null);
@@ -297,10 +298,6 @@ const EventField = ({
   const stale = !!busy && !options.length && !!shownOptions.current.length;
   if (stale) options = shownOptions.current;
   else if (kind !== 'none') shownOptions.current = options;
-  const picked =
-    selected && selected.slug === normalizeEventSlug(value)
-      ? `${selected.tournament} · ${selected.name}`
-      : '';
 
   return (
     <PopupStatus.Provider value={{ busy, message, stale }}>
@@ -321,8 +318,8 @@ const EventField = ({
         onInputChange={(_event, next) => onChange(next)}
         onChange={(_event, option) => {
           if (option && typeof option !== 'string') {
-            setSelected(option);
             onChange(option.slug);
+            onPick?.(option.slug, `${option.tournament} · ${option.name}`);
           }
         }}
         renderOption={(props, option) => (
@@ -348,7 +345,7 @@ const EventField = ({
                 ? 'Search tournaments or paste an event link'
                 : 'Paste a start.gg event link'
             }
-            helperText={(!focused && error) || picked || undefined}
+            helperText={(!focused && error) || undefined}
             onFocus={() => setFocused(true)}
             onBlur={() => {
               setFocused(false);
@@ -364,6 +361,6 @@ const EventField = ({
   );
 };
 
-EventField.defaultProps = { error: undefined };
+EventField.defaultProps = { error: undefined, onPick: undefined };
 
 export default EventField;

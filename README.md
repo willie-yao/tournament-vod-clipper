@@ -64,7 +64,7 @@ This tool clips VODs automatically by retrieving timestamps of when matches are 
 
 ### Retrieving streamed sets
 
-- Create a personal API token in your [start.gg developer settings](https://start.gg/admin/profile/developer), enter it in `Start.gg API key`, and click `Save API Key`. The key is encrypted with your operating system's secure storage and kept across restarts. Once saved, the section collapses to `API key saved`; click `Change` to replace or remove it. Saved search fields are preserved too.
+- Create a personal API token in your [start.gg developer settings](https://start.gg/admin/profile/developer), enter it in `Start.gg API key`, and click `Save API Key`. The key is encrypted with your operating system's secure storage and kept across restarts. Once saved, the section header shows `Key saved`; click `Change` to replace or remove it. Saved search fields are preserved too.
 - First, choose the event in `Start.gg event`. Focus the field to pick from tournaments you recently organized or competed in, type at least three letters to search tournaments by name, or paste a tournament link to list its events. You can also paste an event link or slug directly, such as:
   - https://www.start.gg/tournament/microspacing-69/event/singles-de
   - tournament/microspacing-69/event/singles-de
