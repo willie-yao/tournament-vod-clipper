@@ -89,7 +89,6 @@ const VideoSearch = ({
     slug: string;
     label: string;
   } | null>(null);
-  const [outputStatus, setOutputStatus] = useState('');
   const keyField = useRef<HTMLInputElement>(null);
   const changeKeyButton = useRef<HTMLButtonElement>(null);
   const pendingFocus = useRef<'key' | 'change' | null>(null);
@@ -517,7 +516,6 @@ const VideoSearch = ({
     <OutputStrip
       disabled={waiting || savingKey}
       onChoosingChange={onChoosingOutput}
-      onStatusChange={setOutputStatus}
     />
   );
 
@@ -534,7 +532,7 @@ const VideoSearch = ({
         <div className="source-fields">{sourceFields}</div>
       </section>
       <aside className="source-settings" aria-label="Source settings">
-        <Slate title="Output" status={outputStatus} />
+        <Slate title="Output" status="" />
         {outputFolder}
       </aside>
       <div className="source-submit">{sourceAction}</div>
