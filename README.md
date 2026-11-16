@@ -1,135 +1,72 @@
 # Tournament VOD Clipper
 
-This is a tool built in React and Electron to help you clip VODs of tournaments automatically! It's a work in progress, so please be patient and expect some bugs ><. If you run into any issues or have any suggestions, please make an issue [here](https://github.com/willie-yao/tournament-vod-clipper/issues) so I can fix it ASAP!
+This React and Electron app clips tournament VODs automatically. It is a work in progress and has bugs. To report an issue or suggest a change, [open an issue](https://github.com/willie-yao/tournament-vod-clipper/issues).
 
 ## Main Features
 
 - Automatically clips Twitch VODs of matches from a start.gg bracket
 - Clips selected matches one at a time and reports partial failures
 - Generates thumbnails for each match
-- Upload VODs to YouTube automatically
+- Uploads VODs to YouTube automatically
 
 ## Requirements
 
-Packaging targets are Windows x64 and macOS Apple Silicon. Linux and Intel Mac native tools are not provisioned. Windows runtime compatibility still requires a real Windows check; a cross-build is not that check. These maintenance changes are source-only until a new release is published.
+- Windows x64 or macOS Apple Silicon. Linux and Intel Macs are not supported.
+- A [start.gg API token](https://start.gg/admin/profile/developer) and a Twitch VOD link.
+- A YouTube account, to upload.
 
-## Development checks
+The app bundles yt-dlp and FFmpeg, so you install nothing else. It does not update itself. Download each new release from the releases page.
 
-Use Node.js 26 LTS, at least 26.13.0 (`.nvmrc`), and npm 10 or 11 for development, builds and CI. Electron's bundled runtime is separate; Electron remains pinned to supported stable 44.9.3, verified against the official release on 2026-10-29.
+## Prerequisites
 
-```sh
-npm ci --ignore-scripts
-npm run typecheck
-npm test -- --runInBand
-npm run build
-```
+The app clips VODs from the timestamps of when matches start and are reported on Start.GG. For accurate clips, you need to do the following:
 
-Unit tests mock Electron and external APIs. They need no packaged bundles, credentials, or native downloader binaries. CI runs these offline tests, type checking and production bundles without native install hooks, secrets, signing or release jobs. Full-project lint is not a CI gate while inherited lint errors remain.
-
-For desktop development, run `npm run setup:desktop`, then `npm start`. Setup installs the pinned Electron runtime and verifies native downloads. The dev server compiles the isolated preload before starting Electron and watches it for changes. It does not configure credentials or start authentication.
-
-### Native tools and local packaging
-
-`npm run setup:native` and the package `beforePack` hook provision yt-dlp 2026.10.26 and FFmpeg/ffprobe 9.0.2. [Exact URLs and SHA-256 pins](.erb/scripts/native-tools.js) are checked before extraction; verified archives are cached under ignored `native/.cache`. The app uses only these binaries and ignores global yt-dlp configuration. FFmpeg lives in `Resources/bin` in a packaged app; no global installation is needed.
-
-| Target | Sources |
-|---|---|
-| macOS arm64 | [yt-dlp universal macOS](https://github.com/yt-dlp/yt-dlp/releases/tag/2026.10.26), [Martin Riedl FFmpeg builds](https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/) |
-| Windows x64 | [yt-dlp Windows](https://github.com/yt-dlp/yt-dlp/releases/tag/2026.10.26), [Gyan FFmpeg essentials](https://github.com/GyanD/codexffmpeg/releases/tag/9.0.2) |
-
-Run `npm run smoke:media` for a disposable synthetic HTTP-media cut using the real binaries and normal range/path checks. It does not use Twitch, start.gg or Google. YouTube downloading would additionally need a JavaScript runtime; this app's download workflow is Twitch, and YouTube uploading does not use yt-dlp.
-
-`npm run package:mac:local` builds an ad-hoc local macOS app directory with certificate discovery and notarization disabled. It is not a signed/notarized public release; normal build configuration retains hardened runtime. `npm run package -- --win --x64` provisions the Windows tools, but needs validation on Windows. Updates remain disabled.
-
-Native license texts and [source/build attribution](assets/native-tools-NOTICE.txt) accompany packages. Before redistributing binaries, meet their GPL/corresponding-source obligations and provide platform signing/notarization. The original Electron React Boilerplate license is retained.
-
-Automatic updates are disabled until this app has its own verified release feed.
+1. Assign stream sets to a stream setup. See the [Start.GG documentation](https://help.start.gg/en/articles/1465692-adding-streams-and-creating-stations).
+2. Start the stream match exactly when you want the VOD for that match to start. Report the match exactly when you want the VOD to end. If you do this incorrectly, the VOD starts or ends at the wrong time, but you can edit the times.
+3. To show characters in the video title and thumbnails, report characters for the match.
 
 ## How to Use
 
-### Pre-requesites
-
-This tool clips VODs automatically by retrieving timestamps of when matches are started and reported on Start.GG. In order for your VODs to be clipped accurately, you need to do the following:
-
-1. Assign stream sets to a stream setup. Please refer to the Start.GG documentation [here](https://help.start.gg/en/articles/1465692-adding-streams-and-creating-stations).
-2. Start the stream match exactly when you want the VOD for that match to start. Likewise, report the match exactly when you want the VOD to end. If this is done incorrectly, your VOD will start/end at the wrong times but you can edit them regardless.
-3. Report characters for the match if you want the characters to show up on the video title and thumbnails.
-
 ### Download
 
-- Download the latest release from the releases page:
-  - https://github.com/willie-yao/tournament-vod-clipper/releases
-- Extract the zip file to a folder of your choice
-- Run the `tournament-vod-clipper.exe` file
+1. Download the latest release from the [releases page](https://github.com/willie-yao/tournament-vod-clipper/releases).
+2. Extract the zip file to a folder of your choice.
+3. Run `tournament-vod-clipper.exe`.
 
-### Retrieving streamed sets
+### Retrieve streamed sets
 
-- Create a personal API token in your [start.gg developer settings](https://start.gg/admin/profile/developer), enter it in `Start.gg API key`, and click `Save API Key`. The key is encrypted with your operating system's secure storage and kept across restarts. Once saved, the section header shows `Key saved`; click `Change` to replace or remove it. Saved search fields are preserved too.
-- First, choose the event in `Start.gg event`. Focus the field to pick from tournaments you recently organized or competed in, type at least three letters to search tournaments by name, or paste a tournament link to list its events. You can also paste an event link or slug directly, such as:
-  - https://www.start.gg/tournament/microspacing-69/event/singles-de
-  - tournament/microspacing-69/event/singles-de
-- Then, enter the Twitch VOD link for the stream in the `VOD Link` field. Links without `https://` are accepted. For example:
-  - https://www.twitch.tv/videos/123456789
-- To retrieve only the streamed sets, enter the name of the twitch channel assigned to stream in the `Stream Station` field. You can also enter a station number.
-- Finally, click `Retrieve Sets` to load Match review. Each start.gg page or character lookup has a 30-second limit, VOD metadata has a 60-second limit, and the complete retrieval has a five-minute limit. These limits allow multiple pages without leaving a stalled request waiting indefinitely; results are not silently truncated. `Cancel retrieval` stops pending retrieval work and lets you retry. Navigation, reload, window close and app quit also cancel work that is no longer needed. Timeouts leave your source fields intact and show an actionable error. These limits do not apply to clip downloads or YouTube uploads.
+1. Create a personal API token in your [start.gg developer settings](https://start.gg/admin/profile/developer), enter it in `Start.gg API key`, and click `Save API Key`. The app keeps the key across restarts. Click `Change` to replace or remove it.
+2. Choose the event in `Start.gg event`. Focus the field to pick from tournaments you recently organized or competed in. Type at least three letters to search by name. Paste a tournament link to list its events. You can also paste an event link or slug, such as:
+   - https://www.start.gg/tournament/microspacing-69/event/singles-de
+   - tournament/microspacing-69/event/singles-de
+3. Enter the Twitch VOD link in `VOD Link`, for example https://www.twitch.tv/videos/123456789. The field accepts links without `https://`.
+4. To retrieve only the streamed sets, enter the Twitch channel name or a station number in `Stream Station`.
+5. Click `Retrieve Sets` to load Match review. Click `Cancel retrieval` to stop and retry. A timeout leaves your fields intact and shows an error. See [How it works](docs/how-it-works.md#retrieval-limits) for the time limits.
 
-### Downloading sets
+### Download sets
 
-- Click a match name, output title or thumbnail to inspect it; click the inspected match again to open clip/timestamp review. This does not change batch selection. Check individual clips or the header checkbox to select valid ranges. `List` and `Thumbnails` share titles, selection, drafts and download progress.
-- Generated titles keep the selected ordering and stay unchanged when they fit YouTube's 100-character limit. Longer titles use common round/character abbreviations, compact spacing and event wording, then shorten the event with its trailing numbered edition. If needed, multiple picks become a character count, then picks are omitted; unusually long rounds and finally player tags are shortened with `~`. Both players share the remaining space. An indivisible Unicode cluster larger than its field budget becomes `~`. Full names and thumbnail metadata are unchanged; expand `Full generated title` in the editor to see the original.
-- Edit and apply a title to override the suggestion. Custom titles are validated, never automatically shortened. Existing clips and thumbnails are not renamed or overwritten; rematches with the same output name require a different title. Older filenames loaded on the upload page still need manual correction if too long.
-- Choose `Review clip & timestamps` for Twitch playback, seeking and playhead-to-In/Out controls. Unapplied drafts carry into review; Apply commits them. Drag the clip-range handles or focus them and use Arrow keys to adjust one second; the dashed range shows saved boundaries and the solid range shows the draft. Text fields remain available. Previous/Next, Back to batch and layout changes retain each set's draft. Apply changes before downloading selected clips. Review transitions are optional and respect reduced motion.
-- Times are elapsed `HH:mm:ss` from the VOD's beginning, so `25:00:00` means 25 hours. Incomplete matches and ranges before the VOD stay visible under Exceptions. Enter valid boundaries and confirm the title, apply the correction, then explicitly select the clip. Correcting it does not select it.
-- Start.gg times are suggestions. Verify them against the VOD; the existing native download path does not guarantee frame-accurate cuts.
-- Thumbnails default to Offset Duel: opposing portraits, slanted nameplates, the tournament/round header and event footer. Missing picks use an explicit question mark, not a guessed character. Previews and 1280x720 JPEG exports share the same renderer.
-- `Thumbnail & output options` applies to the whole batch and shows the inspected match preview first. Left and right field colors are independent; custom background images sit behind both portraits, and custom logos appear in the header. Existing thumbnail files are never replaced automatically.
-- `Output folder` shows the folder name; expand it to see the full path. It defaults to the existing `downloadedVODs` location. To use another writable folder, click `Choose Output Folder`; choose your old `downloadedVODs` folder to access earlier clips. Existing files are not moved or renamed.
-- Click `Download N clips` to save selected matches and requested thumbnails. Match, range, inspector and batch status distinguish downloading, thumbnail saving and confirmed outputs without estimated percentages. Existing clips, partial downloads and thumbnails are not overwritten; choose another title if a name is already in use. Retry incomplete clips resumes confirmed video progress, and Continue to Upload becomes available only when all selected outputs are ready.
+- Click a match name, title or thumbnail to inspect it. Click the inspected match again to open clip and timestamp review. Inspecting does not select the match.
+- Check individual clips, or the header checkbox, to select valid ranges. `List` and `Thumbnails` share titles, selection, drafts and download progress.
+- Edit and apply a title to override the suggestion. Titles over YouTube's 100-character limit are shortened automatically; custom titles are validated, never shortened. See [How it works](docs/how-it-works.md#generated-titles).
+- Choose `Review clip & timestamps` to play the VOD in Twitch, seek, and set In and Out from the playhead. Drag the range handles, or focus them and press Arrow keys to move one second. The dashed range shows saved boundaries and the solid range shows the draft. Click Apply before downloading.
+- Times are elapsed `HH:mm:ss` from the start of the VOD, so `25:00:00` means 25 hours. Incomplete matches and ranges before the VOD appear under Exceptions. Enter valid boundaries, apply the correction, then select the clip.
+- Start.gg times are suggestions. Verify them against the VOD. Cuts are not frame-accurate.
+- Thumbnails use the Offset Duel design: opposing portraits, slanted nameplates, a tournament and round header, and an event footer. A missing character pick shows a question mark. Previews and 1280x720 JPEG exports share one renderer.
+- `Thumbnail & output options` applies to the whole batch. Left and right field colors are independent. A custom background image sits behind both portraits and a custom logo appears in the header.
+- `Output folder` defaults to the existing `downloadedVODs` location. Click `Choose Output Folder` to use another writable folder. Choose your old `downloadedVODs` folder to reach earlier clips.
+- Click `Download N clips` to save the selected matches and thumbnails. The app never overwrites or renames existing files. If a name is in use, choose another title. `Retry incomplete clips` resumes confirmed video progress. `Continue to Upload` appears when all selected outputs are ready.
 
-The packaged renderer uses a read-only server bound to `127.0.0.1` with a `localhost` origin for Twitch's embed parent check. It serves only packaged renderer assets, not output files or VOD media. Context isolation, sandboxing and Twitch CSP remain enabled. The official Twitch player requires an internet connection and an available VOD; manual boundary edits still work when preview is unavailable.
+### Upload to YouTube
 
-Thumbnail typography uses installed Impact when available, with bundled [Anton](https://github.com/google/fonts/tree/main/ofl/anton) as the offline condensed fallback under its [SIL Open Font License](assets/fonts/OFL-Anton.txt). No font service is contacted.
+1. Click `Upload`.
+2. Click `Connect YouTube` and approve access in your system browser. Confirm the displayed channel before uploading.
+3. Select the tournament in `VOD Folder`.
+4. Set the visibility and description for all of the videos.
+5. Review each title (1 to 100 characters), then click `Upload`. Videos upload one at a time. The screen separates confirmed videos from thumbnail and playlist failures.
+6. If access expires or is revoked, click `Reconnect YouTube`, then `Retry Failed Steps`. Confirmed videos are not uploaded again. After an app restart, a reload or an unconfirmed request, check your YouTube channel and playlist before you retry.
 
-### Uploading VODs to YouTube
+## More documentation
 
-- Once the VODs are downloaded, you can navigate to the upload page by clicking the `Upload` button.
-- Click `Connect YouTube` and approve access in your system browser. Confirm the displayed channel before uploading. End users need no environment variables, secrets, or Google Cloud project.
-- Next, select the tournament you want to upload VODs from using the `VOD Folder` box.
-- You can also select the visibility of the video and the description for all of the videos below.
-- Review each video's title (1 to 100 characters), then click `Upload`. Videos upload sequentially, and the screen distinguishes confirmed videos from thumbnail or playlist failures.
-- Use `Reconnect YouTube` if access expires or is revoked, then `Retry Failed Steps`. A pending batch can only resume on its original channel. Confirmed video IDs are not uploaded again. Recovery state is in memory only. After an app restart, reload, or unconfirmed request, check your YouTube channel and playlist before retrying.
-- `Disconnect` removes the local encrypted refresh credential and cancels pending sign-in. It does not revoke Google's permission or undo requests already sent. To revoke access, use your [Google account permissions](https://myaccount.google.com/permissions). Browser cookies remain managed by your browser.
-
-### Maintainer Google setup
-
-1. Enable YouTube Data API v3 in one maintainer-owned Google Cloud project. Configure its OAuth branding, audience and consent screen, then create an OAuth client of type **Desktop app**, not Web application.
-2. Download that client's JSON outside the repository and set `GOOGLE_DESKTOP_CLIENT_CONFIG` to its absolute path for development, building or packaging. It must contain an `installed` Desktop client, never a `web` client. Alternatively, set both `GOOGLE_DESKTOP_CLIENT_ID` and `GOOGLE_DESKTOP_CLIENT_SECRET`; a selected file takes precedence as one matching pair. Never commit the JSON, configuration values or a `.env`.
-3. Configure the `https://www.googleapis.com/auth/youtube.force-ssl` scope. Existing playlist creation/membership and thumbnail/video operations need it; `youtube.upload` alone is insufficient. No profile/email scopes are requested. The connected identity is the YouTube channel returned by `channels.list(mine=true)`.
-4. Before public distribution, complete applicable [OAuth consent verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification) and separately meet [YouTube quota/compliance audit requirements](https://developers.google.com/youtube/v3/guides/quota_and_compliance_audits). Users share this project's quota. Testing-mode audience restrictions and refresh-token expiration still apply until production configuration is complete.
-
-Desktop apps are [public clients](https://developers.google.com/identity/protocols/oauth2/native-app). Google labels part of their native registration `client_secret`; this app supplies it during code exchange and refresh. The distributed native configuration is extractable, not confidential storage or a user token. Never substitute confidential Web-client credentials. User access/refresh tokens remain separate and protected in main.
-
-`npm run build:release` and packaging require complete Desktop configuration and embed it only in the main-process bundle, not a raw JSON or `.env`. End users do not configure anything. Ordinary `npm run build` without configuration explicitly disables sign-in for credential-free CI/testing. A development `.env` may select the local file or contain the native pair; it is not packaged.
-
-Native configuration does not prove Cloud configuration or production readiness. Audience/scopes, verification, live sign-in/uploads and any rotation of legacy confidential credentials require separate maintainer validation and have not been completed by these source changes.
-
-Token-exchange failures show an allowlisted OAuth category and HTTP status when available, without raw provider descriptions or credentials. An unknown category does not establish a configuration cause. Share only the app's safe error message, never callback URLs, authorization codes or tokens.
-
-## Terms and Conditions + Privacy Policy
-
-TournamentVODClipper uses YouTube API Services to upload VODs. By using this tool, you are agreeing to be bound by the YouTube Terms of service as well as the following terms and conditions:
-- [YouTube terms of service](https://www.youtube.com/t/terms)
-- [YouTube community guidelines](https://www.youtube.com/t/community_guidelines)
-- [Google privacy policy](https://policies.google.com/privacy?hl=en-US)
-
-The start.gg key is stored locally with Electron's operating-system encryption; preferences and the chosen output root are local too. An existing `electron-react-boilerplate` profile is reused in place to preserve earlier settings. No user files are moved. Native keychain compatibility across runtime upgrades still needs an OS check; re-enter the API key if the system cannot decrypt it.
-
-Google sign-in uses authorization code + PKCE S256 and fresh validated state, returning through a temporary `127.0.0.1` listener on an available port. It is separate from the renderer asset host and closes on completion, denial, cancellation, timeout or quit. OAuth and authenticated YouTube requests run in Electron main. Only channel/connection status and resource IDs reach the renderer, never Google tokens.
-
-The refresh credential and channel identity are encrypted with Electron's OS-backed `safeStorage` and saved in the local app profile; access tokens stay in main-process memory and refresh automatically. There is no plaintext fallback. Unlock your system keychain and reconnect if secure storage is unavailable or the saved connection cannot be decrypted. Disconnect removes this local credential, not Google-side authorization.
-
-Chosen media, titles and descriptions are sent to YouTube; tournament queries go to start.gg and VOD requests to Twitch. The app implements no usage analytics. Upload recovery IDs and titles are in memory only, so check your channel and playlist before retrying after reload or an unconfirmed request.
-
-This tool uses the YouTube Data API to upload VODs to YouTube. Specifically, it uses the [videos.insert](https://developers.google.com/youtube/v3/docs/videos/insert) endpoint.
-
-At any time, you may revoke TournamentVODClipper's access to your data via the [Google security settings page](https://security.google.com/settings/security/permissions)
+- [How it works](docs/how-it-works.md): retrieval limits, title shortening, thumbnails and the preview server.
+- [Development](docs/development.md): build, test, native tools, packaging and Google OAuth setup.
+- [Privacy and terms](PRIVACY.md): what the app stores and sends, and how to disconnect or revoke access.
