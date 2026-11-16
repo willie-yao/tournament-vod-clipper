@@ -10,16 +10,16 @@ Tournament recording operators using a personal desktop workflow to prepare batc
 
 ## Product Purpose
 
-Tournament VOD Clipper combines start.gg match records with Twitch VOD timestamps, lets the operator correct clip boundaries, generates match thumbnails and optionally uploads confirmed outputs to YouTube.
+Tournament VOD Clipper combines start.gg match records with Twitch VOD timestamps. The operator corrects clip boundaries. The app generates match thumbnails and optionally uploads confirmed outputs to YouTube.
 
 ## Operating Context
 
-The React renderer runs inside Electron. Source setup leads to a match list or thumbnail grid, side inspector, dedicated player/timestamp workspace and output/upload screen.
+The React renderer runs inside Electron. Source setup leads to a match list or thumbnail grid, a side inspector, a player/timestamp workspace and an output/upload screen.
 
 ## Capabilities and Constraints
 
-- Inspection does not change batch selection. Boundary edits remain per-match drafts until Apply; elapsed times can exceed 23 hours.
-- Downloads run one at a time. Video and thumbnail confirmations govern readiness; retries reuse confirmed video. Native cutting is not guaranteed frame-accurate.
+- Inspection does not change batch selection. Boundary edits stay per-match drafts until Apply. Elapsed times can exceed 23 hours.
+- Downloads run one at a time. Video and thumbnail confirmations govern readiness. Retries reuse confirmed video. Native cutting is not frame-accurate.
 - Authentication and filesystem operations stay in Electron main. Preserve output validation, partial-failure recovery and upload duplicate protections.
 
 ## Brand Commitments
@@ -32,4 +32,4 @@ Preserve keyboard operation, readable validation, reduced-motion behavior and co
 
 ## Evidence on Hand
 
-Product behavior is documented in `README.md`; the renderer, real player adapter and shared thumbnail renderer are under `src/renderer/`.
+Product behavior is documented in `README.md` and `docs/how-it-works.md`; the renderer, real player adapter and shared thumbnail renderer are under `src/renderer/`.
