@@ -1,6 +1,8 @@
-# Tournament VOD Clipper
+<p align="center"><img src="docs/images/banner.png" alt="Tournament VOD Clipper"></p>
 
 This React and Electron app clips tournament VODs automatically. It is a work in progress and has bugs. To report an issue or suggest a change, [open an issue](https://github.com/willie-yao/tournament-vod-clipper/issues).
+
+![Match review with clip ranges and the inspected set](docs/images/match-review.png)
 
 ## Main Features
 
@@ -35,6 +37,8 @@ The app clips VODs from the timestamps of when matches start and are reported on
 
 ### Retrieve streamed sets
 
+![Source screen with a start.gg event and Twitch VOD](docs/images/source.png)
+
 1. Create a personal API token in your [start.gg developer settings](https://start.gg/admin/profile/developer), enter it in `Start.gg API key`, and click `Save API Key`. The app keeps the key across restarts. Click `Change` to replace or remove it.
 2. Choose the event in `Start.gg event`. Focus the field to pick from tournaments you recently organized or competed in. Type at least three letters to search by name. Paste a tournament link to list its events. You can also paste an event link or slug, such as:
    - https://www.start.gg/tournament/microspacing-69/event/singles-de
@@ -44,6 +48,10 @@ The app clips VODs from the timestamps of when matches start and are reported on
 5. Click `Retrieve Sets` to load Match review. Click `Cancel retrieval` to stop and retry. A timeout leaves your fields intact and shows an error. See [How it works](docs/how-it-works.md#retrieval-limits) for the time limits.
 
 ### Download sets
+
+![Thumbnail view of the match batch](docs/images/thumbnails.png)
+
+![Clip review with the Twitch player and range handles](docs/images/clip-review.png)
 
 - Click a match name, title or thumbnail to inspect it. Click the inspected match again to open clip and timestamp review. Inspecting does not select the match.
 - Check individual clips, or the header checkbox, to select valid ranges. `List` and `Thumbnails` share titles, selection, drafts and download progress.
